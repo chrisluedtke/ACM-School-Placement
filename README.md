@@ -1,9 +1,8 @@
 # AmeriCorps Member School Placement Algorithm
-An algorithm to macth City Year AmeriCorps Members to schools sites based on various features
 
 ## Project Description 
 
-Each year City Year places AmeriCorps volunteers in one of 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that will suggest placements based on various features of the schools and corps members.  Our current iteration is an Excel Workbook which makes extensive use of VBA, but suffers from poor performance and a clunky user interface.  The goal of this project is to correct these problems using R and Power BI, where the data can be processed in a parallelized way and visualized with greater transparency.
+Each year City Year places AmeriCorps volunteers in one of 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that will suggest school placements based on various demographic features and school needs. Our current iteration is an Excel Workbook which makes extensive use of VBA, but suffers from poor performance and a clunky user interface.  The goal of this project is to correct these problems using R and Power BI, where the data can be processed in a parallelized way and visualized with greater transparency.
  
 ## Final Product 
 * Excel Workbook with 1 sheet for ACM data and another for setting parameters 
