@@ -40,11 +40,11 @@ June 23 | Pull all pieces into final product and start extensive testing.
 July 7 | Product complete with Demo ready to present to sites across the national network
 
 ## Inputs - Two Spreadsheets
-#### Spreadsheet 1: Characteristics of Corps Members
+#### Spreadsheet 1: Characteristics of Corps Members (obtained through survey already in place)
 Characteristic | Notes
 ---------------|------
 Language speaking abilities  | 
-Age (continuous) | 
+Age | 
 Tutoring experience in Math | 
 Tutoring experience in ELA | 
 Tutoring preference (Math or ELA) | 
