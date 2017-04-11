@@ -7,9 +7,10 @@ Each year City Year places AmeriCorps Members (ACMs) in one of 26 Chicago Public
 ## Final Product 
 * Excel Workbook with 1 sheet for ACM data and another for setting parameters 
 * .pbix file 
-* Would contain R script for the deployment  
-* Google Maps API Calls made by Query Editor 
-* Dashboard for reviewing results 
+* Would contain R script for sorting  
+* Google Maps API calls made by Query Editor 
+* Dashboard for reviewing results
+* Under 30 minutes
 * If it were fast, we might be able to get it to interact with slicers in Power BI 
 * User will need to install R, but we can build in code for installing all the correct packages 
  
@@ -33,13 +34,40 @@ Commute information  | Power Query, Google Maps API   | Given School Locations a
 Deployment Dashboard  | Power BI  | Visualize the results to help communicate the results. Once we get everything together, further exploration will be done to see if we can implement the deployment algorithm in a more interactive way.
 
 ## Timeline 
-For this product to be useable by the next program year we would need to have a final working product done by mid-July.  A development timeline for that target might be: 
-* April 27th - Make decisions on the approach and final product. Ideally figure out pieces that can be assigned to individual point people and begin development of base functionality. 
-* May 18th - Call to check in on progress. 
-* June 23rd - Pull all pieces into final product and start extensive testing. 
-* July 7th - Product must be complete with Demo ready for Summer Academy 
+Date | Milestone
+-----|----------
+April 27 | Make decisions on the approach and final product. Ideally figure out pieces that can be assigned to individual point people and begin development of base functionality. 
+May 18 | Call to check in on progress. 
+June 23 | Pull all pieces into final product and start extensive testing. 
+July 7 | Product complete with Demo ready to present to sites across the national network
 
-## Features
+## Inputs - Two Spreadsheets
+#### Characteristics of Corps Members
+Characteristic | Notes
+---------------|------
+Language speaking abilities  | 
+Age (continuous) | 
+Tutoring experience in Math | 
+Tutoring experience in ELA | 
+Tutoring preference (Math or ELA) | 
+Race/Ethnicity | Distributed to match demographics of each school
+Education level | ACMs who have recently graduated from high school cannot serve in high schools
+Gender/Sex | Consistent ratio across schools
+Roommates | Roommates cannot be on the same school team
+Address | To calculate commute time
+Commute method (car or public transit) | 
+Manual school placement | Managers can hand-place certain corps members
+
+#### Characteristics of Schools
+Characteristic | Notes
+---------------|------
+Ranked valuations of all CM considerations | Should this be decided as a site or on school levels?
+Grade levels served (elementary or HS) | 
+Racial/Ethnic distribution | 
+Linguistic needs | 
+Address | To calculate commute times
+School start time | To calculate commute times
+
 Parent | Title  | Description  | Necessary?  
 -------|--------|--------------|---------------------
  Configuration Workbook  | Updateable Parameters Table  | Excel-based Parameter Table allows stakeholders to set "ideal" distribution of ACMs by school for each of the input features.  | Yes
