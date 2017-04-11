@@ -59,7 +59,7 @@ Manual school placement | Managers can hand-place certain corps members into sch
 #### Spreadsheet 2: Characteristics of Schools
 Characteristic | Notes
 ---------------|------
-Ranked valuations of all CM considerations | Should this be decided as a site or on school levels?
+Ranked valuations of ACM characteristics | Should this be decided as a site or on school levels?
 Grade levels served (elementary or HS) | 
 Racial/Ethnic distribution | 
 Linguistic needs | 
