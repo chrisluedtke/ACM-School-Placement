@@ -54,7 +54,7 @@ Gender/Sex | Consistent ratio across schools
 Roommates | Roommates cannot be on the same school team
 Address | To calculate commute time
 Commute method (car or public transit) | 
-Manual school placement | Managers can hand-place certain corps members
+Manual school placement | Managers can hand-place certain corps members into schools or geographical zones
 
 #### Spreadsheet 2: Characteristics of Schools
 Characteristic | Notes
