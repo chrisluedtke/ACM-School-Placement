@@ -34,10 +34,10 @@ Results Dashboard  | Power BI  | Visualize the results to help communicate the r
 ## Timeline 
 Date | Milestone
 -----|----------
-April 27 | Make decisions on the approach and final product. Ideally figure out pieces that can be assigned to individual point people and begin development of base functionality. 
-May 18 | Call to check in on progress. 
+April 27 | Make decisions on the approach and final product. Begin development of base functionality. 
+May 18 | Network call to check in on progress. 
 June 23 | Pull all pieces into final product and start extensive testing. 
-July 7 | Product complete with Demo ready to present to sites across the national network
+July 7 | Product complete with demo ready to present to sites across the national network
 
 ## Inputs - Two Spreadsheets
 #### Spreadsheet 1: Characteristics of Corps Members (obtained through survey already in place)
