@@ -56,7 +56,7 @@ Address | To calculate commute time
 Commute method (car or public transit) | 
 Manual school placement | Managers can hand-place certain corps members
 
-#### Spreadsheet 1: Characteristics of Schools
+#### Spreadsheet 2: Characteristics of Schools
 Characteristic | Notes
 ---------------|------
 Ranked valuations of all CM considerations | Should this be decided as a site or on school levels?
@@ -65,6 +65,8 @@ Racial/Ethnic distribution |
 Linguistic needs | 
 Address | To calculate commute times
 School start time | To calculate commute times
+
+## Project Components
 
 Parent | Title  | Description  | Necessary?  
 -------|--------|--------------|---------------------
