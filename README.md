@@ -3,29 +3,27 @@
 ## Project Description 
 
 Each year City Year places AmeriCorps Members (ACMs) in one of 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that will suggest school placements based on various demographic features and school needs. Our current iteration is an Excel Workbook which makes extensive use of VBA, but suffers from poor performance and a clunky user interface.  The goal of this project is to correct these problems using R and Power BI, where the data can be processed in a parallelized way and visualized with greater transparency.
- 
+
 ## Final Product 
-* Excel Workbook with 1 sheet for ACM data and another for setting parameters 
-* .pbix file 
-* Would contain R script for sorting  
-* Google Maps API calls made by Query Editor 
+* Excel Workbook with ACM characteristics and option for setting parameters (and setting different weights)
+* .pbix file containing R script which compiles in under 30 minutes (Microsoft's limit for R in Power BI) 
+* Google Maps API calls made through Power BI Query Editor 
 * Dashboard for reviewing results
-* Under 30 minutes
 * If it were fast, we might be able to get it to interact with slicers in Power BI 
 * User will need to install R, but we can build in code for installing all the correct packages 
- 
+
 ## Audience & Usage 
 Ideally this will be a tool that each City Year site can use.  Usage of the tool would look like this: 
 ### Set Up 
-1. Eval Rep would need to ensure that they have Power BI Desktop & R (MRAN distribution) installed 
-2. Eval Rep would partner with their site leadership to configure the parameter sheet 
-3. Eval Rep would work with Recruitment & Admissions to get ACM data and pull it into the ACM sheet 
+1. Eval Rep would need to ensure that they have Power BI Desktop & R (MRAN distribution) installed
+2. Eval Rep would partner with their site leadership to configure the parameter sheet and set weights
+3. Eval Rep would work with Recruitment & Admissions to get ACM data and pull it into the ACM sheet
 ### Use 
-1. Once the Excel workbook is configured, Eval Rep would just need to open PBIX 
-1. Ensure that its pointing at the Excel Workbook 
-1. Refresh the data (thus executing the deployment algorithm) 
-1. Interpret the results 
- 
+1. Once the Excel workbook is configured, Eval Rep would just need to open .pbix file in Power BI
+1. Ensure that connection is made with the Excel Workbook
+1. Refresh the data (thus executing the deployment algorithm)
+1. Interpret the results
+
 ## Development Workflows 
 Workflow  | Tools  | Notes
 ----------|--------|------
