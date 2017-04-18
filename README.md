@@ -44,23 +44,23 @@ July 7 | Product complete with demo ready to present to sites across the nationa
 Characteristic | Notes
 ---------------|------
 Language speaking abilities  | 
-Age | 
-Tutoring experience in Math | 
-Tutoring experience in ELA | 
+Age | ACMs must be 21+ (or have some college experience) to serve in high schools
+Tutoring experience | 
 Tutoring preference (Math or ELA) | 
-Race/Ethnicity | Distributed to match demographics of each school
-Education level | ACMs who have recently graduated from high school cannot serve in high schools
-Gender/Sex | Consistent ratio across schools
+Grade level preference (Math or ELA) | 
+Race/Ethnicity | We seek a ratios within teams that match that team's school demographics
+Education level | ACMs must have some college experience (or be 21+) to serve in high schools. We seek a consistent ratio across Elem schools and High Schools
+Gender | We seek a consistent gender ratio across schools
 Roommates | Roommates cannot be on the same school team
 Address | To calculate commute time
 Commute method (car or public transit) | 
-Manual school placement | Managers can hand-place certain corps members into schools or geographical zones
+Manual school placement | Managers can hand-place individual ACMs before the algorithm is run
 
 #### Spreadsheet 2: Characteristics of Schools
 Characteristic | Notes
 ---------------|------
 Ranked valuations of ACM characteristics | Should this be decided as a site or on school levels?
-Grade levels served (elementary or HS) | 
+Grade levels served (Elementary or High School) | 
 Racial/Ethnic distribution | 
 Linguistic needs | 
 Address | To calculate commute times
