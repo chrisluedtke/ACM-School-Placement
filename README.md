@@ -47,7 +47,7 @@ Language speaking abilities  |
 Age | ACMs must be 21+ (or have some college experience) to serve in high schools
 Tutoring experience | 
 Tutoring preference (Math or ELA) | 
-Grade level preference (Math or ELA) | 
+Grade level preference | 
 Race/Ethnicity | We seek a ratios within teams that match that team's school demographics
 Education level | ACMs must have some college experience (or be 21+) to serve in high schools. We seek a consistent ratio across Elem schools and High Schools
 Gender | We seek a consistent gender ratio across schools
