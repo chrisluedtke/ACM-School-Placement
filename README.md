@@ -4,6 +4,14 @@
 
 Each year City Year places AmeriCorps Members (ACMs) in one of 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that will suggest school placements based on various demographic features and school needs. Our current iteration is an Excel Workbook which makes extensive use of VBA, but suffers from poor performance and a clunky user interface.  The goal of this project is to correct these problems using R and Power BI, where the data can be processed in a parallelized way and visualized with greater transparency.
 
+## Tools
+* R and the [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf)
+* Power BI (not certain, it can compile R script and might provide some useful visualizations as an output)
+
+## Similar Problems
+* [National Resident Match Algorithm](https://en.wikipedia.org/wiki/National_Resident_Matching_Program#Matching_algorithm)
+* [Stable Marriage Problem](https://en.wikipedia.org/wiki/Stable_marriage_problem)
+
 ## Final Product 
 * Excel Workbook with ACM characteristics, option for setting parameters (and setting different weights), and school characteristics
 * .pbix file containing R script which compiles in under 30 minutes (Microsoft's limit for R in Power BI) 
