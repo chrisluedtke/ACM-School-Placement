@@ -6,8 +6,7 @@ Each year City Year places AmeriCorps Members (ACMs) in one of 26 Chicago Public
 
 ## Tools
 * R
-* [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf) or...
-* [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
+* [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf) or [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
 * Power BI (not for certain, but it can compile R script and might provide some useful visualizations as an output)
 
 ## Similar Problems
