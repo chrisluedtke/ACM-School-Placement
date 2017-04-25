@@ -13,6 +13,8 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 * [Stable Marriage Problem](https://en.wikipedia.org/wiki/Stable_marriage_problem)
 * [Assignment Problem](https://en.wikipedia.org/wiki/Assignment_problem)
 * [Nurse Scheduling Problem](https://en.wikipedia.org/wiki/Nurse_scheduling_problem)
+  * Simulated Annealing
+  * Constraint Programming
 
 ## Final Product 
 * Excel Workbook with ACM characteristics, option for setting parameters (and setting different weights), and school characteristics
