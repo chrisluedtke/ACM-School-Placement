@@ -17,10 +17,11 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
   * Constraint Programming
 
 ## Final Product 
-* Excel Workbook with ACM characteristics, option for setting parameters (and setting different weights), and school characteristics
-* Google Maps API
+* Excel Workbook with ACM characteristics produced by survey
+  * Column to manually asign an ACM to a school
+* Excel Workbook with School characteristics and desired team characteristics (set different weights)
+* Google Maps API calls to calculate commutes (DONE!)
 * Dashboard for reviewing results
-* If it were fast, we might be able to get it to interact with slicers in Power BI
 * User will need to install R, but we can build in code for installing all the correct packages
 
 ## Audience & Usage 
