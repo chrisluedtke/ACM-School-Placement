@@ -25,23 +25,23 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 * User will need to install R, but we can build in code for installing all the correct packages
 
 ## Audience & Usage 
-Ideally this will be a tool that each City Year site can use.  Usage of the tool would look like this: 
+Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
 ### Set Up 
-1. Eval Rep would need to ensure that they have Power BI Desktop & R (MRAN distribution) installed
-2. Eval Rep would partner with their site leadership to configure the parameter sheet and set weights
-3. Eval Rep would work with Recruitment & Admissions to get ACM data and pull it into the ACM sheet
+1. Eval Rep would install R Open and necessary packages (and Power BI)
+2. Eval Rep would work with Recruitment & Admissions to distribute survey and pull data into the ACM workbook
+3. Eval Rep would partner with their site leadership to configure parameters and set weights
 ### Use 
 1. Once the Excel workbook is configured, Eval Rep would just need to open .pbix file in Power BI
 1. Ensure that connection is made with the Excel Workbook
-1. Refresh the data (thus executing the deployment algorithm)
-1. Interpret the results
+1. Refresh the data (thus executing the placement algorithm)
+1. Interpret the results, make necessary adjustments, and re-run as necessary
 
 ## Development Workflows 
 Workflow  | Tools  | Notes
 ----------|--------|------
-Sorting Algorithm  | R  | Will develop and implement algorithm for deploying ACM
-Commute information  | Power Query, Google Maps API   | Given School Locations and ACM Zip Codes, will develop a tool for estimating commute time
-Results Dashboard  | Power BI  | Visualize the results to help communicate the results. Once we get everything together, further exploration will be done to see if we can implement the deployment algorithm in a more interactive way.
+Placement Algorithm  | R  | Will develop and implement algorithm for deploying ACM
+Commute information  | R  | Given School and ACM address, will produce commute time matrix (time between each ACM and each school)
+Results Dashboard  | Power BI  | Visualize the results to help communicate them. Once we get everything together, further exploration will be done to see if we can implement the deployment algorithm in a more interactive way.
 
 ## Timeline 
 Date | Milestone
