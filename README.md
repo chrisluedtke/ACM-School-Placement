@@ -18,8 +18,7 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 
 ## Final Product 
 * Excel Workbook with ACM characteristics, option for setting parameters (and setting different weights), and school characteristics
-* .pbix file containing R script which compiles in under 30 minutes (Microsoft's limit for R in Power BI)
-* Google Maps API calls made through Power BI Query Editor
+* Google Maps API
 * Dashboard for reviewing results
 * If it were fast, we might be able to get it to interact with slicers in Power BI
 * User will need to install R, but we can build in code for installing all the correct packages
