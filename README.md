@@ -2,7 +2,7 @@
 
 ## Project Description 
 
-Each year City Year places AmeriCorps Members (ACMs) in one of 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that will suggest school placements based on various demographic features and school needs. Our current iteration is an Excel Workbook which makes extensive use of VBA, but suffers from poor performance and a clunky user interface.  The goal of this project is to correct these problems using R and Power BI, where the data can be processed in a parallelized way and visualized with greater transparency.
+Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that produces diverse teams with conisderation of ACM commute times, preferences, skills, and school needs.
 
 ## Tools
 * R and the [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf) or [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
@@ -16,11 +16,11 @@ Each year City Year places AmeriCorps Members (ACMs) in one of 26 Chicago Public
 
 ## Final Product 
 * Excel Workbook with ACM characteristics, option for setting parameters (and setting different weights), and school characteristics
-* .pbix file containing R script which compiles in under 30 minutes (Microsoft's limit for R in Power BI) 
-* Google Maps API calls made through Power BI Query Editor 
+* .pbix file containing R script which compiles in under 30 minutes (Microsoft's limit for R in Power BI)
+* Google Maps API calls made through Power BI Query Editor
 * Dashboard for reviewing results
-* If it were fast, we might be able to get it to interact with slicers in Power BI 
-* User will need to install R, but we can build in code for installing all the correct packages 
+* If it were fast, we might be able to get it to interact with slicers in Power BI
+* User will need to install R, but we can build in code for installing all the correct packages
 
 ## Audience & Usage 
 Ideally this will be a tool that each City Year site can use.  Usage of the tool would look like this: 
