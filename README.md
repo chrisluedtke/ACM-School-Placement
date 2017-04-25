@@ -12,6 +12,8 @@ Each year City Year places AmeriCorps Members (ACMs) in one of 26 Chicago Public
 ## Similar Problems
 * [National Resident Match Algorithm](https://en.wikipedia.org/wiki/National_Resident_Matching_Program#Matching_algorithm)
 * [Stable Marriage Problem](https://en.wikipedia.org/wiki/Stable_marriage_problem)
+* [Assignment Problem](https://en.wikipedia.org/wiki/Assignment_problem)
+* [Nurse Scheduling Problem](https://en.wikipedia.org/wiki/Nurse_scheduling_problem)
 
 ## Final Product 
 * Excel Workbook with ACM characteristics, option for setting parameters (and setting different weights), and school characteristics
