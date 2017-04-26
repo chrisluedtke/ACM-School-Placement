@@ -5,38 +5,31 @@
 Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that produces diverse teams with conisderation of ACM commute times, preferences, skills, and school needs.
 
 ## Tools
-* R and the [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf) or [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
-* Power BI (not for certain, but it can compile R script and might provide some useful visualizations as an output)
-* Shiny
-* Knitr
+* R and relevant packages
+  * [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf)
+  * [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
+  * [gaoptim](https://cran.r-project.org/web/packages/gaoptim/gaoptim.pdf)
+* Visualization
+  * Power BI (can compile R script that runs less than 30 mins)
+  * Shiny
+  * Knitr
 
-## Similar Problems
-* [National Resident Match Algorithm](https://en.wikipedia.org/wiki/National_Resident_Matching_Program#Matching_algorithm)
-* [Stable Marriage Problem](https://en.wikipedia.org/wiki/Stable_marriage_problem)
-* [Assignment Problem](https://en.wikipedia.org/wiki/Assignment_problem)
+## Similar Problems (Ranked by Relevance)
 * [Nurse Scheduling Problem](https://en.wikipedia.org/wiki/Nurse_scheduling_problem)
   * Simulated Annealing
   * Constraint Programming
+* [The Traveling Salesman with Simulated Annealing, R, and Shiny](http://toddwschneider.com/posts/traveling-salesman-with-simulated-annealing-r-and-shiny/)
+* [Assignment Problem](https://en.wikipedia.org/wiki/Assignment_problem)
+* [National Resident Match Algorithm](https://en.wikipedia.org/wiki/National_Resident_Matching_Program#Matching_algorithm)
+* [Stable Marriage Problem](https://en.wikipedia.org/wiki/Stable_marriage_problem)
 
-## Final Product 
+## Final Product
 * Excel Workbook with ACM characteristics produced by survey
   * Column to manually asign an ACM to a school
 * Excel Workbook with School characteristics and desired team characteristics (set different weights)
 * Google Maps API calls to calculate commutes (DONE!)
 * Dashboard for reviewing results
 * User will need to install R, but we can build in code for installing all the correct packages
-
-## Audience & Usage 
-Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
-### Set Up 
-1. Eval Rep would install R Open and necessary packages (and Power BI)
-2. Eval Rep would work with Recruitment & Admissions to distribute survey and pull data into the ACM workbook
-3. Eval Rep would partner with their site leadership to configure parameters and set weights
-### Use 
-1. Once the Excel workbook is configured, Eval Rep would just need to open .pbix file in Power BI
-1. Ensure that connection is made with the Excel Workbook
-1. Refresh the data (thus executing the placement algorithm)
-1. Interpret the results, make necessary adjustments, and re-run as necessary
 
 ## Development Workflows 
 Workflow  | Tools  | Notes
@@ -52,6 +45,18 @@ April 27 | Make decisions on the approach and final product. Begin development o
 May 18 | Network call to check in on progress. 
 June 23 | Pull all pieces into final product and start extensive testing. 
 July 7 | Product complete with demo ready to present to sites across the national network
+
+## Audience & Usage 
+Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
+### Set Up 
+1. Eval Rep would install R Open and necessary packages (and Power BI)
+2. Eval Rep would work with Recruitment & Admissions to distribute survey and pull data into the ACM workbook
+3. Eval Rep would partner with their site leadership to configure parameters and set weights
+### Use 
+1. Once the Excel workbook is configured, Eval Rep would just need to open .pbix file in Power BI
+1. Ensure that connection is made with the Excel Workbook
+1. Refresh the data (thus executing the placement algorithm)
+1. Interpret the results, make necessary adjustments, and re-run as necessary
 
 ## Inputs - Two Spreadsheets
 #### Spreadsheet 1: Characteristics of Corps Members (obtained through survey already in place)
