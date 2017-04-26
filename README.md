@@ -6,6 +6,7 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 
 ## Tools
 * R and one of these packages (or roll our own)
+  * [gmapsdistance](https://cran.r-project.org/web/packages/gmapsdistance/README.html)
   * [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
   * [gaoptim](https://cran.r-project.org/web/packages/gaoptim/gaoptim.pdf)
   * [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf)
@@ -38,7 +39,7 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
   * Roommates cannot be on the same school team
   * Managers can hand-place individual ACMs into schools, and those placements will be firm constraints
 * Soft Constraints
-  * Commute times are reasonable
+  * Commute times for each ACM are reasonable
   * Consistent gender ratios across all teams
   * Consistent ethnic representations across all teams
   * Consistent tutoring experience across all teams
@@ -49,8 +50,8 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 ## Development Workflows 
 Workflow  | Tools  | Notes
 ----------|--------|------
-ACM Survey | ?  | Will gather all necessary info from incoming ACMs
-Placement Algorithm  | R  | Will develop and implement algorithm for assigning ACMs to school teams
+ACM Survey | ?  | Gather all necessary info from incoming ACMs
+Placement Algorithm  | R  | Implement algorithm for computing commute times (gmapsdistanceapi) and assigning ACMs to school teams
 Results Dashboard  | Power BI  | Visualize the results to help communicate them. Once we get everything together, further exploration will be done to see if we can implement the deployment algorithm in a more interactive way.
 
 ## Timeline 
@@ -60,18 +61,6 @@ April 27 | Make decisions on the approach and final product. Begin development o
 May 18 | Network call to check in on progress. 
 June 23 | Pull all pieces into final product and start extensive testing. 
 July 7 | Product complete with demo ready to present to sites across the national network
-
-## Audience & Usage 
-Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
-### Set Up 
-1. Eval Rep would install R Open and necessary packages (and Power BI)
-2. Eval Rep would work with Recruitment & Admissions to distribute survey and pull data into the ACM workbook
-3. Eval Rep would partner with their site leadership to configure parameters and set weights
-### Use 
-1. Once the Excel workbook is configured, Eval Rep would just need to open .pbix file in Power BI
-1. Ensure that connection is made with the Excel Workbook
-1. Refresh the data (thus executing the placement algorithm)
-1. Interpret the results, make necessary adjustments, and re-run as necessary
 
 ## Inputs - Two Spreadsheets
 #### ACM Characteristics Survey (feeds into spreadsheet that includes a column for manual school placement):
@@ -100,17 +89,22 @@ Math Ability Needs | High Schools need stronger math ability
 Address (commute times) | 
 ACM start and end times (commute times) | 
 
-## Project Components
+## Project Wish List
 
-Parent | Title  | Description  | Necessary?  
--------|--------|--------------|---------------------
- Configuration Workbook  | Updateable Parameters Table  | Excel-based Parameter Table allows stakeholders to set "ideal" distribution of ACMs by school for each of the input features.  | Yes
-Configuration Workbook  | ACM Input Table  | An Excel Sheet for collecting all relevant data on ACMs  | Yes
-Power BI  | Estimate Commute  | Use the Google Maps API to estimate ACM commute so that it can be added as a feature  | No
-Deployment Algorithm  | Deploys ACMs  | Uses algorithm to deploy ACMs to schools while maintaining several criteria.   | Yes
-Power BI  | Visualize the Results  | Power BI Dashboard which translates what has been done into a digestible dashboard.  | Yes
-Configuration  Workbook  | Allow for manual specification of zone or school  | A feature of the ACM Input Table.  Would need to be able to assign ACMs schools or zones which the algorithm respects.    | Yes
-Deployment Algorithm/ Configuration Workbook  | Return final deployment  | Power BI should return the deployed ACMs to the Excel workbook in a third sheet  | Yes
-Deployment Algorithm  | Smart Swaps  | As written, the algorithm makes random swaps between all ACMs and makes swaps until it makes positive impact on the residual.  If the algorithm is changed so that it is smarter about which ACMs it is trying to swap, we might be able to reduce the number of iterations  | No
-| Deployment Algorithm  | Smart Initial Placement  | The initial placement method used in the original algorithm simply places any ACM at any school. However if we instead initially place ACMs in a smarter way, we may reduce the number of iterations to reach convergence.  Might look like cycling through each school and adding one ACM at a time.  The ACM might be chosen from a distribution of ACMs meeting certain criteria.  | No
-| Deployment Algorithm | Deploy 2nd Year ACMs & TLs | Currently only placement for first year ACMs is possible with the tool.  TLs and 2nd Year ACMs are placed based on different criteria and is currently a very manual process for site leadership. Qualitative data generally unavailable is also used in placing team leaders (like the relationship with the PM) which might make this challenging. | No
+Title  | Description  
+-------|--------------
+Smart Swaps  | As written, the algorithm makes random swaps between all ACMs and makes swaps until it makes positive impact on the residual.  If the algorithm is changed so that it is smarter about which ACMs it is trying to swap, we might be able to reduce the number of iterations
+Smart Initial Placements  | The initial placement method used in the original algorithm simply places any ACM at any school. However if we instead initially place ACMs in a smarter way, we may reduce the number of iterations to reach convergence.  Might look like cycling through each school and adding one ACM at a time.  The ACM might be chosen from a distribution of ACMs meeting certain criteria.
+Deploy 2nd Year ACMs & TLs | Currently only placement for first year ACMs is possible with the tool.  TLs and 2nd Year ACMs are placed based on different criteria and is currently a very manual process for site leadership. Qualitative data generally unavailable is also used in placing team leaders (like the relationship with the PM) which might make this challenging.
+
+## Audience & Usage 
+Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
+### Set Up 
+1. Eval Rep would install R Open and necessary packages (and Power BI)
+2. Eval Rep would work with Recruitment & Admissions to distribute survey and pull data into the ACM workbook
+3. Eval Rep would partner with their site leadership to configure parameters and set weights
+### Use 
+1. Once the Excel workbook is configured, Eval Rep would just need to open .pbix file in Power BI
+1. Ensure that connection is made with the Excel Workbook
+1. Refresh the data (thus executing the placement algorithm)
+1. Interpret the results, make necessary adjustments, and re-run as necessary
