@@ -5,10 +5,10 @@
 Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that produces diverse teams with conisderation of ACM commute times, preferences, skills, and school needs.
 
 ## Tools
-* R and relevant packages
-  * [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf)
+* R and one of these packages (or roll our own)
   * [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
   * [gaoptim](https://cran.r-project.org/web/packages/gaoptim/gaoptim.pdf)
+  * [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf)
 * Visualization
   * Power BI (can compile R script that runs less than 30 mins)
   * Shiny
