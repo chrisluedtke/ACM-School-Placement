@@ -89,13 +89,13 @@ Math Ability Needs | High Schools need stronger math ability
 Address (commute times) | 
 ACM start and end times (commute times) | 
 
-## Project Wish List
-
-Title  | Description  
--------|--------------
-Smart Swaps  | As written, the algorithm makes random swaps between all ACMs and makes swaps until it makes positive impact on the residual.  If the algorithm is changed so that it is smarter about which ACMs it is trying to swap, we might be able to reduce the number of iterations
-Smart Initial Placements  | The initial placement method used in the original algorithm simply places any ACM at any school. However if we instead initially place ACMs in a smarter way, we may reduce the number of iterations to reach convergence.  Might look like cycling through each school and adding one ACM at a time.  The ACM might be chosen from a distribution of ACMs meeting certain criteria.
-Deploy 2nd Year ACMs & TLs | Currently only placement for first year ACMs is possible with the tool.  TLs and 2nd Year ACMs are placed based on different criteria and is currently a very manual process for site leadership. Qualitative data generally unavailable is also used in placing team leaders (like the relationship with the PM) which might make this challenging.
+## Unnecessary but Nice Components
+* Smart Initial Placements
+  * The initial placement method used in the original algorithm simply places any ACM at any school. However if we instead initially place ACMs in a smarter way, we may reduce the number of iterations to reach convergence.  Might look like cycling through each school and adding one ACM at a time.  The ACM might be chosen from a distribution of ACMs meeting certain criteria.
+* Smart Swaps
+  * As written, the algorithm makes random swaps between all ACMs and makes swaps until it makes positive impact on the residual.  If the algorithm is changed so that it is smarter about which ACMs it is trying to swap, we might be able to reduce the number of iterations
+* Deploy 2nd Year ACMs & TLs
+  * Currently only placement for first year ACMs is possible with the tool. Placement of TLs and 2nd Year ACMs is based on different criteria and is currently a manual process for site leadership. Qualitative data generally unavailable is also used in placing team leaders (like the relationship with the PM), which makes this challenging.
 
 ## Audience & Usage 
 Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
