@@ -49,8 +49,8 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 ## Development Workflows 
 Workflow  | Tools  | Notes
 ----------|--------|------
-Placement Algorithm  | R  | Will develop and implement algorithm for deploying ACM
-Commute information  | R  | Given School and ACM address, will produce commute time matrix (time between each ACM and each school)
+ACM Survey | ?  | Will gather all necessary info from incoming ACMs
+Placement Algorithm  | R  | Will develop and implement algorithm for assigning ACMs to school teams
 Results Dashboard  | Power BI  | Visualize the results to help communicate them. Once we get everything together, further exploration will be done to see if we can implement the deployment algorithm in a more interactive way.
 
 ## Timeline 
