@@ -8,6 +8,7 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 * R and the [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf) or [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
 * Power BI (not for certain, but it can compile R script and might provide some useful visualizations as an output)
 * Shiny
+* Knitr
 
 ## Similar Problems
 * [National Resident Match Algorithm](https://en.wikipedia.org/wiki/National_Resident_Matching_Program#Matching_algorithm)
