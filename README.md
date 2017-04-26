@@ -47,21 +47,6 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
   * ACM grade level preferences taken into consideration
   * ACM school preferencese taken into consideration
 
-## Development Workflows 
-Workflow  | Tools  | Notes
-----------|--------|------
-ACM Survey | ?  | Gather all necessary info from incoming ACMs
-Placement Algorithm  | R  | Implement algorithm for computing commute times (gmapsdistanceapi) and assigning ACMs to school teams
-Results Dashboard  | Power BI  | Visualize the results to help communicate them. Once we get everything together, further exploration will be done to see if we can implement the deployment algorithm in a more interactive way.
-
-## Timeline 
-Date | Milestone
------|----------
-April 27 | Make decisions on the approach and final product. Begin development of base functionality. 
-May 18 | Network call to check in on progress. 
-June 23 | Pull all pieces into final product and start extensive testing. 
-July 7 | Product complete with demo ready to present to sites across the national network
-
 ## Inputs - Two Spreadsheets
 #### ACM Characteristics Survey (feeds into spreadsheet that includes a column for manual school placement):
 Characteristic | Response Options
@@ -96,6 +81,21 @@ ACM start and end times (commute times) |
   * As written, the algorithm makes random swaps between all ACMs and makes swaps until it makes positive impact on the residual.  If the algorithm is changed so that it is smarter about which ACMs it is trying to swap, we might be able to reduce the number of iterations
 * Deploy 2nd Year ACMs & TLs
   * Currently only placement for first year ACMs is possible with the tool. Placement of TLs and 2nd Year ACMs is based on different criteria and is currently a manual process for site leadership. Qualitative data generally unavailable is also used in placing team leaders (like the relationship with the PM), which makes this challenging.
+
+## Development Workflows 
+Workflow  | Tools  | Notes
+----------|--------|------
+ACM Survey | ?  | Gather all necessary info from incoming ACMs
+Placement Algorithm  | R  | Implement algorithm for computing commute times (gmapsdistanceapi) and assigning ACMs to school teams
+Results Dashboard  | Power BI  | Visualize the results to help communicate them. Once we get everything together, further exploration will be done to see if we can implement the deployment algorithm in a more interactive way.
+
+## Timeline 
+Date | Milestone
+-----|----------
+April 27 | Make decisions on the approach and final product. Begin development of base functionality. 
+May 18 | Network call to check in on progress. 
+June 23 | Pull all pieces into final product and start extensive testing. 
+July 7 | Product complete with demo ready to present to sites across the national network
 
 ## Audience & Usage 
 Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
