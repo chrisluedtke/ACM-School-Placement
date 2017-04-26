@@ -56,7 +56,7 @@ Age |
 Tutoring experience | 
 Tutoring preference (Math or ELA) | 
 Grade level preference | 
-Race/Ethnicity | We seek a ratio within teams that matches that team's school demographics
+Race/Ethnicity |
 Education level | 
 Gender | 
 Roommates | 
@@ -68,9 +68,9 @@ Characteristic | Notes
 ---------------|------
 School Type | Elementary or High School
 Grade Levels Served | 3, 4, 5, 6, 7, 8, 9
-Racial/Ethnic distribution | Necessary?
+Racial/Ethnic distribution | Necessary? Are we optimizing for demographics that are balances across the corps or that reflect student demographics?
 Linguistic Needs | 
-Math Ability Needs | High Schools need stronger math ability 
+Math Ability Needs | High Schools need stronger math ability
 Address (commute times) | 
 ACM start and end times (commute times) | 
 
