@@ -54,21 +54,21 @@ Characteristic | Response Options
 Language speaking abilities  | 
 Age | 
 Tutoring experience | 
-Tutoring preference (Math or ELA) | 
+Tutoring preference | Math, ELA, No Preference
 Grade level preference | 
-Race/Ethnicity |
+Race/Ethnicity | 
 Education level | 
 Gender | 
 Roommates | 
 Home Address |
-Commute Method (driving or transit) |
+Commute Method | Driving, Transit
 
 #### Spreadsheet 2: Characteristics of Schools
 Characteristic | Notes
 ---------------|------
 School Type | Elementary or High School
 Grade Levels Served | 3, 4, 5, 6, 7, 8, 9
-Racial/Ethnic distribution | Necessary? Are we optimizing for demographics that are balances across the corps or that reflect student demographics?
+Racial/Ethnic distribution | Necessary? Are we optimizing for demographics that are balanced across the corps or that reflect student demographics?
 Linguistic Needs | 
 Math Ability Needs | High Schools need stronger math ability
 Address (commute times) | 
