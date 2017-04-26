@@ -24,27 +24,27 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 * [Stable Marriage Problem](https://en.wikipedia.org/wiki/Stable_marriage_problem)
 
 ## Final Product
+* ACM survey
 * Excel Workbook with ACM characteristics produced by survey
   * Column to manually asign an ACM to a school
-* Excel Workbook with School characteristics and desired team characteristics (set different weights)
+* Excel Workbook with School characteristics and desired team characteristics
 * Google Maps API calls to calculate commutes (DONE!)
 * Dashboard for reviewing results
-* User will need to install R, but we can build in code for installing all the correct packages
+* Built to be as transferable between sites as possible 
 
 ## Constraints
-### Firm Constraints
-* CMs serving in High Schools must be 21+ or have some college experience
-* Roommates cannot be on the same school team
-* Managers can hand-place individual ACMs into schools, and those placements will be firm constraints
-
-### Soft Constraints
-* Commute times are reasonable
-* Consistent gender ratios across all teams
-* Consistent ethnic representations across all teams
-* Consistent tutoring experience across all teams
-* Consistent educational attainment across Elementary Schools (3rd-8th grades) and across High Schools (9th grade)
-* ACM grade level preferences taken into consideration
-* ACM school preferencese taken into consideration
+* Firm Constraints
+  * CMs serving in High Schools must be 21+ or have some college experience
+  * Roommates cannot be on the same school team
+  * Managers can hand-place individual ACMs into schools, and those placements will be firm constraints
+* Soft Constraints
+  * Commute times are reasonable
+  * Consistent gender ratios across all teams
+  * Consistent ethnic representations across all teams
+  * Consistent tutoring experience across all teams
+  * Consistent educational attainment across Elementary Schools (3rd-8th grades) and across High Schools (9th grade)
+  * ACM grade level preferences taken into consideration
+  * ACM school preferencese taken into consideration
 
 ## Development Workflows 
 Workflow  | Tools  | Notes
@@ -87,7 +87,7 @@ Education level |
 Gender | 
 Roommates | 
 Home Address |
-Commute method (driving or public transit) |
+Commute Method (driving or transit) |
 
 #### Spreadsheet 2: Characteristics of Schools
 Characteristic | Notes
