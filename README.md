@@ -31,6 +31,21 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 * Dashboard for reviewing results
 * User will need to install R, but we can build in code for installing all the correct packages
 
+## Constraints
+### Firm Constraints
+* CMs serving in High Schools must be 21+ or have some college experience
+* Roommates cannot be on the same school team
+* Managers can hand-place individual ACMs into schools, and those placements will be firm constraints
+
+### Soft Constraints
+* Commute times are reasonable
+* Consistent gender ratios across all teams
+* Consistent ethnic representations across all teams
+* Consistent tutoring experience across all teams
+* Consistent educational attainment across Elementary Schools (3rd-8th grades) and across High Schools (9th grade)
+* ACM grade level preferences taken into consideration
+* ACM school preferencese taken into consideration
+
 ## Development Workflows 
 Workflow  | Tools  | Notes
 ----------|--------|------
@@ -59,31 +74,31 @@ Ideally this will be a tool that City Year sites can use on a natioanl scale.  U
 1. Interpret the results, make necessary adjustments, and re-run as necessary
 
 ## Inputs - Two Spreadsheets
-#### Spreadsheet 1: Characteristics of Corps Members (obtained through survey already in place)
-Characteristic | Notes
+#### ACM Characteristics Survey (feeds into spreadsheet that includes a column for manual school placement):
+Characteristic | Response Options
 ---------------|------
 Language speaking abilities  | 
-Age | ACMs must be 21+ (or have some college experience) to serve in high schools
+Age | 
 Tutoring experience | 
 Tutoring preference (Math or ELA) | 
 Grade level preference | 
-Race/Ethnicity | We seek a ratios within teams that match that team's school demographics
-Education level | ACMs must have some college experience (or be 21+) to serve in high schools. We seek a consistent ratio across Elem schools and High Schools
-Gender | We seek a consistent gender ratio across schools
-Roommates | Roommates cannot be on the same school team
-Address | To calculate commute time
-Commute method (car or public transit) | 
-Manual school placement | Managers can hand-place individual ACMs before the algorithm is run
+Race/Ethnicity | We seek a ratio within teams that matches that team's school demographics
+Education level | 
+Gender | 
+Roommates | 
+Home Address |
+Commute method (driving or public transit) |
 
 #### Spreadsheet 2: Characteristics of Schools
 Characteristic | Notes
 ---------------|------
-Ranked valuations of ACM characteristics | Should this be decided as a site or on school levels?
-Grade levels served (Elementary or High School) | 
-Racial/Ethnic distribution | 
-Linguistic needs | 
-Address | To calculate commute times
-School start time | To calculate commute times
+School Type | Elementary or High School
+Grade Levels Served | 3, 4, 5, 6, 7, 8, 9
+Racial/Ethnic distribution | Necessary?
+Linguistic Needs | 
+Math Ability Needs | High Schools need stronger math ability 
+Address (commute times) | 
+ACM start and end times (commute times) | 
 
 ## Project Components
 
