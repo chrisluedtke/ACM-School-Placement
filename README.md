@@ -74,6 +74,11 @@ Math Ability Needs | High Schools need stronger math ability
 Address (commute times) | 
 ACM start and end times (commute times) | 
 
+## Output 1
+CM | Placement | Average Commute | Ethnicity | etc.
+---|-----------|-----------------|-----------|-----
+Name | 1 | 45 | White 
+
 ## Unnecessary but Nice Components
 * Smart Initial Placements
   * The initial placement method used in the original algorithm simply places any ACM at any school. However if we instead initially place ACMs in a smarter way, we may reduce the number of iterations to reach convergence.  Might look like cycling through each school and adding one ACM at a time.  The ACM might be chosen from a distribution of ACMs meeting certain criteria.
