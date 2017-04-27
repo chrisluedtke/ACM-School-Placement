@@ -80,12 +80,9 @@ Obj <- function(myAssign){
 ```
 
 
-# To DO
-
-* hard and soft criteria
 * picking initial 'direction'
-  * how to set up function to know that there are teams of 9
-  * output: series ()
+  * how to set up function to know that there are teams of 9 (or 8, 7, 10, etc)
+  * output: series (1, 1, 1, 1, 2, 2, 2, 2, 3, 3, etc.)
 * Identify right solution algorithm for our setup
   * GenSA
   * gaoptim -- is for permutation-based problems
