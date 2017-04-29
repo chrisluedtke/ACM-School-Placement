@@ -37,11 +37,11 @@ acm_df$id <- 1:nrow(acm_df)
 
 # Calculate Commutes
 
-To calculate commute times, we essentially send many requests to Google Maps through an API (Applciation Program Interface). To get access to the API we need a key. Visit the [Google Distance Matrix API](https://developers.google.com/maps/documentation/distance-matrix/) page. Click "GET A KEY" in the upper right corner. Save the key in a safe place. This key identifies you to Google, and you will need it for this script.
+To calculate commute times, we essentially send many requests to Google Maps through an API (Applciation Program Interface). To get access to the API we need a key. Visit the [Google Distance Matrix API](https://developers.google.com/maps/documentation/distance-matrix/) page. Click "GET A KEY" in the upper right corner. Save the key privately. This key identifies you to Google.
 
-Many organizations provide access to their data through an API. Many times this service is free, but some organizations change for this service because of processing costs and the power that this access enables. Google will allow you to calculate 2,500 travel times for free in one day. After that, you will need to pay $0.50 for each 1,000 requests, or wait a day to calculate 2,500 more.
+Many organizations provide access to their data through an API. Many times this service is free, but some organizations charge for this service because of processing costs and the benefits that this access enables. Google will allow you to calculate 2,500 travel times for free in one day. After that, you will need to pay $0.50 for each 1,000 requests, or wait a day to calculate 2,500 more.
 
-The key I included in this script is a free-use key, so it will be limited to 2,500 results per day. However, I did opt to enable pay-as-you-go on my personal key. In CYCHI, this expenses will hopefully be covered under our Impact Team budget.
+The key I included in this script is a free-use key, so it will be limited to 2,500 results per day. However, I did opt to enable pay-as-you-go on my personal key (not shared here). In CYCHI, this expense will hopefully be covered under our Impact Team budget.
 
 ```{r commute times}
 # Prior to this step, you may need to ensure that "Address.Line.1" does not include any apartment/suite/room info.
@@ -76,6 +76,7 @@ for (acm_id in acm_df[1:2,]$id){
 acm_df <- merge(acm_df, acm_commutes, by = "id", all = TRUE)
 
 ```
+
 
 
 # Build Requirements
