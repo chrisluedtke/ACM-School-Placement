@@ -25,11 +25,14 @@ library("readxl")
 
 This is fake data that may or may not represent an actual corps.
 
-```{r load spreadsheets, echo=FALSE}
+```{r load spreadsheets}
 acm_df <- read_excel(path = "Input 1 - ACM Data.xls")
 school_df <- read_excel(path = "Input 2 - School Data.xls")
 
-# Add an index column for schools
+# For some reason there is an empty row at the end of acm_df, so it's removed here:
+acm_df <- acm_df[-nrow(acm_df),]
+
+# Add an index column for schools and acm's
 school_df$id <- 1:nrow(school_df)
 acm_df$id <- 1:nrow(acm_df)
 
@@ -57,26 +60,137 @@ school_df$"Address" = gsub(",", "", school_df$"Address")
 # Input your own API Key here
 set.api.key("AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
 
-# Create an empty data frame that we will fill with commute times
+# Create an empty dataframe that we will fill with commute times
 acm_commutes <- data.frame(Ints=integer())
 
 # Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance package, and build a new data frame of commute info.
 for (acm_id in acm_df[1:2,]$id){
+  
   # select just one row from acm_df, and assign it to a new object, acm_row
   acm_row <- subset(acm_df, id == acm_id)
+  
   # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a single row of ACM commute times to each school. That row is assigned to a new object, 'commute'
   commute = gmapsdistance(origin = acm_row$"Full Address", destination = school_df[1:2,]$"Address", mode = acm_row$"Method of Commute", combinations = "all", shape = "wide")
+  
   # create an 'id' column in our new 'commute' row that is the same as acm_id. We will use this to join our data frames.
   commute$Time[["id"]] = acm_id
-  # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this data frame grows to include all ACM's.
+  
+  # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
   acm_commutes <- rbind(acm_commutes, commute$Time)
 }
 
-# Finally, combine our original input 'acm_df' with our new data frame of commute times 'acm_commutes', and overwrite our original acm_df with this newly combined data frame.
+# Finally, combine our original input 'acm_df' with our new dataframe of commute times 'acm_commutes', and overwrite our original acm_df with this newly combined data frame.
 acm_df <- merge(acm_df, acm_commutes, by = "id", all = TRUE)
 
 ```
 
+# Initial Team Placements
+
+Generate a list of team id numbers for each team that is the length of each team's size. Combine these lists into one long list of initial team assignments.
+
+```{r}
+# Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
+
+# first create an empty list
+team_placements = list()
+
+# use a for-loop to read each team size
+for (x in 1:nrow(school_df)){
+  team_slots = list(
+    
+    # create a list that repeats the school 'id' for the size of each team
+    rep(x, 
+        subset(school_df$`Team Size`, school_df$`id` == x)
+        )
+    )
+  team_placements <- c(team_placements, team_slots)
+}
+
+team_placements <- unlist(team_placements)
+
+```
+
+### Calculate score
+
+Merge team_placements with our acm_data and reference school_data to determine the score of how well they fit.
+
+Calculate score of placements (lower score is better)
+* merge in ACM data to team placement
+
+```{r}
+calculate_score = function(acm_df, team_placements) {
+  team_placements_df <- data.frame(id = 1:length(team_placements), Team.Placement = team_placements)
+  
+  acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all = TRUE)
+  
+  acm_commutes <- data.frame(Ints=integer())
+  
+  for (x in acm_df_with_placements$id){
+    acm_row <- subset(acm_df, id == x)
+    acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
+    Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
+    acm_commutes <- rbind(acm_commutes, Actual.Commute.Time[1,1])
+  }
+  
+  sum(acm_commutes[1])
+  
+}
+
+```
+
+
+```{r}
+current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_width) {
+  s_curve_amplitude * s_curve(iter, s_curve_center, s_curve_width)
+}
+
+s_curve = function(x, center, width) {
+  1 / (1 + exp((x - center) / width))
+}
+
+```
+
+
+```{r}
+run_intermediate_annealing_process = function(acm_df, team_placements, placement_score, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+  
+  n_acms = nrow(acm_df)
+  
+  for(i in 1:number_of_iterations) {
+    iter = starting_iteration + i
+    temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
+    
+    candidate_placements = team_placements
+    swap = sample(n_acms, 2)
+    candidate_placements[swap[1]:swap[2]] = rev(candidate_placements[swap[1]:swap[2]])
+    
+    candidate_score = calculate_score(acm_df, candidate_placements)
+
+    if (temp > 0) {
+      ratio = exp((placement_score - candidate_score) / temp)
+    } else {
+      ratio = as.numeric(candidate_score < placement_score)
+    }
+    
+    if (runif(1) < ratio) {
+      team_placements = candidate_placements
+      placement_score = candidate_score
+      
+      if (placement_score < best_score) {
+        best_placements = team_placements
+        best_score = placement_score
+      }
+    }
+  }
+  
+  return(list(team_placements=team_placements, placement_score=placement_score, best_placements=best_placements, best_score=best_score))
+}
+
+```
+
+```{r}
+run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 50, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+```
 
 
 # Build Requirements
@@ -88,15 +202,17 @@ IsValid <- function(assign){
   valid <- ifelse(any(assign < 9), FALSE, TRUE) 
   return(valid)
 }
+
 ```
+
 
 
 ```{r randomly generate initial assignment}
 
 random.gen <- function(acm_df, school_df){
   nSch <- nrow(school_df)
-  nStu <- nrow(acm_df)
-  team.size <- ceiling(nStu/nSch)
+  nACM <- nrow(acm_df)
+  team.size <- ceiling(nACM/nSch)
   assign <- rep(school_df$id, each = team.size) # Creates a vector of 1 10 times, 2 10 times, etc
   random <- sample(x = assign, size = nStu)
     # table(random) # ... This displays a tabulation of the assigned schools
@@ -120,7 +236,7 @@ GenProp <- function(myAssign){
 
 ```{r create objective function}
 Obj <- function(myAssign){
-  # Takes the assignment, and calculations an objective score combining:
+  # Takes the assignment, and calcules an objective score combining:
   # 1. minimize commute time
   # 2. college experience or age >= 21 for HS (might also be requirement for valid proposal)
   # 3. bonus for demographic balance (e.g. gender, race/eth, ed)
