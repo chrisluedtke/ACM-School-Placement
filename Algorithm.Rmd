@@ -50,11 +50,11 @@ The key I included in this script is a free-use key, so it will be limited to 2,
 # Prior to this step, you may need to ensure that "Address.Line.1" does not include any apartment/suite/room info.
 
 # This line combines address data into one text string:
-acm_df[["Full Address"]] = paste(acm_df[["Address Line 1"]], acm_df[["City"]], acm_df[["State"]], acm_df[["Postal Code"]])
+acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
 
 # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
-acm_df[["Full Address"]] = gsub(" ", "+", acm_df[["Full Address"]])
-school_df[["Address"]] = gsub(" ", "+", school_df[["Address"]])
+acm_df$"Full Address" = gsub(" ", "+", acm_df$"Full Address")
+school_df$"Address" = gsub(" ", "+", school_df$"Address")
 school_df$"Address" = gsub(",", "", school_df$"Address")
 
 # Input your own API Key here
@@ -80,7 +80,7 @@ for (acm_id in acm_df[1:2,]$id){
 }
 
 # Finally, combine our original input 'acm_df' with our new dataframe of commute times 'acm_commutes', and overwrite our original acm_df with this newly combined data frame.
-acm_df <- merge(acm_df, acm_commutes, by = "id", all = TRUE)
+acm_df <- merge(acm_df, acm_commutes, by = "id", all.x = TRUE)
 
 ```
 
@@ -117,6 +117,7 @@ Merge team_placements with our acm_data and reference school_data to determine t
 Calculate score of placements (lower score is better)
 * merge in ACM data to team placement
 
+
 ```{r}
 calculate_score = function(acm_df, team_placements) {
   team_placements_df <- data.frame(id = 1:length(team_placements), Team.Placement = team_placements)
@@ -126,7 +127,7 @@ calculate_score = function(acm_df, team_placements) {
   acm_commutes <- data.frame(Ints=integer())
   
   for (x in acm_df_with_placements$id){
-    acm_row <- subset(acm_df, id == x)
+    acm_row <- subset(acm_df_with_placements, id == x)
     acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
     Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
     acm_commutes <- rbind(acm_commutes, Actual.Commute.Time[1,1])
@@ -135,6 +136,7 @@ calculate_score = function(acm_df, team_placements) {
   sum(acm_commutes[1])
   
 }
+
 
 ```
 
@@ -189,7 +191,7 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
 ```
 
 ```{r}
-run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 50, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 200, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 ```
 
 
