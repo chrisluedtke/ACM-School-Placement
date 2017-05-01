@@ -47,7 +47,9 @@ Many organizations provide access to their data through an API. Many times this 
 The key I included in this script is a free-use key, so it will be limited to 2,500 results per day. However, I did opt to enable pay-as-you-go on my personal key (not shared here). In CYCHI, this expense will hopefully be covered under our Impact Team budget.
 
 ```{r commute times}
-# Prior to this step, you may need to ensure that "Address.Line.1" does not include any apartment/suite/room info.
+# Prior to this step, you may need to ensure that "Address Line 1" does not include any apartment/suite/room info.
+
+# Note that for public tansit, google does not count the time spent waiting for the bus/train. For example, let's say I get off work at 5pm and a bus comes at 5:30pm which I ride for 45 minutes to get home. My commute is more accurately described as 75 minutes, but this method would still return 45 minutes.
 
 # This line combines address data into one text string:
 acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
