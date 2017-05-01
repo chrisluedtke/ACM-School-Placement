@@ -51,7 +51,8 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 #### ACM Characteristics Survey (feeds into spreadsheet that includes a column for manual school placement):
 Characteristic | Response Options
 ---------------|------
-Language speaking abilities  | 
+Did you attend a CPS school? If so, which? | 
+Language speaking abilities | 
 Age | 
 Tutoring experience | 
 Tutoring preference | Math, ELA, No Preference
@@ -60,7 +61,7 @@ Race/Ethnicity |
 Education level | 
 Gender | 
 Roommates | 
-Home Address |
+Home Address | 
 Commute Method | Driving, Transit
 
 #### Spreadsheet 2: Characteristics of Schools
