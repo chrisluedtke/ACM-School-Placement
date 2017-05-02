@@ -1,0 +1,92 @@
+---
+title: "Simulated Annealing Demo"
+author: "Alex Perusse"
+date: "May 1, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We'll create a quick demo of Simulated Annealing for the traveling salesman problem.
+
+```{r Problem Statement}
+require(dplyr)
+# Generate 50 cities to work with
+randomCities <- function() { 
+  x <- sample(1:100, 50, replace=T)
+  y <- sample(1:100, 50, replace=T)
+  data.frame(cbind(x, y))
+}
+
+# Calculate distance between two given cities.
+# Assume we're given the indices of two cities.  Distance is calculated from there.
+distanceTo <- function(from, to) {   
+  from_coords <- cities[from, ]
+  to_coords <- cities[to, ]
+  
+  x_diff <- (from_coords$x - to_coords$x)^2
+  y_diff <- (from_coords$y - to_coords$y)^2
+  
+  sqrt(x_diff + y_diff)
+}
+
+# For each starting point, assign a city number w/o replacement.  
+initialAssignment <- function() {
+  start <- 1:50
+  end <- sample(1:50, 50, replace=F)
+  
+  data.frame(cbind(start, end))
+}
+
+scoreAssignment <- function(assignment) {
+  assignment <- mutate(assignment, distances = distanceTo(assignment$start, assignment$end))
+  sum(assignment$distances)
+}
+
+swap <- function(assignment, first, second) {
+  fst <- assignment[first, ]$end
+  assignment[first, ]$end <- assignment[second, ]$end
+  assignment[second, ]$end <- fst
+  assignment
+}
+
+acceptanceProbability <- function(currentScore, newScore, temp) {
+  ifelse(newScore < currentScore, 1, exp((currentScore - newScore) / temp))
+}
+
+coolTemp <- function(temp, coolingRate) {
+  temp*(1-coolingRate)
+} 
+
+simulatedAnnealing <- function(locs, temp=1000, coolingRate=0.003, global_iters=10000) {
+  
+  n_cities <- nrow(locs)
+  
+  currentAssign <- initialAssignment()
+  currentScore <- scoreAssignment(currentAssign)
+  
+  while(temp > 1 | global_iters > 0) {
+    swp <- sample(n_cities, 2)
+    
+    testAssign <- swap(currentAssign, swp[1], swp[2])
+    testScore <- scoreAssignment(testAssign)
+    
+    if (acceptanceProbability(currentScore, testScore, temp) > runif(1)) {
+      currentAssign <- testAssign
+      currentScore <- testScore
+    }
+    
+    temp <- coolTemp(temp, coolingRate)
+    global_iters <- global_iters - 1
+  }
+  
+  currentAssign
+}
+```
+
+```{r}
+simulatedAnnealing(cities)
+```
+
