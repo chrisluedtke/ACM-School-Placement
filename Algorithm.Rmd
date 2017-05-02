@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r install packages, echo = FALSE}
 install.packages("gmapsdistance")
 install.packages("readxl")
+install.packages("googleway")
 ```
 
 # Load Packages
@@ -19,6 +20,7 @@ install.packages("readxl")
 ```{r load packages}
 library("gmapsdistance")
 library("readxl")
+library("googleway")
 ```
 
 # Read Data
@@ -36,9 +38,6 @@ acm_df <- acm_df[-nrow(acm_df),]
 school_df$id <- 1:nrow(school_df)
 acm_df$id <- 1:nrow(acm_df)
 
-# set.api.key("AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
-# gmapsdistance(origin = "", destination = "36+S+Wabash+Ave+Chicago+IL", mode = "transit", combinations = "all", dep_date = "2017-06-12", dep_time = "08:00:00", shape = "wide")
-
 ```
 
 
@@ -52,9 +51,15 @@ Many organizations provide access to their data through an API. Many times this 
 The key I included in this script is a free-use key, so it will be limited to 2,500 results per day. However, I did opt to enable pay-as-you-go on my personal key (not shared here). In CYCHI, this expense will hopefully be covered under our Impact Team budget.
 
 ```{r commute times}
-# Prior to this step, you may need to ensure that "Address Line 1" does not include any apartment/suite/room info.
+# Prior to this step, you may need to ensure that "Address Line 1" 
+# does not include any apartment/suite/room info.
 
-# Note that for public tansit, google does not count the time spent waiting for the bus/train. For example, let's say I get off work at 5pm and a bus comes at 5:15pm. I ride the bus 45 minutes to get home. My commute is more accurately described as 60 minutes, but this function would still return 45 minutes.
+# Note that for public tansit, google does not count 
+# the time spent waiting for the bus/train. For example, 
+# let's say I get off work at 5pm and a bus comes at 5:15pm. 
+# I ride the bus 45 minutes to get home. My commute is more 
+# accurately described as 60 minutes, but this function would 
+# still return 45 minutes.
 
 # This line combines address data into one text string:
 acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
@@ -119,36 +124,43 @@ team_placements <- unlist(team_placements)
 
 ### Calculate score
 
-Merge team_placements with our acm_data and reference school_data to determine the score of how well they fit.
-
-Calculate score of placements (lower score is better)
-* merge in ACM data to team placement
-
+This is the function that calculates the quality of each placement.
 
 ```{r}
 calculate_score = function(acm_df, team_placements) {
   
+  # Convert the team_placement list into an dataframe with an 'id' column 
   team_placements_df <- data.frame(id = 1:length(team_placements), Team.Placement = team_placements)
   
+  # Merge team_placements_df with acm_df on the 'id' column we just created
   acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
   
-  acm_commutes <- data.frame()
+  # acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "Team.Placement", by.y = "id", all.x = TRUE)
+  # for (x in unique(acm_df_with_placements$'School Name'){
+    # single_school_df = acm_df_with_placements[acm_df_with_placements == x]
+    # Calculate diversity components}
   
+  # Now we need to merge in commute information, 
+  # but only for the appropriate destination address 
+  # (the school each ACM was assigned to).
+    
   for (x in acm_df_with_placements$id){
-    acm_row <- subset(acm_df_with_placements, id == x)
-    acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
-    Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
-    acm_commutes <- rbind(acm_commutes, Actual.Commute.Time[1,1])
+    # Complicated subsetting to read each ACM
+    acm_commute_time = (subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_df_with_placements))])[subset(acm_df_with_placements$Team.Placement, acm_df_with_placements$id == x)]
+    acm_commutes <- rbind(acm_commutes, acm_commute_time[1,1])
+    
+    # Previous method:
+    #acm_row <- subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_row))]
+    #acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
+    #Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
+    #acm_commutes <- rbind(acm_commutes, Actual.Commute.Time[1,1])
   }
   
   sum(acm_commutes[1])
   
 }
 
-#calculate_score(acm_df, team_placements)
-
 ```
-
 
 ```{r}
 current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_width) {
@@ -158,9 +170,7 @@ current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_
 s_curve = function(x, center, width) {
   1 / (1 + exp((x - center) / width))
 }
-
 ```
-
 
 ```{r}
 run_intermediate_annealing_process = function(acm_df, team_placements, placement_score, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
@@ -203,7 +213,10 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
 ```
 
 ```{r}
-run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 200, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+start.time <- Sys.time()
+run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
 ```
 
 # End Here
