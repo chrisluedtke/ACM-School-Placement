@@ -36,7 +36,12 @@ acm_df <- acm_df[-nrow(acm_df),]
 school_df$id <- 1:nrow(school_df)
 acm_df$id <- 1:nrow(acm_df)
 
+# set.api.key("AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
+# gmapsdistance(origin = "", destination = "36+S+Wabash+Ave+Chicago+IL", mode = "transit", combinations = "all", dep_date = "2017-06-12", dep_time = "08:00:00", shape = "wide")
+
 ```
+
+
 
 # Calculate Commutes
 
@@ -49,7 +54,7 @@ The key I included in this script is a free-use key, so it will be limited to 2,
 ```{r commute times}
 # Prior to this step, you may need to ensure that "Address Line 1" does not include any apartment/suite/room info.
 
-# Note that for public tansit, google does not count the time spent waiting for the bus/train. For example, let's say I get off work at 5pm and a bus comes at 5:30pm which I ride for 45 minutes to get home. My commute is more accurately described as 75 minutes, but this method would still return 45 minutes.
+# Note that for public tansit, google does not count the time spent waiting for the bus/train. For example, let's say I get off work at 5pm and a bus comes at 5:15pm. I ride the bus 45 minutes to get home. My commute is more accurately described as 60 minutes, but this function would still return 45 minutes.
 
 # This line combines address data into one text string:
 acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
@@ -122,11 +127,12 @@ Calculate score of placements (lower score is better)
 
 ```{r}
 calculate_score = function(acm_df, team_placements) {
+  
   team_placements_df <- data.frame(id = 1:length(team_placements), Team.Placement = team_placements)
   
-  acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all = TRUE)
+  acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
   
-  acm_commutes <- data.frame(Ints=integer())
+  acm_commutes <- data.frame()
   
   for (x in acm_df_with_placements$id){
     acm_row <- subset(acm_df_with_placements, id == x)
@@ -139,6 +145,7 @@ calculate_score = function(acm_df, team_placements) {
   
 }
 
+#calculate_score(acm_df, team_placements)
 
 ```
 
@@ -165,8 +172,11 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
     temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
     
     candidate_placements = team_placements
-    swap = sample(n_acms, 2)
-    candidate_placements[swap[1]:swap[2]] = rev(candidate_placements[swap[1]:swap[2]])
+    candidate_placements_df = data.frame(index=1:length(candidate_placements), candidate_placements)
+    schools_to_swap = sample(1:nrow(school_df), 2)
+    swap1 = sample(candidate_placements_df$index[candidate_placements_df$candidate_placements == schools_to_swap[1]], 1)
+    swap2 = sample(candidate_placements_df$index[candidate_placements_df$candidate_placements == schools_to_swap[2]], 1)
+    candidate_placements = replace(candidate_placements, c(swap1, swap2), candidate_placements[c(swap2, swap1)])
     
     candidate_score = calculate_score(acm_df, candidate_placements)
 
@@ -196,8 +206,9 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
 run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 200, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 ```
 
+# End Here
 
-# Build Requirements
+# Build Requirements ()
 
 ```{r generate logic for invalid assignments}
 # E.g., can't allow staff with age < 21 into an HS
