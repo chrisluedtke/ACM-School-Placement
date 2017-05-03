@@ -10,9 +10,12 @@ knitr::opts_chunk$set(echo = TRUE)
 # Install Packages
 
 ```{r install packages, echo = FALSE}
-install.packages("gmapsdistance")
-install.packages("readxl")
-install.packages("googleway")
+# install.packages("gmapsdistance")
+# install.packages("readxl")
+# install.packages("googleway")
+# install.packages("dplyr")
+# install.packages("tidyr")
+# Nick mentioned there may be a useful package that breaks down script timings 
 ```
 
 # Load Packages
@@ -21,6 +24,8 @@ install.packages("googleway")
 library("gmapsdistance")
 library("readxl")
 library("googleway")
+library("dplyr")
+library("tidyr")
 ```
 
 # Read Data
@@ -61,64 +66,70 @@ The key I included in this script is a free-use key, so it will be limited to 2,
 # accurately described as 60 minutes, but this function would 
 # still return 45 minutes.
 
-# This line combines address data into one text string:
-acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
+run_commutes == FALSE
 
-# Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
-acm_df$"Full Address" = gsub(" ", "+", acm_df$"Full Address")
-school_df$"Address" = gsub(" ", "+", school_df$"Address")
-school_df$"Address" = gsub(",", "", school_df$"Address")
+if (run_commutes == TRUE){
 
-# Input your own API Key here
-set.api.key("AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
-
-# Create an empty dataframe that we will fill with commute times
-acm_commutes <- data.frame(Ints=integer())
-
-# Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance package, and build a new data frame of commute info.
-for (acm_id in acm_df[1:2,]$id){
+  # This line combines address data into one text string:
+  acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
   
-  # select just one row from acm_df, and assign it to a new object, acm_row
-  acm_row <- subset(acm_df, id == acm_id)
+  # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
+  acm_df$"Full Address" = gsub(" ", "+", acm_df$"Full Address")
+  school_df$"Address" = gsub(" ", "+", school_df$"Address")
+  school_df$"Address" = gsub(",", "", school_df$"Address")
   
-  # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a single row of ACM commute times to each school. That row is assigned to a new object, 'commute'
-  commute = gmapsdistance(origin = acm_row$"Full Address", destination = school_df[1:2,]$"Address", mode = acm_row$"Method of Commute", combinations = "all", shape = "wide")
+  # Input your own API Key here
+  set.api.key("AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
   
-  # create an 'id' column in our new 'commute' row that is the same as acm_id. We will use this to join our data frames.
-  commute$Time[["id"]] = acm_id
+  # Create an empty dataframe that we will fill with commute times
+  acm_commutes <- data.frame(Ints=integer())
   
-  # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
-  acm_commutes <- rbind(acm_commutes, commute$Time)
+  # Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance package, and build a new data frame of commute info.
+  for (acm_id in acm_df[1:2,]$id){
+    
+    # select just one row from acm_df, and assign it to a new object, acm_row
+    acm_row <- subset(acm_df, id == acm_id)
+    
+    # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a single row of ACM commute times to each school. That row is assigned to a new object, 'commute'
+    commute = gmapsdistance(origin = acm_row$"Full Address", destination = school_df[1:2,]$"Address", mode = acm_row$"Method of Commute", combinations = "all", shape = "wide")
+    
+    # create an 'id' column in our new 'commute' row that is the same as acm_id. We will use this to join our data frames.
+    commute$Time[["id"]] = acm_id
+    
+    # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
+    acm_commutes <- rbind(acm_commutes, commute$Time)
+  }
+  
+  # Finally, combine our original input 'acm_df' with our new dataframe of commute times 'acm_commutes', and overwrite our original acm_df with this newly combined data frame.
+  acm_df <- merge(acm_df, acm_commutes, by = "id", all.x = TRUE)
 }
-
-# Finally, combine our original input 'acm_df' with our new dataframe of commute times 'acm_commutes', and overwrite our original acm_df with this newly combined data frame.
-acm_df <- merge(acm_df, acm_commutes, by = "id", all.x = TRUE)
 
 ```
 
 # Initial Team Placements
-
+  
 Generate a list of team id numbers for each team that is the length of each team's size. Combine these lists into one long list of initial team assignments.
+  
+```{r}  
+  # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
+  
+  # first create an empty list
+  team_placements = list()
+  
+  # use a for-loop to read each team size
+  for (x in 1:nrow(school_df)){
+    team_slots = list(
+      
+      # create a list that repeats the school 'id' for the size of each team
+      rep(x, 
+          subset(school_df$`Team Size`, school_df$`id` == x)
+          )
+      )
+    team_placements <- c(team_placements, team_slots)
+  }
+  
+  team_placements <- unlist(team_placements)
 
-```{r}
-# Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
-
-# first create an empty list
-team_placements = list()
-
-# use a for-loop to read each team size
-for (x in 1:nrow(school_df)){
-  team_slots = list(
-    
-    # create a list that repeats the school 'id' for the size of each team
-    rep(x, 
-        subset(school_df$`Team Size`, school_df$`id` == x)
-        )
-    )
-  team_placements <- c(team_placements, team_slots)
-}
-
-team_placements <- unlist(team_placements)
 
 ```
 
@@ -135,7 +146,24 @@ calculate_score = function(acm_df, team_placements) {
   # Merge team_placements_df with acm_df on the 'id' column we just created
   acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
   
-  # acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "Team.Placement", by.y = "id", all.x = TRUE)
+  gender.ratio.ideal <- with(acm_df_with_placements, sum(Gender == "Male")/sum(Gender == "Female"))
+  
+  acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "Team.Placement", by.y = "id", all.x = TRUE)
+  system.time({
+    Placement.Scores <-
+    group_by(acm_df_with_placements, Team.Placement) %>%
+    summarize(gender.ratio = sum(Gender == "Male")/sum(Gender == "Female"),
+              age.var = var(Age)) %>%
+    mutate(gender.ratio.dev = abs(gender.ratio - gender.ratio.ideal)) %>%
+    ungroup() %>%
+    summarize(gender.ratio.score = mean(gender.ratio.dev)*3,
+              avg.age.var = -mean(age.var))
+  })
+  
+  # 3 is some arbitrary score weight
+  # Also, negative scores are better, and the "-" in front of mean age variance means that
+  # higher average variance of team ages gets relatively more favorable scores.
+  
   # for (x in unique(acm_df_with_placements$'School Name'){
     # single_school_df = acm_df_with_placements[acm_df_with_placements == x]
     # Calculate diversity components}
@@ -143,20 +171,35 @@ calculate_score = function(acm_df, team_placements) {
   # Now we need to merge in commute information, 
   # but only for the appropriate destination address 
   # (the school each ACM was assigned to).
-    
-  for (x in acm_df_with_placements$id){
-    # Complicated subsetting to read each ACM
-    acm_commute_time = (subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_df_with_placements))])[subset(acm_df_with_placements$Team.Placement, acm_df_with_placements$id == x)]
-    acm_commutes <- rbind(acm_commutes, acm_commute_time[1,1])
-    
-    # Previous method:
-    #acm_row <- subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_row))]
-    #acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
-    #Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
-    #acm_commutes <- rbind(acm_commutes, Actual.Commute.Time[1,1])
-  }
+  acm_commutes <- data.frame()
   
-  sum(acm_commutes[1])
+  ## USEFULL: system.time({ <<code to time>> })    
+  
+  # New method - 10x faster than a for-loop!  
+  grepv <- function(pat, x, ...) grep(pat, x, value = TRUE, ...)
+  commute_cols <- acm_df_with_placements[ , c("id", grepv("Time.to.", names(acm_df_with_placements)))]
+  PickTime <- function(myid, myplace){subset(commute_cols,
+                                              subset = id == myid,
+                                              select = myplace+1)}
+
+  acm_commutes <- unlist(with(acm_df_with_placements, mapply(PickTime, id, Team.Placement)))
+  sum(acm_commutes)
+    
+      # Previous method 1 (10x slower!!)
+      #for (x in acm_df_with_placements$id){
+      #   # Complicated subsetting to read each ACM
+      #   acm_commute_time = (subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", name  # s(acm_df_with_placements))])[subset(acm_df_with_placements$Team.Placement, acm_  # df_with_placements$id == x)]
+      #   acm_commutes <- rbind(acm_commutes, acm_commute_time[1,1])
+      # }
+  
+      # Previous method 2 (in a for loop)
+      #acm_row <- subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_row))]
+      #acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
+      #Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
+      #acm_commutes <- rbind(acm_commutes, Actual.Commute.Time[1,1])
+  
+  
+
   
 }
 
@@ -182,10 +225,17 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
     temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
     
     candidate_placements = team_placements
+    
     candidate_placements_df = data.frame(index=1:length(candidate_placements), candidate_placements)
+    
     schools_to_swap = sample(1:nrow(school_df), 2)
+    
+    #swap1 = with(candidate_placements_df, sample(index[candidate_placements == schools_to_swap[1]], 1))
+    
     swap1 = sample(candidate_placements_df$index[candidate_placements_df$candidate_placements == schools_to_swap[1]], 1)
+    
     swap2 = sample(candidate_placements_df$index[candidate_placements_df$candidate_placements == schools_to_swap[2]], 1)
+    
     candidate_placements = replace(candidate_placements, c(swap1, swap2), candidate_placements[c(swap2, swap1)])
     
     candidate_score = calculate_score(acm_df, candidate_placements)
