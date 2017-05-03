@@ -4,22 +4,24 @@
 
 Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Schools to serve as near-peer tutors and mentors. We are building a tool that produces diverse teams with conisderation of ACM commute times, preferences, skills, and school needs.
 
-## Tools
+## Tools and Resources
 * R and one of these packages (or roll our own)
   * [gmapsdistance](https://cran.r-project.org/web/packages/gmapsdistance/README.html)
   * [GenSA package](https://cran.r-project.org/web/packages/GenSA/GenSA.pdf)
   * [gaoptim](https://cran.r-project.org/web/packages/gaoptim/gaoptim.pdf)
-  * [matchingMarkets package](https://cran.r-project.org/web/packages/matchingMarkets/matchingMarkets.pdf)
 * Visualization
   * Power BI (can compile R script that runs less than 30 mins)
   * Shiny
   * Knitr
+* R Optimization and Cleaning Tips
+  * [FasteR! HigheR! StrongeR! - A Guide to Speeding Up R Code for Busy People](http://www.noamross.net/blog/2013/4/25/faster-talk.html)
+  * [Cleaning Data with R - Nick Mader](http://nsmader.github.io/knitr-sandbox/cleaning-data-with-R.html#intro)
 
 ## Similar Problems (Ranked by Relevance)
 * [Nurse Scheduling Problem](https://en.wikipedia.org/wiki/Nurse_scheduling_problem)
   * Simulated Annealing
   * Constraint Programming
-* [The Traveling Salesman with Simulated Annealing, R, and Shiny](http://toddwschneider.com/posts/traveling-salesman-with-simulated-annealing-r-and-shiny/)
+* [The Traveling Salesman with Simulated Annealing, R, and Shiny](http://toddwschneider.com/posts/traveling-salesman-with-simulated-annealing-r-and-shiny/) - the code from their github formed the backbone of our simulated annealing algorithm
 * [Assignment Problem](https://en.wikipedia.org/wiki/Assignment_problem)
 * [National Resident Match Algorithm](https://en.wikipedia.org/wiki/National_Resident_Matching_Program#Matching_algorithm)
 * [Stable Marriage Problem](https://en.wikipedia.org/wiki/Stable_marriage_problem)
