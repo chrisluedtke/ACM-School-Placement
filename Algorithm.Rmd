@@ -99,9 +99,6 @@ if (run_commutes == TRUE){
     # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
     acm_commutes <- rbind(acm_commutes, commute$Time)
   }
-  
-  # Finally, combine our original input 'acm_df' with our new dataframe of commute times 'acm_commutes', and overwrite our original acm_df with this newly combined data frame.
-  # acm_df <- merge(acm_df, acm_commutes, by = "id", all.x = TRUE)
 }
 
 ```
@@ -128,7 +125,8 @@ for (x in 1:nrow(school_df)){
 }
 
 team_placements <- unlist(team_placements)
-
+# team_placements_random <- sample(length(team_placements), length(team_placements))
+# team_placements_random
 ```
 
 ### Calculate score
@@ -136,24 +134,34 @@ team_placements <- unlist(team_placements)
 This is the function that calculates the quality of each placement.
 
 ```{r}
-# Obsolete:
-# grepv <- function(pat, x, ...) grep(pat, x, value = TRUE, ...)
-# commute_cols <- acm_df[ , c("id", grepv("Time.to.", names(acm_df)))]
+# Chris
+  # gender/sex
+  # age
+  # ethnicity
+  # attend local school, CY or local
+  # roommates? not necessary?
+# Alex
+  # educational attainment (potentially different goals for HS/ES)
+  # tutoring experience (look at notes from survey)
+  # tutoring preference
+  # grade level preference
+  # language speaking
 
 PickTime <- function(myid, myplace){subset(acm_commutes,
                                               subset = id == myid,
                                               select = myplace+1)}
 
-## We want the following characteristics to be represented evenly across teams. We calculate ratios  for the entire corps, and later calculate how well each team matches these ratios.
+## We want the following characteristics to be represented evenly across teams. We calculate ratios  for the # entire corps, and later calculate how well each team matches these ratios.
 # gender.ratio.ideal <- with(acm_df, sum(Gender == "Male")/sum(Gender == "Female"))
+## non-binary
 # caucasian.ratio.ideal <- 
 # afamerican.ratio.ideal <- 
 # latinx.ratio.ideal <- 
-#  
+
 ## Characteristics that we don't want to be even across all schools
 # edu.attainment.hs.ideal <- 
 # edu.attainment.es.ideal <- 
-
+# spanish
   
 calculate_score = function(acm_df, team_placements) {
   
@@ -177,7 +185,7 @@ calculate_score = function(acm_df, team_placements) {
   #            avg.age.var = -mean(age.var))
   ## Also, negative scores are better, and the "-" in front of mean age variance means that
   ## higher average variance of team ages gets relatively more favorable scores.
-  
+  #
   ## New commute calc method references functions defined just before 'calculate_score'
   acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, Team.Placement)))
   
@@ -201,6 +209,7 @@ current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_
 s_curve = function(x, center, width) {
   1 / (1 + exp((x - center) / width))
 }
+
 ```
 
 ```{r}
@@ -253,14 +262,15 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
 ```{r}
 ## USEFULL: system.time({ <<code to time>> })
 
-#system.time({ 
-output <- run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 100, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+# system.time({ 
+output <- run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 #})
+output
 ```
 
 ```{r}
 # Convert the team_placement list into a dataframe with an 'id' column 
-best_placements_df <- data.frame(id = 1:length(results$best_placements), Team.Placement = results$best_placements)
+best_placements_df <- data.frame(id = 1:length(output$best_placements), Team.Placement = output$best_placements)
   
 # Merge team_placements_df with acm_df on the 'id' column we just created
 acm_df_output <- merge(acm_df, best_placements_df, by = "id", all.x = TRUE)
