@@ -163,10 +163,19 @@ PickTime <- function(myid, myplace){subset(acm_commutes,
 # edu.attainment.es.ideal <- 
 # spanish
   
+# Commute times in long format will be easier to index and subset
+acm_commutes_long <-
+  select(acm_commutes, -or) %>%
+  gather(dest, dist, -id) %>%
+  mutate(id_dest = paste(id, dest, sep = "_"))
+
 calculate_score = function(acm_df, team_placements) {
   
   # Convert the team_placement list into a dataframe with an 'id' column 
-  team_placements_df <- data.frame(id = 1:length(team_placements), Team.Placement = team_placements)
+  team_placements_df <- data.frame(id = 1:length(team_placements),
+                                   Team.Placement = team_placements,
+                                   dest = colnames(acm_commutes)[team_placements + 1]) %>%
+    within(id_dest <- paste(id, dest, sep = "_"))
   
   # Merge team_placements_df with acm_df on the 'id' column we just created
   acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
@@ -188,6 +197,20 @@ calculate_score = function(acm_df, team_placements) {
   #
   ## New commute calc method references functions defined just before 'calculate_score'
   acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, Team.Placement)))
+  
+  # NSM's new method for calling commute times
+  system.time({
+    filter(acm_commutes_long, id_dest %in% team_placements_df$id_dest) %>%
+      summarize(sum(dist))
+  })
+ 
+  # NSM: even faster way to do the same thing, with the data.table package
+  library(data.table)
+  dt_commutes <- data.table(acm_commutes_long)
+  system.time({
+    dt_commutes[id_dest %in% team_placements_df$id_dest,
+                sum(dist)]
+  })
   
   return(sum(acm_df_with_placements$"Commute.Time"))
   
