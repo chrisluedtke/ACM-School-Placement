@@ -54,10 +54,10 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 Characteristic | Response Options
 ---------------|------
 Did you attend a CPS school? If so, which? | 
-Language speaking abilities | Null, Spanish
+Language speaking abilities | Null, Spanish, Other
 Age | 
 Tutoring experience | Null, ES, MS, HS
-Tutoring preference | No preference, Math, ELA
+Tutoring preference | No preference, Math, ELA (I'm not sure we actually use this one.  In LA, ACMs are assigned to both subjects.  In other sites I believe they assign subject after placement.  We probably shouldn't try to include this for purely placement reason, though it would still be a good survey question for later subject placement.)
 Grade level preference | Null, ES, MS, HS
 Race/Ethnicity | 
 Education level | High School, Some College, College
