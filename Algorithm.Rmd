@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # install.packages("googleway")
 # install.packages("dplyr")
 # install.packages("tidyr")
+# install.packages("dummies")
 # Nick mentioned there may be a useful package that breaks down script timings 
 ```
 
@@ -26,6 +27,7 @@ library("readxl")
 #library("googleway")
 library("dplyr")
 library("tidyr")
+library(dummies)
 ```
 
 # Read Data
@@ -46,7 +48,36 @@ acm_commutes$id <- 1:nrow(acm_commutes)
 school_df$id <- 1:nrow(school_df)
 
 ```
+# Encode Variables & Clean Up Input Dataframes
 
+Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
+
+```{r Encoding Variables}
+# Encoding ACM variables with some help from `dummies` packages. The final select statement removes the then unnecessary variables. 
+encode_vars <- function(df){
+  # Ran into some trouble with the dpylr %>% pipeline.  Was causing strange names from using `dummies`. 
+  acm_enc <- cbind(df, dummy(df$Education, sep="_education_"))
+  acm_enc <- cbind(acm_enc, dummy(acm_enc$`Tutoring Experience`, sep="_tut exp_"))
+  acm_enc <- cbind(acm_enc, dummy(acm_enc$`Tutoring Preference (Math, ELA, or No Pref)`, sep="_tut pref_"))
+  acm_enc <- cbind(acm_enc, dummy(acm_enc$`Grade Level Preference (3-5, 6-8, or 9)`, sep="_gl pref_"))
+  acm_enc$`Math Ability` <- ifelse(acm_enc$`Math Ability`=="Pre-Algebra or lower" | acm_enc$`Math Ability`=="Algebra I", 0, 1)
+  acm_enc <- cbind(acm_enc, dummy(acm_enc$Languages, sep="_"))
+  acm_enc <- select(acm_enc, -(`First Name`:`Method of Commute`), -(`Tutoring Preference (Math, ELA, or No Pref)`:Languages), -(`Tutoring Experience`:`Manual Zone Placement`), -acm_df_education_College, -`acm_df_tut exp_ `, -`acm_df_tut pref_No Preference`, -`acm_df_ `)
+  acm_enc
+}
+
+# School dataframe cleanup.  Generally we want a count of the target number of ACMs for the particular variable.  Ethnicity might be the only variable we have to calculate by hand, the rest should be setup that way from the Excel sheet.  All we have to do is narrow down to just the columns we'll be using to calculate the score.
+
+school_clean_up <- function(df){
+  school.data <- select(df, -(`School Name`:`School Type`), -(`N Students Total`:`% N/A`))
+  school.data
+}
+
+acm_enc <- encode_vars(acm_df)
+school_targets <- school_clean_up(school_df)
+```
+
+ 
 # Calculate Commutes
 
 To calculate commute times, we essentially send many requests to Google Maps through an API (Applciation Program Interface). To get access to the API we need a key. Visit the [Google Distance Matrix API](https://developers.google.com/maps/documentation/distance-matrix/) page. Click "GET A KEY" in the upper right corner. Save the key privately. This key identifies you to Google.

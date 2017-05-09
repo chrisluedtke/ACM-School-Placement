@@ -54,13 +54,14 @@ Each year City Year places 250 AmeriCorps Members (ACMs) in 26 Chicago Public Sc
 Characteristic | Response Options
 ---------------|------
 Did you attend a CPS school? If so, which? | 
-Language speaking abilities | 
+Language speaking abilities | Null, Spanish
 Age | 
-Tutoring experience | 
-Tutoring preference | Math, ELA, No Preference
-Grade level preference | 
+Tutoring experience | Null, ES, MS, HS
+Tutoring preference | No preference, Math, ELA
+Grade level preference | Null, ES, MS, HS
 Race/Ethnicity | 
-Education level | 
+Education level | High School, Some College, College
+Highest Level of Math Completed | Pre-Algebra or lower, Algebra I, Algebra II, Calculus or above
 Gender | 
 Roommates | 
 Home Address | 
@@ -71,7 +72,7 @@ Characteristic | Notes
 ---------------|------
 School Type | Elementary or High School
 Grade Levels Served | 3, 4, 5, 6, 7, 8, 9
-Racial/Ethnic distribution | Necessary? Are we optimizing for demographics that are balanced across the corps or that reflect student demographics?
+Racial/Ethnic distribution | Either distribution of local demographics *or* specified by site leadership.  Could be specified by Zone?
 Linguistic Needs | 
 Math Ability Needs | High Schools need stronger math ability
 Address (commute times) | 
