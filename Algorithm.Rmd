@@ -87,7 +87,7 @@ acm_df_fake <- data.frame(
 
 This is fake data that may or may not represent an actual corps.
 
-```{r load spreadsheets}
+```{r load spreadsheets, message=F}
 acm_df <- read_excel(path = "Input 1 - ACM Data.xls")
 acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
 school_df <- read_excel(path = "Input 3 - School Data.xls")
@@ -118,7 +118,7 @@ encode_vars <- function(df){
   acm_enc <- cbind(acm_enc, dummy(acm_enc$Languages, sep="_"))
   
   # Remove the excess columns we won't use for scoring
-  acm_enc <- select(acm_enc, -(`First Name`:`Method of Commute`), -(`Tutoring Preference (Math, ELA, or No Pref)`:Languages), -(`Tutoring Experience`:`Manual Zone Placement`), -acm_df_education_College, -`acm_df_tut exp_ `, -`acm_df_tut pref_No Preference`, -`acm_df_ `)
+  acm_enc <- select(acm_enc, -(`First Name`:`Method of Commute`), -(`Tutoring Preference (Math, ELA, or No Pref)`:Languages), -(`Tutoring Experience`:`Manual Zone Placement`), -(acm_df_education_College), -`acm_df_tut exp_ `, -`acm_df_tut pref_No Preference`, -`acm_df_ `)
   
   # Return
   acm_enc
@@ -180,7 +180,6 @@ school_config <- function(school_df, acm_df){
 }
 
 acm_enc <- encode_vars(acm_df)
-
 school_targets <- school_config(school_df, acm_df)
 
 
@@ -490,7 +489,7 @@ repeat{
 }
 ```
 
-```{r generate proposal function for algorithm's steps}
+```{r Gernate Proposal Function}
 GenProp <- function(myAssign){
   # picks random to and from schools, and swaps those assignments
   # returns the full assignment
