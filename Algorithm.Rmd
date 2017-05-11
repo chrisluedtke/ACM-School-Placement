@@ -30,6 +30,59 @@ library("tidyr")
 library(dummies)
 ```
 
+# Generate Fake Data
+
+```{r}
+## Chris: I made many assumptions in ratios between the levels of each factor, but they can easily be tweaked as the survey is developed, and this data will help us test the algorithm.
+
+acm_df_fake <- data.frame(
+  First.Name = rep('', nrow(acm_df)),
+    
+  Last.Name = rep('', nrow(acm_df)),
+    
+  Address.Line.1 = rep('', nrow(acm_df)),
+    
+  Address.Line.2 = rep('', nrow(acm_df)),
+    
+  City = rep('', nrow(acm_df)),
+    
+  State =  rep('', nrow(acm_df)),
+    
+  Postal.Code = rep('', nrow(acm_df)),
+    
+  Method.of.Commute = sample( c('driving', 'transit'), nrow(acm_df), replace=TRUE, prob=c(0.3, 0.7) ),
+    
+  Gender = sample( c('Female', 'Male', 'Non-binary/ third gender'), nrow(acm_df), replace=TRUE, prob=c(0.5, 0.4, 0.1) ),
+    
+  Age = sample( c(18:24), nrow(acm_df), replace=TRUE, prob=c(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1) ),
+    
+  Language.Ability = sample( c('English Only', 'Some Spanish', 'Fluent Spanish'), nrow(acm_df), replace=TRUE,   prob=c(0.4, 0.4, 0.2) ),
+    
+  Tutoring.Preference = sample( c('English Only', 'Some Spanish', 'Fluent Spanish'), nrow(acm_df), replace=TRUE, prob=c(0.4, 0.4, 0.2) ),
+  
+  Tutoring.Experience = sample( c('Yes', 'No'), nrow(acm_df), replace=TRUE, prob=c(0.7, 0.3) ),
+
+  Tutoring.Experience.Months = sample( c('0', '1-3', '4-6', '6-9', '9-12', 'more than 12'), nrow(acm_df),   replace=TRUE, prob=c(0.3, 0.2, 0.2, 0.1, 0.1, 0.1) ),
+  
+  Tutoring.Experience.Grades = sample( c('none', '3rd-5th', '6th-8th', '9th-12th', 'other'), nrow(acm_df),   replace=TRUE, prob=c(0.3, 0.2, 0.2, 0.1, 0.1) ),
+  
+  Teaching.Credential = sample( c('Yes', 'No'), nrow(acm_df), replace=TRUE, prob=c(0.1, 0.9) ),
+  
+  Grade.Level.Preference = sample( c('3rd-5th', '6th-8th','9th-12th'), nrow(acm_df), replace=TRUE, prob=c(0.33,   0.33, 0.33) ),
+  
+  Math.Attainment = sample( c('Pre-algebra or lower', 'Algebra I', 'Algebra II', 'Calculus or higher'),   nrow(acm_df), replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25) ),
+  
+  Race.Ethnicity = sample( c('Hispanic or Latino or Spanish Origin of any race', 'American Indian or Alaskan   Native', 'Asian', 'Native Hawaiian or Other Pacific Islander', 'Black or African American', 'White'),   nrow(acm_df), replace=TRUE, prob=c(0.10, 0.03, 0.05, 0.04, 0.40, 0.38) ),
+  
+  Educational.Attainment = sample( c('High School', 'Some College', 'College Degree'), nrow(acm_df),   replace=TRUE, prob=c(0.2, 0.2, 0.6) ),
+  
+  Roomates = rep('none', nrow(acm_df))
+  
+  )
+
+```
+
+
 # Read Data
 
 This is fake data that may or may not represent an actual corps.
@@ -48,6 +101,7 @@ acm_commutes$id <- 1:nrow(acm_commutes)
 school_df$id <- 1:nrow(school_df)
 
 ```
+
 # Encode Variables & Clean Up Input Dataframes
 
 Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
@@ -128,7 +182,11 @@ school_config <- function(school_df, acm_df){
 acm_enc <- encode_vars(acm_df)
 
 school_targets <- school_config(school_df, acm_df)
+
+
 ```
+
+
 
  
 # Calculate Commutes
@@ -150,9 +208,7 @@ The key I included in this script is a free-use key, so it will be limited to 2,
 # accurately described as 60 minutes, but this function would 
 # still return 45 minutes.
 
-run_commutes = FALSE
-
-if (run_commutes == TRUE){
+calc_commutes = function(){
 
   # This line combines address data into one text string:
   acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
@@ -183,7 +239,10 @@ if (run_commutes == TRUE){
     # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
     acm_commutes <- rbind(acm_commutes, commute$Time)
   }
-}
+  
+  acm_commutes
+
+  }
 
 ```
 
@@ -232,6 +291,7 @@ One thing we should try to avoid is validating all of our placement every time w
   # ethnicity
   # attend local school, CY or local
   # roommates? not necessary?
+
 # Alex
   # educational attainment (potentially different goals for HS/ES)
   # tutoring experience (look at notes from survey)
@@ -244,11 +304,8 @@ PickTime <- function(myid, myplace){subset(acm_commutes,
                                               select = myplace+1)}
 
 ## We want the following characteristics to be represented evenly across teams. We calculate ratios  for the # entire corps, and later calculate how well each team matches these ratios.
-# gender.ratio.ideal <- with(acm_df, sum(Gender == "Male")/sum(Gender == "Female"))
-## non-binary
-# caucasian.ratio.ideal <- 
-# afamerican.ratio.ideal <- 
-# latinx.ratio.ideal <- 
+gender.ratio.ideal <- with(acm_df, sum(Gender == "Male")/sum(Gender == "Female"))
+
 
 ## Characteristics that we don't want to be even across all schools
 # edu.attainment.hs.ideal <- 
@@ -286,7 +343,9 @@ calculate_score = function(acm_df, team_placements) {
   #            avg.age.var = -mean(age.var))
   ## Also, negative scores are better, and the "-" in front of mean age variance means that
   ## higher average variance of team ages gets relatively more favorable scores.
-  #
+  
+  
+  
   ## New commute calc method references functions defined just before 'calculate_score'
   acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, Team.Placement)))
   
