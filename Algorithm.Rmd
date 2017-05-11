@@ -16,17 +16,19 @@ knitr::opts_chunk$set(echo = TRUE)
 # install.packages("dplyr")
 # install.packages("tidyr")
 # install.packages("dummies")
+install.packages("data.table")
 # Nick mentioned there may be a useful package that breaks down script timings 
 ```
 
 # Load Packages
 
 ```{r load packages}
-library("gmapsdistance")
-library("readxl")
+library(gmapsdistance)
+library(readxl)
 #library("googleway")
-library("dplyr")
-library("tidyr")
+library(dplyr)
+library(tidyr)
+library(data.table)
 library(dummies)
 ```
 
@@ -52,13 +54,19 @@ acm_df_fake <- data.frame(
     
   Method.of.Commute = sample( c('driving', 'transit'), nrow(acm_df), replace=TRUE, prob=c(0.3, 0.7) ),
     
-  Gender = sample( c('Female', 'Male', 'Non-binary/ third gender'), nrow(acm_df), replace=TRUE, prob=c(0.5, 0.4, 0.1) ),
+  Gender = sample( c('Female', 
+                     'Male', 
+                     'Non-binary/third gender'), nrow(acm_df), replace=TRUE, prob=c(0.5, 0.4, 0.1) ),
     
   Age = sample( c(18:24), nrow(acm_df), replace=TRUE, prob=c(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1) ),
     
-  Language.Ability = sample( c('English Only', 'Some Spanish', 'Fluent Spanish'), nrow(acm_df), replace=TRUE,   prob=c(0.4, 0.4, 0.2) ),
+  Language.Ability = sample( c('English Only', 
+                               'Some Spanish', 
+                               'Fluent Spanish'), nrow(acm_df), replace=TRUE,   prob=c(0.4, 0.4, 0.2) ),
     
-  Tutoring.Preference = sample( c('English Only', 'Some Spanish', 'Fluent Spanish'), nrow(acm_df), replace=TRUE, prob=c(0.4, 0.4, 0.2) ),
+  Tutoring.Preference = sample( c('ELA', 
+                                  'Math',
+                                  'Either/No Preference'), nrow(acm_df), replace=TRUE, prob=c(0.4, 0.4, 0.2) ),
   
   Tutoring.Experience = sample( c('Yes', 'No'), nrow(acm_df), replace=TRUE, prob=c(0.7, 0.3) ),
 
@@ -68,13 +76,28 @@ acm_df_fake <- data.frame(
   
   Teaching.Credential = sample( c('Yes', 'No'), nrow(acm_df), replace=TRUE, prob=c(0.1, 0.9) ),
   
-  Grade.Level.Preference = sample( c('3rd-5th', '6th-8th','9th-12th'), nrow(acm_df), replace=TRUE, prob=c(0.33,   0.33, 0.33) ),
+  Grade.Level.Preference = sample( c('3rd-5th', 
+                                     '6th-8th',
+                                     '9th-12th'), 
+                                   nrow(acm_df), replace=TRUE, prob=c(0.33,   0.33, 0.33) ),
   
-  Math.Attainment = sample( c('Pre-algebra or lower', 'Algebra I', 'Algebra II', 'Calculus or higher'),   nrow(acm_df), replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25) ),
+  Math.Attainment = sample( c('Pre-algebra or lower', 
+                              'Algebra I', 
+                              'Algebra II', 
+                              'Calculus or higher'),   
+                            nrow(acm_df), replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25) ),
   
-  Race.Ethnicity = sample( c('Hispanic or Latino or Spanish Origin of any race', 'American Indian or Alaskan   Native', 'Asian', 'Native Hawaiian or Other Pacific Islander', 'Black or African American', 'White'),   nrow(acm_df), replace=TRUE, prob=c(0.10, 0.03, 0.05, 0.04, 0.40, 0.38) ),
+  Race.Ethnicity = sample( c('Hispanic or Latino or Spanish Origin of any race', 
+                             'American Indian or Alaskan   Native', 'Asian', 
+                             'Native Hawaiian or Other Pacific Islander', 
+                             'Black or African American', 
+                             'White'),   
+                           nrow(acm_df), replace=TRUE, prob=c(0.10, 0.03, 0.05, 0.04, 0.40, 0.38) ),
   
-  Educational.Attainment = sample( c('High School', 'Some College', 'College Degree'), nrow(acm_df),   replace=TRUE, prob=c(0.2, 0.2, 0.6) ),
+  Educational.Attainment = sample( c('High School', 
+                                     'Some College', 
+                                     'College Degree'),
+                                   nrow(acm_df),   replace=TRUE, prob=c(0.2, 0.2, 0.6) ),
   
   Roomates = rep('none', nrow(acm_df))
   
@@ -182,7 +205,6 @@ school_config <- function(school_df, acm_df){
 acm_enc <- encode_vars(acm_df)
 school_targets <- school_config(school_df, acm_df)
 
-
 ```
 
 
@@ -270,11 +292,14 @@ initial_placement <- function(){
   team_placements <- data.frame(placement=unlist(team_placements))
   
   # Randomize Starting Place
-  data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ])
+  data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ], 
+             id= 1:nrow(team_placements))
 }
 
 
-team_placements <- initial_placement()
+team_placements_df <- initial_placement()
+
+
 ```
 
 ### Calculate score
@@ -285,7 +310,9 @@ One thing we should try to avoid is validating all of our placement every time w
 
 ```{r}
 # Chris
-  # gender/sex
+## Chris: We want the following characteristics to be represented evenly across teams. We calculate ratios  for the # entire corps, and later calculate how well each team matches these ratios.
+gender.ratio.ideal <- with(acm_df, sum(Gender == "Male")/sum(Gender == "Female"))
+
   # age
   # ethnicity
   # attend local school, CY or local
@@ -302,8 +329,7 @@ PickTime <- function(myid, myplace){subset(acm_commutes,
                                               subset = id == myid,
                                               select = myplace+1)}
 
-## We want the following characteristics to be represented evenly across teams. We calculate ratios  for the # entire corps, and later calculate how well each team matches these ratios.
-gender.ratio.ideal <- with(acm_df, sum(Gender == "Male")/sum(Gender == "Female"))
+
 
 
 ## Characteristics that we don't want to be even across all schools
@@ -319,11 +345,15 @@ acm_commutes_long <-
 
 calculate_score = function(acm_df, team_placements) {
   
-  # Convert the team_placement list into a dataframe with an 'id' column 
-  team_placements_df <- data.frame(id = 1:length(team_placements),
-                                   Team.Placement = team_placements,
-                                   dest = colnames(acm_commutes)[team_placements + 1]) %>%
-    within(id_dest <- paste(id, dest, sep = "_"))
+  ## Convert the team_placement list into a dataframe with an 'id' column 
+  # team_placements_df <- data.frame(id = 1:length(team_placements),
+  #                                 Team.Placement = team_placements)
+  
+  ## New! Convert the team_placement list into a dataframe with an 'id' column 
+  # team_placements_df <- data.frame(id = 1:length(team_placements),
+  #                                  Team.Placement = team_placements,
+  #                                  dest = colnames(acm_commutes)[team_placements + 1]) %>%
+  #   within(id_dest <- paste(id, dest, sep = "_"))
   
   # Merge team_placements_df with acm_df on the 'id' column we just created
   acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
@@ -343,28 +373,24 @@ calculate_score = function(acm_df, team_placements) {
   ## Also, negative scores are better, and the "-" in front of mean age variance means that
   ## higher average variance of team ages gets relatively more favorable scores.
   
-  
-  
-  ## New commute calc method references functions defined just before 'calculate_score'
-  acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, Team.Placement)))
-  
-  # NSM's new method for calling commute times
-  system.time({
-    filter(acm_commutes_long, id_dest %in% team_placements_df$id_dest) %>%
-      summarize(sum(dist))
-  })
+  ## NSM's new method for calling commute times
+  # system.time({
+  #   filter(acm_commutes_long, id_dest %in% team_placements_df$id_dest) %>%
+  #     summarize(sum(dist))
+  # })
  
-  # NSM: even faster way to do the same thing, with the data.table package
-  library(data.table)
-  dt_commutes <- data.table(acm_commutes_long)
-  system.time({
-    dt_commutes[id_dest %in% team_placements_df$id_dest,
-                sum(dist)]
-  })
+  # # NSM: even faster way to do the same thing, with the data.table package
+  # 
+  # dt_commutes <- data.table(acm_commutes_long)
+  # 
+  # dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
   
+  
+  ## Old commute calc method references functions defined just before 'calculate_score'
+  acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, Team.Placement)))
   return(sum(acm_df_with_placements$"Commute.Time"))
   
-  # Previous commute calc method (10x slower!)
+  # Old commute calc method (10x slower!)
   #   acm_row <- subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_row))]
   #   acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
   #   Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
@@ -386,7 +412,7 @@ s_curve = function(x, center, width) {
 ```
 
 ```{r}
-run_intermediate_annealing_process = function(acm_df, team_placements, placement_score, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+run_intermediate_annealing_process = function(acm_df, team_placements_df, placement_score, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
   
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
@@ -404,12 +430,13 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
     # Choose 1 ACM from each of those schools
     swap1 = with(candidate_placements_df, sample(index[candidate_placements == schools_to_swap[1]], 1))
     swap2 = with(candidate_placements_df, sample(index[candidate_placements == schools_to_swap[2]], 1))
+    browser()
     # Swap the team assignment of those 2 ACMs
     candidate_placements = replace(candidate_placements, c(swap1, swap2), candidate_placements[c(swap2, swap1)])
     
     # Merge in ACM data
     candidate_score = calculate_score(acm_df, candidate_placements)
-
+    
     if (temp > 0) {
       ratio = exp((placement_score - candidate_score) / temp)
     } else {
@@ -436,7 +463,7 @@ run_intermediate_annealing_process = function(acm_df, team_placements, placement
 ## USEFULL: system.time({ <<code to time>> })
 
 # system.time({ 
-output <- run_intermediate_annealing_process(acm_df, team_placements, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 #})
 output
 ```
