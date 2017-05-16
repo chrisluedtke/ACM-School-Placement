@@ -35,8 +35,6 @@ library(dummies)
 # Generate Fake Data
 
 ```{r}
-## Chris: I made many assumptions in ratios between the levels of each factor, but they can easily be tweaked as the survey is developed, and this data will help us test the algorithm.
-
 # Used for Birthdates
 fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
      st <- as.POSIXct(as.Date(st))
@@ -46,24 +44,16 @@ fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
      rt <- st + ev 
      trunc(rt, units = "days")}
 
-generate_fake_df <- function(num_rows){
-  data.frame(
+generate_fake_df <- function(num_rows, school_df){
+  fake_df <- data.frame(
     First.Name = rep('', num_rows),
       
     Last.Name = rep('', num_rows),
       
-    Address.Line.1 = rep('', num_rows),
-      
-    Address.Line.2 = rep('', num_rows),
-      
-    City = rep('', num_rows),
-      
-    State =  rep('', num_rows),
-      
-    Postal.Code = rep('', num_rows),
-      
-    Attnd.CY.Local.School = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.1, 0.9) ),
+    Attnd.CY.School = sample( c('I did not attend a City Year school', school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.95, rep(0.01, length(school_df$`School Name`)))),
     
+    Language.Other.English =  sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.2, 0.8) ),
+                                    
     Language.Ability = sample( c('Spanish', 
                                  'French', 
                                  'Arabic',
@@ -73,20 +63,21 @@ generate_fake_df <- function(num_rows){
                                  'Chinese (Mandarin)',
                                  'Chinese (Cantonese)',
                                  'Polish',
-                                 'N/A',
                                  'Other'), 
-                               num_rows, replace=TRUE,   prob=c(0.1, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,  0.02, 0.7, 0.04) ),
+                               num_rows, replace=TRUE, prob=c(0.15, 0.05, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,  0.02, 0.02) ),
   
     Tutoring.Experience = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.7, 0.3) ),
   
     Tutoring.Experience.Months = sample(1:12, num_rows, replace = TRUE, prob = 12:1),
     
     Tutoring.Experience.Grades = sample( c('Elementary School',
-                                       'Elementary School, Middle School',
-                                       'Middle School',
-                                       'Middle School, High School',
-                                       'High School',
-                                       'Elementary School, Middle School, High School'), num_rows, replace=TRUE, prob=c(0.15, 0.15, 0.15, 0.15, 0.15, 0.1) ),
+                                           'Elementary School, Middle School',
+                                           'Middle School',
+                                           'Middle School, High School',
+                                           'High School',
+                                           'Elementary School, High School',
+                                           'Elementary School, Middle School, High School'), 
+                                         num_rows, replace=TRUE, prob=c(0.15, 0.15, 0.15, 0.15, 0.15, 0.05, 0.1) ),
     
     Teaching.Credential = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.1, 0.9) ),
       
@@ -94,19 +85,20 @@ generate_fake_df <- function(num_rows){
                                     'Math',
                                     'Either/No Preference'), num_rows, replace=TRUE, prob=c(0.4, 0.4, 0.2) ),
     
-    Grade.Level.Preference = sample( c('Elementary School',
+    Grade.Lvl.Preference = sample( c('Elementary School',
                                        'Elementary School, Middle School',
                                        'Middle School',
                                        'Middle School, High School',
                                        'High School',
-                                       'Elementary School, Middle School, High School'), num_rows, replace=TRUE, prob=c(0.16, 0.16, 0.16, 0.16, 0.16, 0.2) ),
+                                       'Elementary School, High School',
+                                       'Elementary School, Middle School, High School'), num_rows, replace=TRUE, prob=c(0.16, 0.16, 0.16, 0.16, 0.16, 0.01, 0.2) ),
       
-    Math.Attainment = sample( c('Pre-algebra or lower', 
+    Math.Confidence = sample( c('Pre-algebra or lower', 
                                 'Algebra I', 
                                 'Algebra II', 
                                 'Calculus or higher'), num_rows, replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25) ),
   
-    Method.of.Commute = sample( c('driving', 'transit'), num_rows, replace=TRUE, prob=c(0.3, 0.7) ),
+    Travel.Method = sample( c('Driving', 'Public Transit', 'Biking', 'Walking'), num_rows, replace=TRUE, prob=c(0.3, 0.6, 0.07, 0.03) ),
       
     Gender = sample( c('Female', 
                        'Male', 
@@ -122,9 +114,12 @@ generate_fake_df <- function(num_rows){
                                'Hispanic/Latino',
                                'Middle Eastern',
                                'Native Hawaiian or Pacific Islander',
-                               'White/Caucasian, non-Hispanic/Latino',
-                               'Multi-ethnic (text input)'),   
-                             num_rows, replace=TRUE, prob=c(0.3, 0.03, 0.05, 0.13, 0.03, 0.03, 0.38, 0.05) ),
+                               'White/Caucasian',
+                               'African American/Black, Hispanic/Latino', 
+                               'Hispanic/Latino, White/Caucasian',
+                               'Middle Eastern, White/Caucasian',
+                               'African American/Black, White/Caucasian'), 
+                             num_rows, replace=TRUE, prob=c(0.3, 0.03, 0.05, 0.13, 0.03, 0.03, 0.38, 0.05, 0.01, 0.01, 0.01) ),
     
     Educational.Attainment = sample( c('High School/GED', 
                                        'Some College',
@@ -133,13 +128,34 @@ generate_fake_df <- function(num_rows){
                                        "Master's Desgree"),
                                      num_rows,   replace=TRUE, prob=c(0.2, 0.2, 0.15, 0.4, 0.05) ),
     
-    Roomates = rep('none', num_rows)
+    Know.Living =  sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
+    
+    Address.Line.1 = rep('', num_rows),
+      
+    Address.Line.2 = rep('', num_rows),
+      
+    City = rep('', num_rows),
+      
+    State =  rep('', num_rows),
+      
+    Postal.Code = rep('', num_rows),
+    
+    Roomates = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
+    
+    Roommate.Names = rep('none', num_rows)
   )
+  
+  fake_df$Language.Ability[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Tutoring.Experience.Months[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Tutoring.Experience.Grades[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Teaching.Credential[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Roommate.Names[fake_df$Roomates == 'No'] <- NA
+  return(fake_df)
 }
   
-acm_df_fake <- generate_fake_df(247)
+acm_df_fake <- generate_fake_df(247, school_df)
 
-# write.csv(acm_df_fake, file = "C:\Users\CLuedtke.CITYYEAR\Downloads")
+# write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
 
@@ -159,7 +175,6 @@ acm_df <- acm_df[-nrow(acm_df),]
 acm_df$id <- 1:nrow(acm_df)
 acm_commutes$id <- 1:nrow(acm_commutes)
 school_df$id <- 1:nrow(school_df)
-
 ```
 
 # Encode Variables & Clean Up Input Dataframes
