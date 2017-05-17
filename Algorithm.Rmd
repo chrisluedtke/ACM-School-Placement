@@ -32,6 +32,25 @@ library(data.table)
 library(dummies)
 ```
 
+# Read Data
+
+This is fake data that may or may not represent an actual corps.
+
+```{r load spreadsheets, message=F}
+acm_df <- read_excel(path = "Input 1 - ACM Data.xls")
+acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
+school_df <- read_excel(path = "Input 3 - School Data.xls")
+
+# For some reason there is an empty row at the end of acm_df, so it's removed here:
+acm_df <- acm_df[-nrow(acm_df),]
+
+# Add id columns
+acm_df$id <- 1:nrow(acm_df)
+acm_commutes$id <- 1:nrow(acm_commutes)
+school_df$id <- 1:nrow(school_df)
+```
+
+
 # Generate Fake Data
 
 ```{r}
@@ -156,25 +175,6 @@ generate_fake_df <- function(num_rows, school_df){
 acm_df_fake <- generate_fake_df(247, school_df)
 
 # write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
-```
-
-
-# Read Data
-
-This is fake data that may or may not represent an actual corps.
-
-```{r load spreadsheets, message=F}
-acm_df <- read_excel(path = "Input 1 - ACM Data.xls")
-acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
-school_df <- read_excel(path = "Input 3 - School Data.xls")
-
-# For some reason there is an empty row at the end of acm_df, so it's removed here:
-acm_df <- acm_df[-nrow(acm_df),]
-
-# Add id columns
-acm_df$id <- 1:nrow(acm_df)
-acm_commutes$id <- 1:nrow(acm_commutes)
-school_df$id <- 1:nrow(school_df)
 ```
 
 # Encode Variables & Clean Up Input Dataframes
@@ -351,7 +351,7 @@ initial_placement <- function(){
 
 team_placements_df <- initial_placement()
 
-
+team_placements_df
 ```
 
 ### Calculate score
@@ -395,7 +395,7 @@ acm_commutes_long <-
   gather(dest, dist, -id) %>%
   mutate(id_dest = paste(id, dest, sep = "_"))
 
-calculate_score = function(acm_df, team_placements) {
+calculate_score = function(acm_df, team_placements_df) {
   
   ## Convert the team_placement list into a dataframe with an 'id' column 
   # team_placements_df <- data.frame(id = 1:length(team_placements),
@@ -407,11 +407,12 @@ calculate_score = function(acm_df, team_placements) {
   #                                  dest = colnames(acm_commutes)[team_placements + 1]) %>%
   #   within(id_dest <- paste(id, dest, sep = "_"))
   
+  
   # Merge team_placements_df with acm_df on the 'id' column we just created
   acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
   
   # Merge acm_df_with_placements with school_df to pull in school characteristics
-  acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "Team.Placement", by.y = "id", all.x = TRUE)
+  acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "placement", by.y = "id", all.x = TRUE)
   
   #Placement.Scores <-
   #  group_by(acm_df_with_placements, Team.Placement) %>%
@@ -431,15 +432,19 @@ calculate_score = function(acm_df, team_placements) {
   #     summarize(sum(dist))
   # })
  
-  # # NSM: even faster way to do the same thing, with the data.table package
-  # 
+  # NSM: even faster way to do the same thing, with the data.table package
+  
+  # team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
+  
+  # within(team_placements_df, id_dest <- paste(id, dest, sep = "_"))
+  
   # dt_commutes <- data.table(acm_commutes_long)
-  # 
+  
   # dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
   
   
   ## Old commute calc method references functions defined just before 'calculate_score'
-  acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, Team.Placement)))
+  acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, placement)))
   return(sum(acm_df_with_placements$"Commute.Time"))
   
   # Old commute calc method (10x slower!)
@@ -471,23 +476,20 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
     temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
     
     # Create a copy of team_placements
-    candidate_placements = team_placements
-    
-    # Create an 'index' column
-    candidate_placements_df = data.frame(index=1:length(candidate_placements), candidate_placements)
+    candidate_placements_df = team_placements_df
     
     # Choose 2 schools at random
     schools_to_swap = sample(1:nrow(school_df), 2)
-    
+
     # Choose 1 ACM from each of those schools
-    swap1 = with(candidate_placements_df, sample(index[candidate_placements == schools_to_swap[1]], 1))
-    swap2 = with(candidate_placements_df, sample(index[candidate_placements == schools_to_swap[2]], 1))
-    browser()
+    swap1 = with(candidate_placements_df, sample(id[candidate_placements_df$id == schools_to_swap[1]], 1))
+    swap2 = with(candidate_placements_df, sample(id[candidate_placements_df$id == schools_to_swap[2]], 1))
+
     # Swap the team assignment of those 2 ACMs
-    candidate_placements = replace(candidate_placements, c(swap1, swap2), candidate_placements[c(swap2, swap1)])
+    candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
     
     # Merge in ACM data
-    candidate_score = calculate_score(acm_df, candidate_placements)
+    candidate_score = calculate_score(acm_df, candidate_placements_df)
     
     if (temp > 0) {
       ratio = exp((placement_score - candidate_score) / temp)
@@ -496,17 +498,17 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
     }
     
     if (runif(1) < ratio) {
-      team_placements = candidate_placements
+      team_placements_df = candidate_placements_df
       placement_score = candidate_score
       
       if (placement_score < best_score) {
-        best_placements = team_placements
+        best_placements = team_placements_df
         best_score = placement_score
       }
     }
   }
   
-  return(list(team_placements=team_placements, placement_score=placement_score, best_placements=best_placements, best_score=best_score))
+  return(list(team_placements_df=team_placements_df, placement_score=placement_score, best_placements=best_placements, best_score=best_score))
 }
 
 ```
@@ -515,7 +517,7 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
 ## USEFULL: system.time({ <<code to time>> })
 
 # system.time({ 
-output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements_df, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 #})
 output
 ```
