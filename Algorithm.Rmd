@@ -37,12 +37,13 @@ library(dummies)
 This is fake data that may or may not represent an actual corps.
 
 ```{r load spreadsheets, message=F}
-acm_df <- read_excel(path = "Input 1 - ACM Data.xls")
+#acm_df <- read_excel(path = "Input 1 - ACM Data.xls")
+# For some reason there is an empty row at the end of acm_df in the .xls, so it's removed here:
+#acm_df <- acm_df[-nrow(acm_df),]
+
+acm_df <- read.csv(file = "Input 1 - ACM Data.csv")
 acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
 school_df <- read_excel(path = "Input 3 - School Data.xls")
-
-# For some reason there is an empty row at the end of acm_df, so it's removed here:
-acm_df <- acm_df[-nrow(acm_df),]
 
 # Add id columns
 acm_df$id <- 1:nrow(acm_df)
@@ -173,7 +174,7 @@ generate_fake_df <- function(num_rows, school_df){
 }
   
 acm_df_fake <- generate_fake_df(247, school_df)
-
+acm_df_fake
 # write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
@@ -351,7 +352,6 @@ initial_placement <- function(){
 
 team_placements_df <- initial_placement()
 
-team_placements_df
 ```
 
 ### Calculate score
@@ -363,11 +363,62 @@ One thing we should try to avoid is validating all of our placement every time w
 ```{r}
 # Chris
 ## Chris: We want the following characteristics to be represented evenly across teams. We calculate ratios  for the # entire corps, and later calculate how well each team matches these ratios.
-gender.ratio.ideal <- with(acm_df, sum(Gender == "Male")/sum(Gender == "Female"))
 
-  # age
+# calc percent prevalence each gender category in entire corps, calc difference between those numbers and that found within school teams
+
+# Gen random placements
+acm_df$sch_id <- sample(1:26, nrow(acm_df), replace = TRUE)
+  # Note: move this inside the loop of assignments
+
+# Create data.frame with each potential combination of gender and school
+gender_frame <- 
+  expand.grid(sch_id = 1:26, Gender = levels(acm_df$Gender))
+  # Note--need to replace sch_id with the appropriate school id values based off of the data
+
+# Create tibbl representing percentages of each gender category across entire corps
+gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(acm_df))
+
+# Merge them by "gender"
+gender_frame_g <-
+  merge(x = gender_frame,
+        y = gender_g,
+        by = "Gender",
+        all.x = TRUE)
+
+
+# Represent percentage of each gender category within each team
+gender_gs <- 
+  acm_df %>%
+  group_by(sch_id, Gender) %>%
+  dplyr::summarize(n_gs = n()) %>%
+  group_by(sch_id) %>%
+  dplyr::mutate(pct_gs = n_gs/sum(n_gs))
+
+# Calculate absolute value of difference between gender percentages at each team and across the corps
+gender_frame_gs <-
+  merge(x = gender_frame_g,
+        y = gender_gs,
+        by = c("sch_id", "Gender"),
+        all.x = TRUE) %>%
+  within({
+    diff_gs <- pct_g - ifelse(is.na(pct_gs), 0, pct_gs)
+    abs_diff_gs <- abs(diff_gs)
+  }) %>%
+  summarise(mean_gend_diff = mean(abs_diff_gs))
+
+  # age - group by school, get age variance, 
+  age_var <- 
+    group_by(acm_df, sch_id) %>%
+    summarize(age_var = var(age)) %>%
+    ungroup() %>%
+    summarize(avg_age_var = mean(age_var))
+
+  # To prevent 
+  
   # ethnicity
+
   # attend local school, CY or local
+
   # roommates? not necessary?
 
 # Alex
@@ -376,7 +427,9 @@ gender.ratio.ideal <- with(acm_df, sum(Gender == "Male")/sum(Gender == "Female")
   # tutoring preference
   # grade level preference
   # language speaking
+```
 
+```{r}
 PickTime <- function(myid, myplace){subset(acm_commutes,
                                               subset = id == myid,
                                               select = myplace+1)}
@@ -432,21 +485,21 @@ calculate_score = function(acm_df, team_placements_df) {
   #     summarize(sum(dist))
   # })
  
-  # NSM: even faster way to do the same thing, with the data.table package
+  ## NSM: even faster way to do the same thing, with the data.table package
+  team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
   
-  # team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
+  team_placements_df <- within(team_placements_df, id_dest <- paste(id, dest, sep = "_"))
   
-  # within(team_placements_df, id_dest <- paste(id, dest, sep = "_"))
+  dt_commutes <- data.table(acm_commutes_long)
   
-  # dt_commutes <- data.table(acm_commutes_long)
+  dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
   
-  # dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
-  
+  #browser()
   
   ## Old commute calc method references functions defined just before 'calculate_score'
-  acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, placement)))
-  return(sum(acm_df_with_placements$"Commute.Time"))
-  
+  # acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, placement)))
+  # return(sum(acm_df_with_placements$"Commute.Time"))
+  # 
   # Old commute calc method (10x slower!)
   #   acm_row <- subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_row))]
   #   acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
@@ -520,6 +573,7 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
 output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements_df, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 #})
 output
+
 ```
 
 ```{r}
