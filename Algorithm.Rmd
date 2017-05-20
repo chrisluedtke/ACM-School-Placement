@@ -16,8 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # install.packages("dplyr")
 # install.packages("tidyr")
 # install.packages("dummies")
-install.packages("data.table")
-# Nick mentioned there may be a useful package that breaks down script timings 
+# install.packages("data.table")
 ```
 
 # Load Packages
@@ -32,15 +31,33 @@ library(data.table)
 library(dummies)
 ```
 
+# Tasks
+
+## To D0
+  * Determine weights
+
+## Chris
+  * commutes time (DONE!)
+  * gender variance (DONE!)
+    *  still need to add weights and probably remove some aspects from the loop
+  * age (DONE!)
+    *  still need to add weights and probably remove some aspects from the loop
+  * ethnicity
+  * attend CY school
+  * roommates? not necessary?
+
+## Alex
+  * educational attainment (potentially different goals for HS/ES)
+  * tutoring experience (look at notes from survey)
+  * tutoring preference
+  * grade level preference
+  * language speaking
+
 # Read Data
 
 This is fake data that may or may not represent an actual corps.
 
 ```{r load spreadsheets, message=F}
-#acm_df <- read_excel(path = "Input 1 - ACM Data.xls")
-# For some reason there is an empty row at the end of acm_df in the .xls, so it's removed here:
-#acm_df <- acm_df[-nrow(acm_df),]
-
 acm_df <- read.csv(file = "Input 1 - ACM Data.csv")
 acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
 school_df <- read_excel(path = "Input 3 - School Data.xls")
@@ -49,6 +66,12 @@ school_df <- read_excel(path = "Input 3 - School Data.xls")
 acm_df$id <- 1:nrow(acm_df)
 acm_commutes$id <- 1:nrow(acm_commutes)
 school_df$id <- 1:nrow(school_df)
+
+# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
+acm_commutes_long <-
+  select(acm_commutes, -or) %>%
+  gather(dest, dist, -id) %>%
+  mutate(id_dest = paste(id, dest, sep = "_"))
 ```
 
 
@@ -174,7 +197,7 @@ generate_fake_df <- function(num_rows, school_df){
 }
   
 acm_df_fake <- generate_fake_df(247, school_df)
-acm_df_fake
+
 # write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
@@ -354,158 +377,108 @@ team_placements_df <- initial_placement()
 
 ```
 
-### Calculate score
+# Calculate score
 
 This is the function that calculates the quality of each placement.
 
 One thing we should try to avoid is validating all of our placement every time we swap.  Instead we should try to implament our hard constraints through the cost function.  For example, if we weight the high school grad target really high, thus imposing a large penalty on any placement where a high school graduate is placed at a high school
 
 ```{r}
-# Chris
-## Chris: We want the following characteristics to be represented evenly across teams. We calculate ratios  for the # entire corps, and later calculate how well each team matches these ratios.
-
-# calc percent prevalence each gender category in entire corps, calc difference between those numbers and that found within school teams
-
-# Gen random placements
-acm_df$sch_id <- sample(1:26, nrow(acm_df), replace = TRUE)
-  # Note: move this inside the loop of assignments
-
-# Create data.frame with each potential combination of gender and school
-gender_frame <- 
-  expand.grid(sch_id = 1:26, Gender = levels(acm_df$Gender))
-  # Note--need to replace sch_id with the appropriate school id values based off of the data
-
-# Create tibbl representing percentages of each gender category across entire corps
-gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(acm_df))
-
-# Merge them by "gender"
-gender_frame_g <-
-  merge(x = gender_frame,
-        y = gender_g,
-        by = "Gender",
-        all.x = TRUE)
-
-
-# Represent percentage of each gender category within each team
-gender_gs <- 
-  acm_df %>%
-  group_by(sch_id, Gender) %>%
-  dplyr::summarize(n_gs = n()) %>%
-  group_by(sch_id) %>%
-  dplyr::mutate(pct_gs = n_gs/sum(n_gs))
-
-# Calculate absolute value of difference between gender percentages at each team and across the corps
-gender_frame_gs <-
-  merge(x = gender_frame_g,
-        y = gender_gs,
-        by = c("sch_id", "Gender"),
-        all.x = TRUE) %>%
-  within({
-    diff_gs <- pct_g - ifelse(is.na(pct_gs), 0, pct_gs)
-    abs_diff_gs <- abs(diff_gs)
-  }) %>%
-  summarise(mean_gend_diff = mean(abs_diff_gs))
-
-  # age - group by school, get age variance, 
-  age_var <- 
-    group_by(acm_df, sch_id) %>%
-    summarize(age_var = var(age)) %>%
-    ungroup() %>%
-    summarize(avg_age_var = mean(age_var))
-
-  # To prevent 
-  
-  # ethnicity
-
-  # attend local school, CY or local
-
-  # roommates? not necessary?
-
-# Alex
-  # educational attainment (potentially different goals for HS/ES)
-  # tutoring experience (look at notes from survey)
-  # tutoring preference
-  # grade level preference
-  # language speaking
-```
-
-```{r}
-PickTime <- function(myid, myplace){subset(acm_commutes,
-                                              subset = id == myid,
-                                              select = myplace+1)}
-
-
-
-
-## Characteristics that we don't want to be even across all schools
-# edu.attainment.hs.ideal <- 
-# edu.attainment.es.ideal <- 
-# spanish
-  
-# Commute times in long format will be easier to index and subset
-acm_commutes_long <-
-  select(acm_commutes, -or) %>%
-  gather(dest, dist, -id) %>%
-  mutate(id_dest = paste(id, dest, sep = "_"))
-
 calculate_score = function(acm_df, team_placements_df) {
   
-  ## Convert the team_placement list into a dataframe with an 'id' column 
-  # team_placements_df <- data.frame(id = 1:length(team_placements),
-  #                                 Team.Placement = team_placements)
+  #########
+  # MERGE #
+  #########
   
-  ## New! Convert the team_placement list into a dataframe with an 'id' column 
-  # team_placements_df <- data.frame(id = 1:length(team_placements),
-  #                                  Team.Placement = team_placements,
-  #                                  dest = colnames(acm_commutes)[team_placements + 1]) %>%
-  #   within(id_dest <- paste(id, dest, sep = "_"))
-  
-  
-  # Merge team_placements_df with acm_df on the 'id' column we just created
+  # Merge team_placements_df with acm_df on the 'id' column
   acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
   
   # Merge acm_df_with_placements with school_df to pull in school characteristics
   acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "placement", by.y = "id", all.x = TRUE)
   
-  #Placement.Scores <-
-  #  group_by(acm_df_with_placements, Team.Placement) %>%
-  #  summarize(gender.ratio = sum(Gender == "Male")/sum(Gender == "Female"),
-  #            age.var = var(Age)) %>%
-  #  mutate(gender.ratio.dev = abs(gender.ratio - gender.ratio.ideal)) %>%
-  #  ungroup() %>%
-  ## 3 is some arbitrary score weight
-  #  summarize(gender.ratio.score = mean(gender.ratio.dev)*3,
-  #            avg.age.var = -mean(age.var))
-  ## Also, negative scores are better, and the "-" in front of mean age variance means that
-  ## higher average variance of team ages gets relatively more favorable scores.
+  #################
+  # COMMUTE SCORE #
+  #################
   
-  ## NSM's new method for calling commute times
-  # system.time({
-  #   filter(acm_commutes_long, id_dest %in% team_placements_df$id_dest) %>%
-  #     summarize(sum(dist))
-  # })
- 
-  ## NSM: even faster way to do the same thing, with the data.table package
+  # This score is simply the average number of seconds each ACM travels to their assigned school
+  
   team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
   
   team_placements_df <- within(team_placements_df, id_dest <- paste(id, dest, sep = "_"))
   
   dt_commutes <- data.table(acm_commutes_long)
   
-  dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
+  commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
   
-  #browser()
-  
-  ## Old commute calc method references functions defined just before 'calculate_score'
-  # acm_df_with_placements$"Commute.Time" <- unlist(with(acm_df_with_placements, mapply(PickTime, id, placement)))
-  # return(sum(acm_df_with_placements$"Commute.Time"))
-  # 
-  # Old commute calc method (10x slower!)
-  #   acm_row <- subset(acm_df_with_placements, id == x)[ , grepl("Time.to.", names(acm_row))]
-  #   acm_commute <- acm_row[ , grepl("Time.to.", names(acm_row))]
-  #   Actual.Commute.Time <- acm_commute[acm_row$Team.Placement]
-  #   acm_commutes <- rbind(acm_commutes, Actual.Commute.Time[1,1])
+  ################
+  # GENDER SCORE #
+  ################
 
+  # This score measures the average of differences between each gender's percent occurance across the corps and its occurance on each team
+  
+  # Create data.frame with each potential combination of gender and school, based on the survey responses provided
+  gender_frame <- 
+    expand.grid(placement = 1:26, Gender = levels(acm_df$Gender))
+    # Note--need to replace sch_id with the appropriate school id values based off of the data
+  
+  # Create tibbl containing percentage representation of each gender category across the entire corps
+  gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(acm_df))
+  
+  # Merge previous two frames by "gender"
+  gender_frame_g <-
+    merge(x = gender_frame,
+          y = gender_g,
+          by = "Gender",
+          all.x = TRUE)
+  
+  # Represent percentage of each gender category within each team
+  gender_gs <- 
+    acm_df_with_placements %>%
+    group_by(placement, Gender) %>%
+    dplyr::summarize(n_gs = n()) %>%
+    group_by(placement) %>%
+    dplyr::mutate(pct_gs = n_gs/sum(n_gs))
+  
+  # Calculate absolute value of difference between gender percentages at each team and across the corps
+  gender_frame_gs <-
+    merge(x = gender_frame_g,
+          y = gender_gs,
+          by = c("placement", "Gender"),
+          all.x = TRUE) %>%
+    within({
+      diff_gs <- pct_g - ifelse(is.na(pct_gs), 0, pct_gs)
+      abs_diff_gs <- abs(diff_gs)
+    }) %>%
+    summarise(mean_gend_diff = mean(abs_diff_gs))
+  
+  gender_score <- gender_frame_gs$mean_gend_diff
+  
+  #############
+  # AGE SCORE #
+  #############
+  
+  # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
+  
+  acm_df_with_placements$days_old <- Sys.Date() - as.Date(as.character(acm_df_with_placements$Birth.Date), format="%m/%d/%Y")
+  
+  acm_df_with_placements$days_old <- as.integer(acm_df_with_placements$days_old)
+  
+  age_var <- 
+    group_by(acm_df_with_placements, placement) %>%
+    summarize(age_var = var(days_old)) %>%
+    ungroup() %>%
+    summarize(avg_age_var = mean(age_var))
+
+  age_score <- abs(age_var$avg_age_var - var(acm_df_with_placements$days_old))
+  
+  #################
+  # OVERALL SCORE #
+  #################
+  
+  aggr_score <- commute_score + gender_score + age_score
+  
+  return(list(aggr_score=aggr_score, commute_score=commute_score, gender_score=gender_score, age_score=age_score))
+  
 }
 
 ```
@@ -541,18 +514,17 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
     # Swap the team assignment of those 2 ACMs
     candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
     
-    # Merge in ACM data
     candidate_score = calculate_score(acm_df, candidate_placements_df)
     
     if (temp > 0) {
-      ratio = exp((placement_score - candidate_score) / temp)
+      ratio = exp((placement_score - candidate_score$aggr_score) / temp)
     } else {
-      ratio = as.numeric(candidate_score < placement_score)
+      ratio = as.numeric(candidate_score$aggr_score < placement_score)
     }
     
     if (runif(1) < ratio) {
       team_placements_df = candidate_placements_df
-      placement_score = candidate_score
+      placement_score = candidate_score$aggr_score
       
       if (placement_score < best_score) {
         best_placements = team_placements_df
@@ -561,7 +533,7 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
     }
   }
   
-  return(list(team_placements_df=team_placements_df, placement_score=placement_score, best_placements=best_placements, best_score=best_score))
+  return(list(avg_commute_secs=candidate_score$commute_score, gender_score=candidate_score$gender_score, age_score=candidate_score$age_score, best_placements=best_placements, best_score=best_score))
 }
 
 ```
@@ -570,7 +542,7 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
 ## USEFULL: system.time({ <<code to time>> })
 
 # system.time({ 
-output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements_df, best_score = 445109, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements_df, best_score = 445109, starting_iteration = 1, number_of_iterations = 100, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 #})
 output
 
@@ -603,61 +575,4 @@ IsValid <- function(assign){
 
 ```
 
-
-
-```{r randomly generate initial assignment}
-
-random.gen <- function(acm_df, school_df){
-  nSch <- nrow(school_df)
-  nACM <- nrow(acm_df)
-  team.size <- ceiling(nACM/nSch)
-  assign <- rep(school_df$id, each = team.size) # Creates a vector of 1 10 times, 2 10 times, etc
-  random <- sample(x = assign, size = nStu)
-    # table(random) # ... This displays a tabulation of the assigned schools
-  return(random)
-}
-
-repeat{
-  myAssign <- random.gen(acm_df, school_df)
-  table(myAssign)
-  if (IsValid(myAssign)) break
-}
-```
-
-```{r Gernate Proposal Function}
-GenProp <- function(myAssign){
-  # picks random to and from schools, and swaps those assignments
-  # returns the full assignment
-}
-```
-
-
-```{r create objective function}
-Obj <- function(myAssign){
-  # Takes the assignment, and calcules an objective score combining:
-  # 1. minimize commute time
-  # 2. college experience or age >= 21 for HS (might also be requirement for valid proposal)
-  # 3. bonus for demographic balance (e.g. gender, race/eth, ed)
-  # 4. grade-level and perhaps even school preferences
-  
-  
-}
-```
-
-```{r create a temperature schedule as a function of step number}
-
-```
-
-```{r implement SA algorithm}
-
-```
-
-
-* picking initial 'direction'
-  * how to set up function to know that there are teams of 9 (or 8, 7, 10, etc)
-  * output: series (1, 1, 1, 1, 2, 2, 2, 2, 3, 3, etc.)
-* Identify right solution algorithm for our setup
-  * GenSA
-  * gaoptim -- is for permutation-based problems
-  * roll our own (Nick has code for this)
 
