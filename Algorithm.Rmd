@@ -35,13 +35,22 @@ library(dummies)
 
 ## To D0
   * Determine weights
+  * Set parameter inputs
+  * Set firm restrictions on random placements
+      - no roommates same team (if roommate parameter = TRUE)
+      - no under 21 y/o CMs at high school unless some college experience
+      - pseudo-code
+        + make random swap
+        + check if valid placement
+      - challenge: how to start at a valid set of placements?
 
 ## Chris
-  * commutes time (DONE!)
-  * gender variance (DONE!)
-    *  still need to add weights and probably remove some aspects from the loop
-  * age (DONE!)
-    *  still need to add weights and probably remove some aspects from the loop
+  * Done - commutes time
+    * remaining challenge: public transit commute calculations don't include time spent waiting for bus/train to arrive
+  * Done - gender variance
+    * remaining challenge: add weights and probably remove some aspects from the loop
+  * Done - age
+    * remaining challenge: add weights and probably remove some aspects from the loop
   * ethnicity
   * attend CY school
   * roommates? not necessary?
@@ -63,22 +72,23 @@ acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
 school_df <- read_excel(path = "Input 3 - School Data.xls")
 
 # Add id columns
-acm_df$id <- 1:nrow(acm_df)
-acm_commutes$id <- 1:nrow(acm_commutes)
-school_df$id <- 1:nrow(school_df)
+acm_df$acm_id <- 1:nrow(acm_df)
+acm_commutes$acm_id <- 1:nrow(acm_commutes)
+school_df$sch_id <- 1:nrow(school_df)
 
 # Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
 acm_commutes_long <-
   select(acm_commutes, -or) %>%
-  gather(dest, dist, -id) %>%
-  mutate(id_dest = paste(id, dest, sep = "_"))
+  gather(dest, dist, -acm_id) %>%
+  mutate(id_dest = paste(acm_id, dest, sep = "_"))
+
 ```
 
 
 # Generate Fake Data
 
 ```{r}
-# Used for Birthdates
+# This function used for Birthdates
 fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
      st <- as.POSIXct(as.Date(st))
      et <- as.POSIXct(as.Date(et))
@@ -87,7 +97,8 @@ fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
      rt <- st + ev 
      trunc(rt, units = "days")}
 
-generate_fake_df <- function(num_rows, school_df){
+generate_fake_df <- function(num_rows, school_df, seed = 42){
+  set.seed(seed)
   fake_df <- data.frame(
     First.Name = rep('', num_rows),
       
@@ -141,7 +152,10 @@ generate_fake_df <- function(num_rows, school_df){
                                 'Algebra II', 
                                 'Calculus or higher'), num_rows, replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25) ),
   
-    Travel.Method = sample( c('Driving', 'Public Transit', 'Biking', 'Walking'), num_rows, replace=TRUE, prob=c(0.3, 0.6, 0.07, 0.03) ),
+    Travel.Method = sample( c('Driving', 
+                              'Public Transportation', 
+                              'Bicycling', 
+                              'Walking'), num_rows, replace=TRUE, prob=c(0.3, 0.6, 0.07, 0.03) ),
       
     Gender = sample( c('Female', 
                        'Male', 
@@ -188,6 +202,7 @@ generate_fake_df <- function(num_rows, school_df){
     Roommate.Names = rep('none', num_rows)
   )
   
+  # Fix conditional survey items so that a "No" answer will cause dependent items to be NA
   fake_df$Language.Ability[fake_df$Language.Other.English == 'No'] <- NA
   fake_df$Tutoring.Experience.Months[fake_df$Tutoring.Experience == 'No'] <- NA
   fake_df$Tutoring.Experience.Grades[fake_df$Tutoring.Experience == 'No'] <- NA
@@ -196,9 +211,9 @@ generate_fake_df <- function(num_rows, school_df){
   return(fake_df)
 }
   
-acm_df_fake <- generate_fake_df(247, school_df)
+acm_df_fake <- generate_fake_df(247, school_df, seed=42)
 
-# write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
+write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
 # Encode Variables & Clean Up Input Dataframes
@@ -305,8 +320,18 @@ The key I included in this script is a free-use key, so it will be limited to 2,
 # accurately described as 60 minutes, but this function would 
 # still return 45 minutes.
 
-calc_commutes = function(){
 
+
+
+calc_commutes = function(acm_df, api){
+  set.api.key(api)
+
+  # Convert 'Walking', 'Bicycling', 'Public Transportation' to 'transit'
+  acm_df$Travel.Method <- as.character(acm_df$Travel.Method)
+  acm_df$Travel.Method[acm_df$Travel.Method %in%  c('Walking', 'Bicycling', 'Public Transportation')] <- "transit"
+  acm_df$Travel.Method[acm_df$Travel.Method %in% "Driving"] <- "driving"
+  acm_df$Travel.Method <- as.factor(acm_df$Travel.Method)
+  
   # This line combines address data into one text string:
   acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
   
@@ -315,23 +340,20 @@ calc_commutes = function(){
   school_df$"Address" = gsub(" ", "+", school_df$"Address")
   school_df$"Address" = gsub(",", "", school_df$"Address")
   
-  # Input your own API Key here
-  set.api.key("AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
-  
   # Create an empty dataframe that we will fill with commute times
   acm_commutes <- data.frame()
   
   # Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance package, and build a new data frame of commute info.
-  for (acm_id in acm_df[1:2,]$id){
+  for (x in acm_df[1:2,]$acm_id){
     
-    # select just one row from acm_df, and assign it to a new object, acm_row
-    acm_row <- subset(acm_df, id == acm_id)
+    # select one row from acm_df, and assign it to a new object, acm_row
+    acm_row <- subset(acm_df, acm_id == x)
     
     # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a single row of ACM commute times to each school. That row is assigned to a new object, 'commute'
-    commute = gmapsdistance(origin = acm_row$"Full Address", destination = school_df[1:2,]$"Address", mode = acm_row$"Method of Commute", combinations = "all", shape = "wide")
+    commute = gmapsdistance(origin = acm_row$"Full Address", destination = school_df[1:2,]$"Address", mode = acm_row$Travel.Method, combinations = "all", shape = "wide")
     
-    # create an 'id' column in our new 'commute' row that is the same as acm_id. We will use this to join our data frames.
-    commute$Time[["id"]] = acm_id
+    # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
+    commute$Time[["acm_id"]] = x
     
     # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
     acm_commutes <- rbind(acm_commutes, commute$Time)
@@ -340,6 +362,8 @@ calc_commutes = function(){
   acm_commutes
 
   }
+
+calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
 
 ```
 
@@ -350,7 +374,7 @@ Generate a list of team id numbers for each team that is the length of each team
 ```{r}  
 # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
-initial_placement <- function(){
+initial_placement <- function(seed=42){
   # first create an empty list
   team_placements = list()
   
@@ -359,7 +383,7 @@ initial_placement <- function(){
     team_slots = list(
       # create a list that repeats each school 'id' for the size of each team
       rep(x, 
-          subset(school_df$"Team Size", school_df$"id" == x)
+          subset(school_df$"Team Size", school_df$sch_id == x)
           )
       )
     team_placements <- c(team_placements, team_slots)
@@ -368,13 +392,15 @@ initial_placement <- function(){
   team_placements <- data.frame(placement=unlist(team_placements))
   
   # Randomize Starting Place
+  set.seed(seed)
+  
   data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ], 
-             id= 1:nrow(team_placements))
+             acm_id= 1:nrow(team_placements))
 }
 
 
-team_placements_df <- initial_placement()
-
+team_placements_df <- initial_placement(seed=42)
+team_placements_df
 ```
 
 # Calculate score
@@ -391,10 +417,10 @@ calculate_score = function(acm_df, team_placements_df) {
   #########
   
   # Merge team_placements_df with acm_df on the 'id' column
-  acm_df_with_placements <- merge(acm_df, team_placements_df, by = "id", all.x = TRUE)
+  acm_df_with_placements <- merge(acm_df, team_placements_df, by = "acm_id", all.x = TRUE)
   
   # Merge acm_df_with_placements with school_df to pull in school characteristics
-  acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "placement", by.y = "id", all.x = TRUE)
+  acm_df_with_placements <- merge(acm_df_with_placements, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
   #################
   # COMMUTE SCORE #
@@ -404,7 +430,7 @@ calculate_score = function(acm_df, team_placements_df) {
   
   team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
   
-  team_placements_df <- within(team_placements_df, id_dest <- paste(id, dest, sep = "_"))
+  team_placements_df <- within(team_placements_df, id_dest <- paste(acm_id, dest, sep = "_"))
   
   dt_commutes <- data.table(acm_commutes_long)
   
@@ -459,7 +485,7 @@ calculate_score = function(acm_df, team_placements_df) {
   
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
   
-  acm_df_with_placements$days_old <- Sys.Date() - as.Date(as.character(acm_df_with_placements$Birth.Date), format="%m/%d/%Y")
+  acm_df_with_placements$days_old <- Sys.Date() - as.Date(as.character(acm_df_with_placements$Birth.Date), format="%Y-%m-%d")
   
   acm_df_with_placements$days_old <- as.integer(acm_df_with_placements$days_old)
   
@@ -508,8 +534,8 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
     schools_to_swap = sample(1:nrow(school_df), 2)
 
     # Choose 1 ACM from each of those schools
-    swap1 = with(candidate_placements_df, sample(id[candidate_placements_df$id == schools_to_swap[1]], 1))
-    swap2 = with(candidate_placements_df, sample(id[candidate_placements_df$id == schools_to_swap[2]], 1))
+    swap1 = with(candidate_placements_df, sample(acm_id[candidate_placements_df$acm_id == schools_to_swap[1]], 1))
+    swap2 = with(candidate_placements_df, sample(acm_id[candidate_placements_df$acm_id == schools_to_swap[2]], 1))
 
     # Swap the team assignment of those 2 ACMs
     candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
@@ -541,9 +567,8 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
 ```{r}
 ## USEFULL: system.time({ <<code to time>> })
 
-# system.time({ 
 output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements_df, best_score = 445109, starting_iteration = 1, number_of_iterations = 100, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
-#})
+
 output
 
 ```
