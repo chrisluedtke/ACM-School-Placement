@@ -33,9 +33,9 @@ library(dummies)
 
 # Tasks
 
-## To D0
+## To Do
   * Determine weights
-  * Set parameter inputs
+  * Set parameter inputs (i.e. consider_roommates = FALSE)
   * Set firm restrictions on random placements
       - no roommates same team (if roommate parameter = TRUE)
       - no under 21 y/o CMs at high school unless some college experience
@@ -45,11 +45,12 @@ library(dummies)
       - challenge: how to start at a valid set of placements?
 
 ## Chris
-  * Done - commutes time
-    * remaining challenge: public transit commute calculations don't include time spent waiting for bus/train to arrive
-  * Done - gender variance
+  * Commutes time Score
+    * remaining challenge: google's commute calculation doesn't include time spent waiting for bus/train to arrive
+  * Gender representation Score
+    * need to study how different configurations of genders affects overall variance, then weight this score as necessary
     * remaining challenge: add weights and probably remove some aspects from the loop
-  * Done - age
+  * Age variance Score
     * remaining challenge: add weights and probably remove some aspects from the loop
   * ethnicity
   * attend CY school
@@ -406,7 +407,7 @@ initial_placement <- function(seed=42){
 }
 
 team_placements_df <- initial_placement(seed=42)
-team_placements_df
+
 ```
 
 # Calculate score
@@ -422,7 +423,7 @@ calculate_score = function(team_placements_df) {
   # COMMUTE SCORE #
   #################
   
-  # This score is simply the average number of seconds each ACM travels to their assigned school
+  # This score is simply the sum number of seconds each ACM travels to their assigned school
   
   team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
   
@@ -473,7 +474,7 @@ calculate_score = function(team_placements_df) {
     }) %>%
     summarise(mean_gend_diff = mean(abs_diff_gs))
   
-  gender_score <- gender_frame_gs$mean_gend_diff
+  gender_score <- gender_frame_gs$mean_gend_diff * 10000000 / 2
   
   #############
   # AGE SCORE #
@@ -489,7 +490,7 @@ calculate_score = function(team_placements_df) {
     ungroup() %>%
     summarize(avg_age_var = mean(age_var))
 
-  age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old))
+  age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
   
   #################
   # OVERALL SCORE #
@@ -503,6 +504,18 @@ calculate_score = function(team_placements_df) {
 
 ```
 
+# Valid Placement Test
+```{r generate logic for invalid placements}
+# This is where we will define firm placement rules that cannot be broken (the placement won't be accepted)
+
+IsValid <- function(assign){
+  valid <- ifelse(any(assign < 9), FALSE, TRUE) 
+  return(valid)
+}
+
+```
+
+# Temperature Function
 ```{r}
 current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_width) {
   s_curve_amplitude * s_curve(iter, s_curve_center, s_curve_width)
@@ -514,8 +527,13 @@ s_curve = function(x, center, width) {
 
 ```
 
+# Annealing Process
 ```{r}
-run_intermediate_annealing_process = function(acm_df, team_placements_df, placement_score, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+run_intermediate_annealing_process = function(starting_placements, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+  
+  team_placements_df <- starting_placements
+  
+  placement_score = calculate_score(team_placements_df)$aggr_score
   
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
@@ -535,6 +553,7 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
     candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
     
     # Place firm restrictions here
+    #IsValid(candidate_placements_df)
     
     candidate_score = calculate_score(candidate_placements_df)
     
@@ -555,42 +574,27 @@ run_intermediate_annealing_process = function(acm_df, team_placements_df, placem
     }
   }
   
-  return(list(avg_commute_secs=candidate_score$commute_score, gender_score=candidate_score$gender_score, age_score=candidate_score$age_score, best_placements=best_placements, best_score=best_score))
+  best_placements <- best_placements[order(best_placements$placement),]
+  
+  return(list(commute_score=candidate_score$commute_score, 
+              avg_commute_mins=(candidate_score$commute_score / nrow(team_placements_df) / 60), 
+              gender_score=candidate_score$gender_score, 
+              age_score=candidate_score$age_score, 
+              best_placements=best_placements, 
+              best_score=best_score))
 }
 
 ```
 
 ```{r}
-## USEFULL: system.time({ <<code to time>> })
+## Useful: system.time({ <<code to time>> })
 
-output <- run_intermediate_annealing_process(acm_df, team_placements_df, placement_score = 445109, best_placements = team_placements_df, best_score = 445109, starting_iteration = 1, number_of_iterations = 100, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+# initial score
+calculate_score(team_placements_df)$aggr_score
+
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, best_placements = team_placements_df, best_score = 1420788, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 
 output
 
 ```
-
-```{r}
-# Convert the team_placement list into a dataframe with an 'id' column 
-best_placements_df <- data.frame(id = 1:length(output$best_placements), Team.Placement = output$best_placements)
-  
-# Merge team_placements_df with acm_df on the 'id' column we just created
-acm_df_output <- merge(acm_df, best_placements_df, by = "id", all.x = TRUE)
-  
-# Merge acm_df_with_placements with school_df to pull in school characteristics
-acm_df_output <- merge(acm_df_output, school_df, by.x = "Team.Placement", by.y = "id", all.x = TRUE)
-
-acm_df_output
-```
-
-
-```{r generate logic for invalid assignments}
-# E.g., can't allow staff with age < 21 into an HS
-
-IsValid <- function(assign){
-  valid <- ifelse(any(assign < 9), FALSE, TRUE) 
-  return(valid)
-}
-
-```
-
 
