@@ -39,22 +39,23 @@ library(dummies)
   * Set firm restrictions on random placements
       - no roommates same team (if roommate parameter = TRUE)
       - no under 21 y/o CMs at high school unless some college experience
-      - pseudo-code
-        + make random swap
-        + check if valid placement
+      - make random swap -> check if valid placement
       - challenge: how to start at a valid set of placements?
 
 ## Chris
   * Commutes time Score
     * remaining challenge: google's commute calculation doesn't include time spent waiting for bus/train to arrive
   * Gender representation Score
-    * need to study how different configurations of genders affects overall variance, then weight this score as necessary
+    * need to study how different configurations of genders affect overall variance, then weight score as necessary
     * remaining challenge: add weights and probably remove some aspects from the loop
   * Age variance Score
     * remaining challenge: add weights and probably remove some aspects from the loop
   * ethnicity
   * attend CY school
   * roommates? not necessary?
+  * Honor manual placements
+    - Done! - in initial placement
+    - protect from random swaps
 
 ## Alex
   * educational attainment (potentially different goals for HS/ES)
@@ -64,8 +65,6 @@ library(dummies)
   * language speaking
 
 # Read Data
-
-This is fake data that may or may not represent an actual corps.
 
 ```{r load spreadsheets, message=F}
 acm_df <- read.csv(file = "Input 1 - ACM Data.csv")
@@ -84,7 +83,6 @@ acm_commutes_long <-
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
 
 ```
-
 
 # Generate Fake Data
 
@@ -119,7 +117,7 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
                                  'Chinese (Cantonese)',
                                  'Polish',
                                  'Other'), 
-                               num_rows, replace=TRUE, prob=c(0.15, 0.05, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,  0.02, 0.02) ),
+                               num_rows, replace=TRUE, prob=c(0.25, 0.05, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,  0.02, 0.02) ),
   
     Tutoring.Experience = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.7, 0.3) ),
   
@@ -200,7 +198,9 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
     
     Roomates = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
     
-    Roommate.Names = rep('none', num_rows)
+    Roommate.Names = rep('none', num_rows),
+    
+    Manual.Placement = sample( c(NA, school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.9, rep(0.01, length(school_df$`School Name`))))
   )
   
   # Fix conditional survey items so that a "No" answer will cause dependent items to be NA
@@ -369,13 +369,12 @@ calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
 ```
 
 # Initial Team Placements
-  
-Generate a list of team id numbers for each team that is the length of each team's size. Combine these lists into one long list of initial team assignments.
-  
-```{r}  
+```{r} 
 # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
 initial_placement <- function(seed=42){
+  # First place acm's at schools designated by Manual.Placement column
+  
   # first create an empty list
   team_placements = list()
   
@@ -398,15 +397,40 @@ initial_placement <- function(seed=42){
   team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ], 
                                    acm_id= 1:nrow(team_placements))
   
+  
   # Merge team_placements_df with acm_df on the 'id' column
   team_placements_df <- merge(acm_df, team_placements_df, by = "acm_id", all.x = TRUE)
   
+  # Honor Manual Placements
+  sch_id_names <- school_df[, c("sch_id", "School Name")]
+  colnames(sch_id_names) <- c("Manual.Placement_id", "School.Name")
+  team_placements_df <- merge(team_placements_df, sch_id_names, by.x = "Manual.Placement", by.y = "School.Name", all.x = TRUE)
+  acms_with_Manual.Placement <- subset(team_placements_df, (!is.na(team_placements_df$Manual.Placement)))
+  acms_no_Manual.Placement <- subset(team_placements_df, (is.na(team_placements_df$Manual.Placement)))
+  
+  for (x in acms_with_Manual.Placement$acm_id){
+    team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
+    
+    acm_row <- subset(acms_with_Manual.Placement, acms_with_Manual.Placement$acm_id == x)
+    
+    # Choose 1 acm_id currently assigned to the school at which we want to ensure manual placement is honored
+    acm_id_to_swap <- sample( subset( acms_no_Manual.Placement$acm_id, acms_no_Manual.Placement$placement == acm_row$Manual.Placement_id ), 1 )
+    
+    # Swap the team assignment of those 2 ACMs
+    swap1 <- acm_row$acm_id
+    swap2 <- acm_id_to_swap
+  
+    team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
+  }
+
   # Merge  with school_df to pull in school characteristics
   team_placements_df <- merge(team_placements_df, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
+
   
 }
 
 team_placements_df <- initial_placement(seed=42)
+
 
 ```
 
@@ -527,19 +551,19 @@ s_curve = function(x, center, width) {
 
 ```
 
-# Annealing Process
+# Annealing and Swap Function
 ```{r}
 run_intermediate_annealing_process = function(starting_placements, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
   
   team_placements_df <- starting_placements
   
-  placement_score = calculate_score(team_placements_df)$aggr_score
+  placement_score <- calculate_score(team_placements_df)$aggr_score
   
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
     temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
     
-    # Create a copy of team_placements
+    # Create a copy of team_placements_df
     candidate_placements_df = team_placements_df
     
     # Choose 2 schools at random
