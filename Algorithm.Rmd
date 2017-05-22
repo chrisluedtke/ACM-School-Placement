@@ -372,7 +372,7 @@ calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
 ```{r} 
 # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
-initial_placement <- function(seed=42){
+initial_placement <- function(seed=42, acm_df, school_df){
   # First place acm's at schools designated by Manual.Placement column
   
   # first create an empty list
@@ -410,7 +410,7 @@ initial_placement <- function(seed=42){
   
   for (x in acms_with_Manual.Placement$acm_id){
     team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
-    
+    rownames(team_placements_df) <- 1:nrow(team_placements_df)
     acm_row <- subset(acms_with_Manual.Placement, acms_with_Manual.Placement$acm_id == x)
     
     # Choose 1 acm_id currently assigned to the school at which we want to ensure manual placement is honored
@@ -419,19 +419,15 @@ initial_placement <- function(seed=42){
     # Swap the team assignment of those 2 ACMs
     swap1 <- acm_row$acm_id
     swap2 <- acm_id_to_swap
-  
     team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
   }
-
-  # Merge  with school_df to pull in school characteristics
-  team_placements_df <- merge(team_placements_df, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
-
   
+  return(team_placements_df)
+
 }
 
-team_placements_df <- initial_placement(seed=42)
-
-
+team_placements_df <- initial_placement(seed=42, acm_df, school_df)
+team_placements_df
 ```
 
 # Calculate score
@@ -441,7 +437,10 @@ This is the function that calculates the quality of each placement.
 One thing we should try to avoid is validating all of our placement every time we swap.  Instead we should try to implament our hard constraints through the cost function.  For example, if we weight the high school grad target really high, thus imposing a large penalty on any placement where a high school graduate is placed at a high school
 
 ```{r}
-calculate_score = function(team_placements_df) {
+calculate_score = function(team_placements_df, school_df) {
+  
+  # Merge  with school_df to pull in school characteristics
+  team_placements_df <- merge(team_placements_df, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
   #################
   # COMMUTE SCORE #
@@ -465,11 +464,11 @@ calculate_score = function(team_placements_df) {
   
   # Create data.frame with each potential combination of gender and school, based on the survey responses provided
   gender_frame <- 
-    expand.grid(placement = 1:26, Gender = levels(acm_df$Gender))
+    expand.grid(placement = 1:26, Gender = levels(team_placements_df$Gender))
     # Note--need to replace sch_id with the appropriate school id values based off of the data
   
   # Create tibbl containing percentage representation of each gender category across the entire corps
-  gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(acm_df))
+  gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(team_placements_df))
   
   # Merge previous two frames by "gender"
   gender_frame_g <-
@@ -553,33 +552,37 @@ s_curve = function(x, center, width) {
 
 # Annealing and Swap Function
 ```{r}
-run_intermediate_annealing_process = function(starting_placements, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+run_intermediate_annealing_process = function(starting_placements, school_df, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
   
   team_placements_df <- starting_placements
   
-  placement_score <- calculate_score(team_placements_df)$aggr_score
-  
+  placement_score <- calculate_score(team_placements_df, school_df)$aggr_score
+
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
     temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
     
-    # Create a copy of team_placements_df
-    candidate_placements_df = team_placements_df
+    # Nick Question: Necessary to reset acm_id sort and index?
+    # Create a copy of team_placements_df, which is Sorted by acm_id so that each row index will equal acm_id
+    candidate_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
+    rownames(candidate_placements_df) <- 1:nrow(candidate_placements_df)
     
+    acms_no_Manual.Placement <- subset(candidate_placements_df, (is.na(candidate_placements_df$Manual.Placement)))
+
     # Choose 2 schools at random
     schools_to_swap = sample(1:nrow(school_df), 2)
 
-    # Choose 1 ACM from each of those schools
-    swap1 = with(candidate_placements_df, sample(acm_id[candidate_placements_df$acm_id == schools_to_swap[1]], 1))
-    swap2 = with(candidate_placements_df, sample(acm_id[candidate_placements_df$acm_id == schools_to_swap[2]], 1))
+    # Choose 1 ACM from each of those schools. Select only ACMs who have no Manual.Placement
+    swap1 = sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[1] ], 1)
+    swap2 = sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[2] ], 1)
 
-    # Swap the team assignment of those 2 ACMs
+    # Swap the team assignment of those 2 ACMs - NOTE this is done by index, but we use acm_id as index
     candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
     
     # Place firm restrictions here
     #IsValid(candidate_placements_df)
     
-    candidate_score = calculate_score(candidate_placements_df)
+    candidate_score = calculate_score(candidate_placements_df, school_df)
     
     if (temp > 0) {
       ratio = exp((placement_score - candidate_score$aggr_score) / temp)
@@ -598,6 +601,9 @@ run_intermediate_annealing_process = function(starting_placements, best_placemen
     }
   }
   
+  # Merge in School characteristics
+  best_placements <- merge(best_placements, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
+  
   best_placements <- best_placements[order(best_placements$placement),]
   
   return(list(commute_score=candidate_score$commute_score, 
@@ -614,9 +620,9 @@ run_intermediate_annealing_process = function(starting_placements, best_placemen
 ## Useful: system.time({ <<code to time>> })
 
 # initial score
-calculate_score(team_placements_df)$aggr_score
+calculate_score(team_placements_df, school_df)$aggr_score
 
-output <- run_intermediate_annealing_process(starting_placements = team_placements_df, best_placements = team_placements_df, best_score = 1420788, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_df, best_placements = team_placements_df, best_score = 1420788, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 
 output
 
