@@ -222,46 +222,69 @@ write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FAL
 Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
 
 ```{r Encoding Variables}
-# Encoding ACM variables with some help from `dummies` packages. The final select statement removes the then unnecessary variables. 
-encode_vars <- function(df){
-  # Ran into some trouble with the dpylr %>% pipeline.  Was causing strange names from using `dummies`. 
-  acm_enc <- cbind(df, dummy(df$Education, sep="_education_"))
-  acm_enc <- cbind(acm_enc, dummy(acm_enc$`Tutoring Experience`, sep="_tut exp_"))
-  acm_enc <- cbind(acm_enc, dummy(acm_enc$`Tutoring Preference (Math, ELA, or No Pref)`, sep="_tut pref_")) # will possibly be removed
-  acm_enc <- cbind(acm_enc, dummy(acm_enc$`Grade Level Preference (3-5, 6-8, or 9)`, sep="_gl pref_"))
-  acm_enc$`Math Ability` <- ifelse(acm_enc$`Math Ability`=="Pre-Algebra or lower" | acm_enc$`Math Ability`=="Algebra I", 0, 1)
-  acm_enc <- cbind(acm_enc, dummy(acm_enc$Languages, sep="_"))
+# This function takes the input acm_df and encodes the variables in a way that makes the mathematically tractable.
+encode_acm_df <- function(df){
+
+  acm_enc <- select(df, acm_id)
   
-  # Remove the excess columns we won't use for scoring
-  acm_enc <- select(acm_enc, -(`First Name`:`Method of Commute`), -(`Tutoring Preference (Math, ELA, or No Pref)`:Languages), -(`Tutoring Experience`:`Manual Zone Placement`), -(acm_df_education_College), -`acm_df_tut exp_ `, -`acm_df_tut pref_No Preference`, -`acm_df_ `)
+  # Ed Attainment
+  acm_enc$Ed_HS <- grepl("High School/GED", df$Educational.Attainment) + grepl("Some College", df$Educational.Attainment)
+  acm_enc$Ed_Col <- grepl("Bachelor's Degree", df$Educational.Attainment) + grepl("Associate's Degree", df$Educational.Attainment) + grepl("Master's Degree", df$Educational.Attainment)
+  
+  # Tutoring Experience
+  acm_enc$HasTutored <- ifelse(df$Tutoring.Experience == "Yes", 1, 0)
+  
+  # Tutoring Preference
+  acm_enc$Pref_HS <- as.numeric(grepl("High School", df$Grade.Lvl.Preference))
+  acm_enc$Pref_MS <- as.numeric(grepl("Middle School", df$Grade.Lvl.Preference))
+  acm_enc$Pref_ES <- as.numeric(grepl("Elementary School", df$Grade.Lvl.Preference))
+  
+  # Math Proficiency
+  acm_enc$Math_Confidence <- ifelse(df$Math.Confidence == "Pre-Algebra or lower" | df$Math.Confidence == "Algebra I", 0, 1)
+  
+  # Language Ability
+  acm_enc$SpanishAble <- ifelse(df$Language.Ability == "Spanish", 1, 0)
+  acm_enc$SpanishAble[is.na(acm_enc$SpanishAble)] <- 0
+  acm_enc$Lang_Other <- ifelse((df$Language.Other.English == "Yes") & (df$Language.Ability != "Spanish"), 1, 0)
+  
+  # Add in other features
+  acm_enc$Gender <- acm_df$Gender
   
   # Return
   acm_enc
 }
 
-# School configuration data frame. I think we could probably reduce the school configuration file to just the following elements: school name, team size, address, and local ethnic demographics.  From those data npoints alone and the corps demographic data, we should be able to calculate everything else.  
+# School configuration data frame. I think we could probably reduce the school configuration file to just the following elements: school name, team size, address, and local ethnic demographics.  From those data points alone and the corps demographic data, we should be able to calculate everything else.  
 
 # This function calculates some import counts which I'm going to use a lot when trying to figure out the expected number of ACMs per team per metric.  This function will just be used internally by the school_config function.
-corps_demographic_targets <- function(school_df, acm_df){
-  N <- nrow(acm_df)
+corps_demographic_targets <- function(school_df, acm_enc){
+  # Calculate some totals used later in the function
+  N <- nrow(acm_enc)
   S <- nrow(school_df)
+  
+  # Counts of schools by level
   school_counts <- group_by(school_df, `School Type`) %>% summarise(count=n())
+  
+  # Approximation of densly spanish speaking schools
   dense_hispanic <- nrow(school_df[school_df$`% Hispanic` > 10, ])
+  
+  # We'll store our results in a list so we can return multiple tables
   distros <- list()
-  distros$education <- group_by(acm_df, Education) %>% 
+  
+  # Produce ratio of folks who have completed at least an associates, and those who haven't
+  distros$education <- group_by(acm_enc, Ed_HS) %>% 
     summarise(count=n()) %>% 
     mutate(ratio = count/N)
-  distros$gl_pref <- group_by(acm_df, `Grade Level Preference (3-5, 6-8, or 9)`) %>% 
-    summarise(acm_count=n()) %>% 
-    left_join(., school_counts, by = c("Grade Level Preference (3-5, 6-8, or 9)" = "School Type")) %>%
-    mutate(exp_acms = acm_count/count)
-  distros$tut_exp <- group_by(acm_df, `Tutoring Experience`) %>%
-    summarise(acm_count=n())  %>% 
-    left_join(., school_counts, by = c("Tutoring Experience" = "School Type")) %>%
-    mutate(exp_acms = acm_count/count)
-  distros$lang <- group_by(acm_df, Languages) %>% 
+  
+  # Identify rates of Tutoring Experience
+  distros$tut_exp <- group_by(acm_enc, HasTutored) %>% 
     summarise(count=n()) %>% 
     mutate(ratio = count/N)
+  
+  # Spanish and other spoken language distribution
+  distros$lang <- data.frame(ability = c("spanish", "other"), ratio = c(nrow(acm_enc[acm_enc$SpanishAble == 1, ]) / N, nrow(acm_enc[acm_enc$Lang_Other == 1, ]) / N))
+  
+  # Note on tutoring pref.  We'll simply set this parameter to the team size appropriate for the level type.  This should thus maximize the incentive on putting folks with the appropriate tutoring pref at the appropriate levels.
   distros
 }
 
@@ -271,31 +294,28 @@ spanishNeed <- function(x) {
 }
 
 # Directly calculates the expected number of ACMs per team for each of the markers.
-# My methodology is to aim for a uniform distribution when it makes sense.  So, for example, if we have 10 elementary schools and 30 ACMs who prefer ES.  Then I will try to evenly distribute by sending 3 of these ACMs to each ES.  Tutoring experience is that same procedure. For education, we're simply trying to spread out the high school and some college folks, since they'll typically be our least common types.  We don't need to set a target for college grads, since they essentially fill in the rest of the placement. Lastly is language.  I want some method of prioritizing spanish speakers so that schools with lots of spanish speakers get more spanish speaking ACMs.  For right now I'm implamenting a fairly simple method which don't consider the total number of 
-school_config <- function(school_df, acm_df){
+# My methodology is to aim for a uniform distribution when it makes sense.
+school_config <- function(school_df, acm_enc){
   # Precalculate some helpful counts
-  corps_demos <- corps_demographic_targets(school_df, acm_df)
+  corps_demos <- corps_demographic_targets(school_df, acm_enc)
   # Unravel list into some variables.  Mostly so that the code is a little cleaner later.
   education <- corps_demos$education
-  gl_pref <- corps_demos$gl_pref
+  lang <- corps_demos$lang
   tut_exp <- corps_demos$tut_exp
   
   school.data <- select(school_df, `School_ID`, `Team Size`, `School Type`, `% Caucasian`:`% N/A`) %>%
     rename(size = `Team Size`,
            span = `School Type`) %>%
-    mutate(Ed_SomeCollege = education[education$Education %in% "Some College",]$ratio * size,
-           Ed_HighSchool = ifelse(span=="HS", 0, corps_demos$education[education$Education %in% "High School",]$ratio * size),
-           SpanPref_ES = ifelse(span=="ES", pmin(size, gl_pref[gl_pref$`Grade Level Preference (3-5, 6-8, or 9)` %in% "ES",]$exp_acms), 0),
-           SpanPref_MS = ifelse(span=="MS", pmin(.$size, gl_pref[gl_pref$`Grade Level Preference (3-5, 6-8, or 9)` %in% "MS",]$exp_acms), 0),
-           SpanPref_HS = ifelse(span=="HS", pmin(.$size, gl_pref[gl_pref$`Grade Level Preference (3-5, 6-8, or 9)` %in% "HS",]$exp_acms), 0),
-           TutExp_ES = ifelse(span=="ES", pmin(size, tut_exp[tut_exp$`Tutoring Experience` %in% "ES",]$exp_acms), 0),
-           TutExp_MS = ifelse(span=="MS", pmin(size, tut_exp[tut_exp$`Tutoring Experience` %in% "MS",]$exp_acms), 0),
-           TutExp_HS = ifelse(span=="HS", pmin(size, tut_exp[tut_exp$`Tutoring Experience` %in% "HS",]$exp_acms), 0),
+    mutate(Ed_SomeCollege = education[education$Ed_HS == 0,]$ratio * size,
+           SpanPref_ES = ifelse(span=="ES", size, 0),
+           SpanPref_MS = ifelse(span=="MS", size, 0),
+           SpanPref_HS = ifelse(span=="HS", size, 0),
+           TutExp = size * tut_exp[tut_exp$HasTutored == 1,]$ratio,
            SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1)) # This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other places.
 }
 
 acm_enc <- encode_vars(acm_df)
-school_targets <- school_config(school_df, acm_df)
+school_targets <- school_config(school_df, acm_enc)
 
 ```
 
@@ -514,6 +534,14 @@ calculate_score = function(team_placements_df, school_df) {
     summarize(avg_age_var = mean(age_var))
 
   age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
+  
+  #################
+  # Ed Attainment #
+  #################  
+  
+  
+  
+  
   
   #################
   # OVERALL SCORE #
