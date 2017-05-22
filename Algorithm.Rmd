@@ -31,7 +31,7 @@ library(data.table)
 library(dummies)
 ```
 
-# Tasks
+# TASK LIST
 
 ## To Do
   * Determine weights
@@ -51,7 +51,8 @@ library(dummies)
   * Age variance Score
     * remaining challenge: add weights and probably remove some aspects from the loop
   * ethnicity
-  * attend CY school
+    * difficult since multi-ethnic
+  * attend CY school - seems like this will mostly result in a manual placement on a case-by-case basis
   * roommates? not necessary?
   * Honor manual placements
     - Done! - in initial placement
@@ -200,7 +201,7 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
     
     Roommate.Names = rep('none', num_rows),
     
-    Manual.Placement = sample( c(NA, school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.9, rep(0.01, length(school_df$`School Name`))))
+    Manual.Placement = sample( c(NA, school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.98, rep(0.001, length(school_df$`School Name`))))
   )
   
   # Fix conditional survey items so that a "No" answer will cause dependent items to be NA
@@ -446,7 +447,7 @@ calculate_score = function(team_placements_df, school_df) {
   # COMMUTE SCORE #
   #################
   
-  # This score is simply the sum number of seconds each ACM travels to their assigned school
+  # This score is simply the sum number of seconds all ACMs travel to their assigned schools
   
   team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
   
@@ -464,7 +465,7 @@ calculate_score = function(team_placements_df, school_df) {
   
   # Create data.frame with each potential combination of gender and school, based on the survey responses provided
   gender_frame <- 
-    expand.grid(placement = 1:26, Gender = levels(team_placements_df$Gender))
+    expand.grid(placement = 1:nrow(school_df), Gender = levels(team_placements_df$Gender))
     # Note--need to replace sch_id with the appropriate school id values based off of the data
   
   # Create tibbl containing percentage representation of each gender category across the entire corps
@@ -503,6 +504,7 @@ calculate_score = function(team_placements_df, school_df) {
   # AGE SCORE #
   #############
   
+  # Nick Question: Why not minimize variance across teams rather than subtracting whole-corps variance from average team variance?
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
   
   team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.Date), format="%Y-%m-%d"))
@@ -514,6 +516,16 @@ calculate_score = function(team_placements_df, school_df) {
     summarize(avg_age_var = mean(age_var))
 
   age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
+  
+  ###################
+  # ETHNICITY SCORE #
+  ###################
+  
+  # Brainstorming approaches
+    # Count percentages of different ethnic representations on each team
+      # How to make it such that a team of 4 white ACMs and 4 POC ACMs is the same score as 4 white ACMs and 4 Latinx ACMs?
+    # Count # different ethnicities represented
+    
   
   #################
   # OVERALL SCORE #
