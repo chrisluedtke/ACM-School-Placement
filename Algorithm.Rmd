@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 title: "ACM School Placement"
 output: html_document
@@ -35,9 +36,9 @@ library(dummies)
 
 ## To Do
   * Determine weights
-  * Set parameter inputs (i.e. consider_roommates = FALSE)
+  * Set some inputs (i.e. consider_roommates = FALSE)
   * Set firm restrictions on random placements
-      - no roommates same team (if roommate parameter = TRUE)
+      - no roommates same team (i.e. if roommate = TRUE)
       - no under 21 y/o CMs at high school unless some college experience
       - make random swap -> check if valid placement
       - challenge: how to start at a valid set of placements?
@@ -425,7 +426,7 @@ initial_placement <- function(seed=42, acm_df, school_df){
   # Randomize Starting Place
   set.seed(seed)
   
-  team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ],
+  team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ], 
                                    acm_id= 1:nrow(team_placements))
   
   
@@ -451,29 +452,10 @@ initial_placement <- function(seed=42, acm_df, school_df){
     swap1 <- acm_row$acm_id
     swap2 <- acm_id_to_swap
     team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
-    
   }
   
-  # We would like to ensure that high school students get placed in ES or MS
-  acms_for_swaps <- merge(acms_no_Manual.Placement, school_df, by.x = "placement", by.y = "School_ID", all.x = TRUE)
-  
-  #print(acms_for_swaps)
-    
-  hs_acms_to_swap <- acms_for_swaps[(acms_for_swaps$Ed_HS == 1) & (acms_for_swaps$`School Type` == "HS"),]
-  acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$`School Type` != "HS"),]
-  acms_to_swap_with <- acms_to_swap_with[sample(nrow(acms_to_swap_with), nrow(hs_acms_to_swap), replace = F), ]
-  
-  if (nrow(hs_acms_to_swap) != 0){
-    for (i in c(1, nrow(hs_acms_to_swap))){
-      hs_acm <- hs_acms_to_swap[i, ]$placement
-      not_hs_acm <- acms_to_swap_with[i, ]$placement
-      #print(c(hs_acm, not_hs_acm))
-      team_placements_df$placement <- replace(team_placements_df$placement, c(hs_acm, not_hs_acm), team_placements_df$placement[c(not_hs_acm, hs_acm)])
-    } 
-  }
- 
   return(team_placements_df)
-    
+
 }
 
 team_placements_df <- initial_placement(seed=42, acm_enc, school_df)
@@ -573,6 +555,26 @@ calculate_score = function(team_placements_df, school_targets) {
     summarize(avg_age_var = mean(age_var))
 
   scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
+  
+  ###################
+  # ETHNICITY SCORE #
+  ###################
+  
+  # Brainstorming approaches
+    # Count percentages of different ethnic representations on each team
+      # How to make it such that a team of 4 white ACMs and 4 POC ACMs is the same score as 4 white ACMs and 4 Latinx ACMs?
+    # Count # different ethnicities represented
+    # average of each team's average percent representation of each ethnicity (I think this is what we want)
+      # should we count multi-ethnic people as a half-person of each or as a whole person of each?
+      # aka would an African American Latino count as 50% of each, or 100% of each as two people.
+  
+  # This does most of what we want, but does not separate comma-separated multi-ethnicities into distinct ethnicities (waiting to see how actual survey presents this data)
+  ethnicity_eths <- 
+    team_placements_df %>%
+    group_by(placement, Race.Ethnicity) %>%
+    dplyr::summarize(n_eths = n()) %>%
+    group_by(placement) %>%
+    dplyr::mutate(pct_eths = n_eths/sum(n_eths))
   
   #################
   #    Scoring    #
@@ -713,3 +715,4 @@ new_placement <- output$best_placements
 output$best_score
 # last run did 10,000 iters in 216.08 seconds or 46 iters/sec
 ```
+>>>>>>> 68a154e3aac268e1794f5b0992e52c7f8f55dfe3
