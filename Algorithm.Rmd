@@ -1,12 +1,7 @@
-<<<<<<< HEAD
 ---
 title: "ACM School Placement"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 # Install Packages
 
@@ -33,6 +28,15 @@ library(dummies)
 ```
 
 # Tasks
+
+## Nick Q's
+  * Two different score approaches
+    1 - School Targets. Based on ACM survey responses, compute target # ACMs for each category on each team.
+      * Benefit: target computation happens outside of the loop
+    2 - Stats to compare corps-wide features to current set of team placements
+  * How to compare these two scores, how to weight scores in general, what that process looks like
+    - run and gun? - run many iterations and eyeball the results, setting weights as needed
+  * Better to validate swaps with validation function or to blow up the score of some unfavorable placement
 
 ## To Do
   * Determine weights
@@ -66,7 +70,6 @@ library(dummies)
   * language speaking
 
 # Read Data
-
 ```{r load spreadsheets, message=F}
 acm_df <- read.csv(file = "Input 1 - ACM Data.csv")
 acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
@@ -86,7 +89,6 @@ acm_commutes_long <-
 ```
 
 # Generate Fake Data
-
 ```{r}
 # This function used for Birthdates
 fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
@@ -165,19 +167,15 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
       
     Birth.Date = fake_dates(num_rows),
     
-    Race.Ethnicity = sample( c('African American/Black', 
-                               'American Indian/Alaskan Native', 
-                               'Asian', 
-                               'Hispanic/Latino',
-                               'Middle Eastern',
-                               'Native Hawaiian or Pacific Islander',
-                               'White/Caucasian',
-                               'African American/Black, Hispanic/Latino', 
-                               'Hispanic/Latino, White/Caucasian',
-                               'Middle Eastern, White/Caucasian',
-                               'African American/Black, White/Caucasian'), 
-                             num_rows, replace=TRUE, prob=c(0.3, 0.03, 0.05, 0.13, 0.03, 0.03, 0.38, 0.05, 0.01, 0.01, 0.01) ),
-    
+    Race.Ethnicity.African.American.Black = sample( c('African American/Black', NA), num_rows, replace=TRUE, prob=c(0.4, 0.6) ),
+    Race.Ethnicity.White.Caucasian = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    Race.Ethnicity.Asian =  sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    Race.Ethnicity.Hispanic.Latino = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    Race.Ethnicity.Middle.Eastern = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    #Race.Ethnicity.Native.Hawaiian.Pacific.Islander =  sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    #Race.Ethnicity.American.Indian.Alaskan.Native = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    Race.Ethnicity.Other =  sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+  
     Educational.Attainment = sample( c('High School/GED', 
                                        'Some College',
                                        "Associate's Degree",
@@ -202,7 +200,27 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
     Roommate.Names = rep('none', num_rows),
     
     Manual.Placement = sample( c(NA, school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.9, rep(0.01, length(school_df$`School Name`))))
-  )
+    
+    )
+  # Set at least one race per ACM
+  
+  
+  fake_df$Race.Ethnicity.White.Caucasian[is.na(fake_df$Race.Ethnicity.African.American.Black)] = sample( c('White/Caucasian', NA), length(fake_df$Race.Ethnicity.White.Caucasian[is.na(fake_df$Race.Ethnicity.African.American.Black)]), replace=TRUE, prob=c(0.8, 0.2) )
+  
+  fake_df$Race.Ethnicity.White.Caucasian[!is.na(fake_df$Race.Ethnicity.African.American.Black)] = sample( c('White/Caucasian', NA), length(fake_df$Race.Ethnicity.White.Caucasian[!is.na(fake_df$Race.Ethnicity.African.American.Black)]), replace=TRUE, prob=c(0.05, 0.95) )
+
+  fake_df$Race.Ethnicity.Hispanic.Latino[!is.na(fake_df$Race.Ethnicity.African.American.Black)] = sample( c('Hispanic/Latino', NA), length(fake_df$Race.Ethnicity.Hispanic.Latino[!is.na(fake_df$Race.Ethnicity.African.American.Black)]), replace=TRUE, prob=c(0.1, 0.9) )
+    
+  fake_df$Race.Ethnicity.Asian[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black)] = sample( c('Asian', NA), length(fake_df$Race.Ethnicity.Asian[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black)]), replace=TRUE, prob=c(0.3, 0.7) )
+  
+  fake_df$Race.Ethnicity.Hispanic.Latino[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian)] = sample( c('Hispanic/Latino', NA), length(fake_df$Race.Ethnicity.Hispanic.Latino[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian)]), replace=TRUE, prob=c(0.6, 0.4) )
+  
+  fake_df$Race.Ethnicity.Middle.Eastern[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)] = sample( c('Middle Eastern', NA), length(fake_df$Race.Ethnicity.Middle.Eastern[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)]), replace=TRUE, prob=c(0.1, 0.9) )
+  
+  #fake_df$Race.Ethnicity.Native.Hawaiian.Pacific.Islander = sample( c('Native Hawaiian or Pacific Islander', NA), num_rows, replace=TRUE, prob=c(0.1, 0.9) )
+  #fake_df$Race.Ethnicity.American.Indian.Alaskan.Native = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+  
+  fake_df$Race.Other[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)] = sample( c('Other'), length(fake_df$Race.Ethnicity.Other[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)]), replace=TRUE, prob=c(1) )
   
   # Fix conditional survey items so that a "No" answer will cause dependent items to be NA
   fake_df$Language.Ability[fake_df$Language.Other.English == 'No'] <- NA
@@ -215,7 +233,7 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
   
 acm_df_fake <- generate_fake_df(247, school_df, seed=42)
 
-write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
+#write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
 # Encode Variables & Clean Up Input Dataframes
@@ -353,9 +371,6 @@ The key I included in this script is a free-use key, so it will be limited to 2,
 # accurately described as 60 minutes, but this function would 
 # still return 45 minutes.
 
-
-
-
 calc_commutes = function(acm_df, api){
   set.api.key(api)
 
@@ -477,8 +492,17 @@ initial_placement <- function(seed=42, acm_df, school_df){
     
 }
 
-team_placements_df <- initial_placement(seed=42, acm_enc, school_df)
-team_placements_df
+team_placements_df <- initial_placement(seed=42, acm_df, school_df)
+
+ethnicity_eths <- 
+    team_placements_df %>%
+    group_by(placement, Race.Ethnicity) %>%
+    dplyr::summarize(n_eths = n()) %>%
+    group_by(placement) %>%
+    dplyr::mutate(pct_eths = n_eths/sum(n_eths))
+
+
+ethnicity_eths
 ```
 
 # Calculate score
@@ -501,6 +525,7 @@ calculate_score = function(team_placements_df, school_targets) {
   
   # Store each score in a list
   scores = list()
+  
   #################
   # COMMUTE SCORE #
   #################
@@ -633,17 +658,6 @@ calculate_score = function(team_placements_df, school_targets) {
 calculate_score(team_placements_df, school_targets)
 ```
 
-# Valid Placement Test
-```{r generate logic for invalid placements}
-# This is where we will define firm placement rules that cannot be broken (the placement won't be accepted)
-
-IsValid <- function(assign){
-  valid <- ifelse(any(assign < 9), FALSE, TRUE) 
-  return(valid)
-}
-
-```
-
 # Temperature Function
 ```{r}
 current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_width) {
@@ -685,7 +699,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     # Swap the team assignment of those 2 ACMs - NOTE this is done by index, but we use acm_id as index
     candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
     
-    # Place firm restrictions here
+    # Place firm restrictions here?
     #IsValid(candidate_placements_df)
     
     candidate_score = calculate_score(candidate_placements_df, school_df)
@@ -733,4 +747,3 @@ new_placement <- output$best_placements
 output$best_score
 # last run did 10,000 iters in 216.08 seconds or 46 iters/sec
 ```
->>>>>>> 68a154e3aac268e1794f5b0992e52c7f8f55dfe3
