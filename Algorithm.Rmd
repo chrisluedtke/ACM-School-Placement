@@ -466,7 +466,7 @@ team_placements_df
 This is the function that calculates the quality of each placement.
 
 ```{r}
-# Instead of trying to validate something like underage folk in High schools, we can just make it expensive.  By making it super expensive we can reduce the probability of getting invalid placements. I'm going to use this for high school grads primarily. 
+# Instead of trying to validate something like underage folk in High schools, we can just make it expensive.  By making it super expensive we can reduce the probability of getting invalid placements. After having tried this a bit, it seems like our best option would to be to try to place our HS grads appropriatly (minimally assign them )
 
 asym_loss <- function(scores){
   neg <- sum(scores[scores < 0] * -1e10)
@@ -668,7 +668,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   }
   
   # Merge in School characteristics
-  best_placements <- merge(best_placements, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
+  best_placements <- merge(best_placements, school_df, by.x = "placement", by.y = "School_ID", all.x = TRUE)
   
   best_placements <- best_placements[order(best_placements$placement),]
   
@@ -686,11 +686,11 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
 ## Useful: system.time({ <<code to time>> })
 
 # initial score
-calculate_score(team_placements_df, school_df)$aggr_score
+calculate_score(team_placements_df, school_targets)$aggr_score
 
-output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_df, best_placements = team_placements_df, best_score = 1420788, starting_iteration = 1, number_of_iterations = 1000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = 10000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 
-output
-
+new_placement <- output$best_placements
+output$best_score
+# last run did 10,000 iters in 216.08 seconds or 46 iters/sec
 ```
-
