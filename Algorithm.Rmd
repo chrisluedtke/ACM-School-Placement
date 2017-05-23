@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 title: "ACM School Placement"
 output: html_document
@@ -679,3 +680,701 @@ output
 
 ```
 
+=======
+---
+title: "ACM School Placement"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Install Packages
+
+```{r install packages, echo = FALSE}
+ # install.packages("gmapsdistance")
+ # install.packages("readxl")
+ # install.packages("googleway")
+ # install.packages("dplyr")
+ # install.packages("tidyr")
+ # install.packages("dummies")
+ # install.packages("data.table")
+```
+
+# Load Packages
+
+```{r load packages}
+library(gmapsdistance)
+library(readxl)
+#library("googleway")
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(dummies)
+```
+
+# Tasks
+
+## To Do
+  * Determine weights
+  * Set parameter inputs (i.e. consider_roommates = FALSE)
+  * Set firm restrictions on random placements
+      - no roommates same team (if roommate parameter = TRUE)
+      - no under 21 y/o CMs at high school unless some college experience
+      - make random swap -> check if valid placement
+      - challenge: how to start at a valid set of placements?
+
+## Chris
+  * Commutes time Score
+    * remaining challenge: google's commute calculation doesn't include time spent waiting for bus/train to arrive
+  * Gender representation Score
+    * need to study how different configurations of genders affect overall variance, then weight score as necessary
+    * remaining challenge: add weights and probably remove some aspects from the loop
+  * Age variance Score
+    * remaining challenge: add weights and probably remove some aspects from the loop
+  * ethnicity
+  * attend CY school
+  * roommates? not necessary?
+  * Honor manual placements
+    - Done! - in initial placement
+    - protect from random swaps
+
+## Alex
+  * educational attainment (potentially different goals for HS/ES)
+  * tutoring experience (look at notes from survey)
+  * tutoring preference
+  * grade level preference
+  * language speaking
+
+# Read Data
+
+```{r load spreadsheets, message=F}
+acm_df <- read.csv(file = "Input 1 - ACM Data.csv")
+acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
+school_df <- read_excel(path = "Input 3 - School Data.xls")
+
+# Add id columns
+acm_df$acm_id <- 1:nrow(acm_df)
+acm_commutes$acm_id <- 1:nrow(acm_commutes)
+school_df$sch_id <- 1:nrow(school_df)
+
+# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
+acm_commutes_long <-
+  select(acm_commutes, -or) %>%
+  gather(dest, dist, -acm_id) %>%
+  mutate(id_dest = paste(acm_id, dest, sep = "_"))
+
+```
+
+# Generate Fake Data
+
+```{r}
+# This function used for Birthdates
+fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
+     st <- as.POSIXct(as.Date(st))
+     et <- as.POSIXct(as.Date(et))
+     dt <- as.numeric(difftime(et,st,unit="secs"))
+     ev <- runif(N, 0, dt)
+     rt <- st + ev 
+     trunc(rt, units = "days")}
+
+generate_fake_df <- function(num_rows, school_df, seed = 42){
+  set.seed(seed)
+  fake_df <- data.frame(
+    First.Name = rep('', num_rows),
+      
+    Last.Name = rep('', num_rows),
+      
+    Attnd.CY.School = sample( c('I did not attend a City Year school', school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.95, rep(0.01, length(school_df$`School Name`)))),
+    
+    Language.Other.English =  sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.2, 0.8) ),
+                                    
+    Language.Ability = sample( c('Spanish', 
+                                 'French', 
+                                 'Arabic',
+                                 'Urdu',
+                                 'Nepali',
+                                 'Swahili',
+                                 'Chinese (Mandarin)',
+                                 'Chinese (Cantonese)',
+                                 'Polish',
+                                 'Other'), 
+                               num_rows, replace=TRUE, prob=c(0.25, 0.05, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,  0.02, 0.02) ),
+  
+    Tutoring.Experience = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.7, 0.3) ),
+  
+    Tutoring.Experience.Months = sample(1:12, num_rows, replace = TRUE, prob = 12:1),
+    
+    Tutoring.Experience.Grades = sample( c('Elementary School',
+                                           'Elementary School, Middle School',
+                                           'Middle School',
+                                           'Middle School, High School',
+                                           'High School',
+                                           'Elementary School, High School',
+                                           'Elementary School, Middle School, High School'), 
+                                         num_rows, replace=TRUE, prob=c(0.15, 0.15, 0.15, 0.15, 0.15, 0.05, 0.1) ),
+    
+    Teaching.Credential = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.1, 0.9) ),
+      
+    Tutoring.Preference = sample( c('ELA', 
+                                    'Math',
+                                    'Either/No Preference'), num_rows, replace=TRUE, prob=c(0.4, 0.4, 0.2) ),
+    
+    Grade.Lvl.Preference = sample( c('Elementary School',
+                                       'Elementary School, Middle School',
+                                       'Middle School',
+                                       'Middle School, High School',
+                                       'High School',
+                                       'Elementary School, High School',
+                                       'Elementary School, Middle School, High School'), num_rows, replace=TRUE, prob=c(0.16, 0.16, 0.16, 0.16, 0.16, 0.01, 0.2) ),
+      
+    Math.Confidence = sample( c('Pre-algebra or lower', 
+                                'Algebra I', 
+                                'Algebra II', 
+                                'Calculus or higher'), num_rows, replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25) ),
+  
+    Travel.Method = sample( c('Driving', 
+                              'Public Transportation', 
+                              'Bicycling', 
+                              'Walking'), num_rows, replace=TRUE, prob=c(0.3, 0.6, 0.07, 0.03) ),
+      
+    Gender = sample( c('Female', 
+                       'Male', 
+                       'Transgender Male', 
+                       'Transgender Female', 
+                       'Gender Nonconforming (GNC)'), num_rows, replace=TRUE, prob=c(0.5, 0.3, 0.05, 0.05, 0.1) ),
+      
+    Birth.Date = fake_dates(num_rows),
+    
+    Race.Ethnicity = sample( c('African American/Black', 
+                               'American Indian/Alaskan Native', 
+                               'Asian', 
+                               'Hispanic/Latino',
+                               'Middle Eastern',
+                               'Native Hawaiian or Pacific Islander',
+                               'White/Caucasian',
+                               'African American/Black, Hispanic/Latino', 
+                               'Hispanic/Latino, White/Caucasian',
+                               'Middle Eastern, White/Caucasian',
+                               'African American/Black, White/Caucasian'), 
+                             num_rows, replace=TRUE, prob=c(0.3, 0.03, 0.05, 0.13, 0.03, 0.03, 0.38, 0.05, 0.01, 0.01, 0.01) ),
+    
+    Educational.Attainment = sample( c('High School/GED', 
+                                       'Some College',
+                                       "Associate's Degree",
+                                       "Bachelor's Degree",
+                                       "Master's Desgree"),
+                                     num_rows,   replace=TRUE, prob=c(0.2, 0.2, 0.15, 0.4, 0.05) ),
+    
+    Know.Living =  sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
+    
+    Address.Line.1 = rep('', num_rows),
+      
+    Address.Line.2 = rep('', num_rows),
+      
+    City = rep('', num_rows),
+      
+    State =  rep('', num_rows),
+      
+    Postal.Code = rep('', num_rows),
+    
+    Roomates = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
+    
+    Roommate.Names = rep('none', num_rows),
+    
+    Manual.Placement = sample( c(NA, school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.9, rep(0.01, length(school_df$`School Name`))))
+  )
+  
+  # Fix conditional survey items so that a "No" answer will cause dependent items to be NA
+  fake_df$Language.Ability[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Tutoring.Experience.Months[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Tutoring.Experience.Grades[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Teaching.Credential[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Roommate.Names[fake_df$Roomates == 'No'] <- NA
+  return(fake_df)
+}
+  
+acm_df_fake <- generate_fake_df(247, school_df, seed=42)
+
+write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
+```
+
+# Encode Variables & Clean Up Input Dataframes
+
+Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
+
+```{r Encoding Variables}
+# This function takes the input acm_df and encodes the variables in a way that makes the mathematically tractable.
+encode_acm_df <- function(df){
+
+  acm_enc <- select(df, acm_id)
+  
+  # Ed Attainment
+  acm_enc$Ed_HS <- as.numeric(grepl("High School/GED", df$Educational.Attainment))
+  acm_enc$Ed_SomeCol <- grepl("Some College", df$Educational.Attainment) + grepl("Associate's Degree", df$Educational.Attainment)
+  acm_enc$Ed_Col <- grepl("Bachelor's Degree", df$Educational.Attainment) + grepl("Master's Degree", df$Educational.Attainment)
+  
+  # Tutoring Experience
+  acm_enc$HasTutored <- ifelse(df$Tutoring.Experience == "Yes", 1, 0)
+  
+  # Tutoring Preference
+  acm_enc$Pref_HS <- as.numeric(grepl("High School", df$Grade.Lvl.Preference))
+  acm_enc$Pref_MS <- as.numeric(grepl("Middle School", df$Grade.Lvl.Preference))
+  acm_enc$Pref_ES <- as.numeric(grepl("Elementary School", df$Grade.Lvl.Preference))
+  
+  # Math Proficiency
+  acm_enc$Math_Confidence <- ifelse(df$Math.Confidence == "Pre-Algebra or lower" | df$Math.Confidence == "Algebra I", 0, 1)
+  
+  # Language Ability
+  acm_enc$SpanishAble <- ifelse(df$Language.Ability == "Spanish", 1, 0)
+  acm_enc$SpanishAble[is.na(acm_enc$SpanishAble)] <- 0
+  acm_enc$Lang_Other <- ifelse((df$Language.Other.English == "Yes") & (df$Language.Ability != "Spanish"), 1, 0)
+  
+  # Add in other features
+  acm_enc$Gender <- acm_df$Gender
+  acm_enc$Race.Ethnicity <- acm_df$Race.Ethnicity
+  acm_enc$Manual.Placement <- acm_df$Manual.Placement
+  acm_enc$Birth.date <- acm_df$Birth.Date
+  
+  # Return
+  acm_enc
+}
+
+# School configuration data frame. I think we could probably reduce the school configuration file to just the following elements: school name, team size, address, and local ethnic demographics.  From those data points alone and the corps demographic data, we should be able to calculate everything else.  
+
+# This function calculates some import counts which I'm going to use a lot when trying to figure out the expected number of ACMs per team per metric.  This function will just be used internally by the school_config function.
+corps_demographic_targets <- function(school_df, acm_enc){
+  # Calculate some totals used later in the function
+  N <- nrow(acm_enc)
+  S <- nrow(school_df)
+  
+  # Counts of schools by level
+  school_counts <- group_by(school_df, `School Type`) %>% summarise(count=n())
+  
+  # Approximation of densly spanish speaking schools
+  dense_hispanic <- nrow(school_df[school_df$`% Hispanic` > 10, ])
+  
+  # We'll store our results in a list so we can return multiple tables
+  distros <- list()
+  
+  # Produce ratio of folks who have completed at least an associates, and those who haven't
+  distros$education <- data.frame(level = c("HS", "SomeCol"), ratio = c(nrow(acm_enc[acm_enc$Ed_HS == 1,]) / N, nrow(acm_enc[acm_enc$Ed_SomeCol == 1,]) / N))
+  
+  # Identify rates of Tutoring Experience
+  distros$tut_exp <- group_by(acm_enc, HasTutored) %>% 
+    summarise(count=n()) %>% 
+    mutate(ratio = count/N)
+  
+  # Spanish and other spoken language distribution
+  distros$lang <- data.frame(ability = c("other"), ratio = c(nrow(acm_enc[acm_enc$Lang_Other == 1, ]) / N))
+  
+  # Math Ability
+  distros$math <- nrow(acm_enc[acm_enc$Math_Confidence == 1,]) / N
+  
+  # Note on tutoring pref.  We'll simply set this parameter to the team size appropriate for the level type.  This should thus maximize the incentive on putting folks with the appropriate tutoring pref at the appropriate levels.
+  distros
+}
+
+# I derived this function mildly arbitrarily. The logic is that we probably want at least one spanish speaker at a school, but there are then diminishing returns.  It scales so that for a school that 100% hispanic, we would aim to have 5 spanish speakers on the team.  A team thats 50% hispanic will aim to have 4. The main problem with this approach is that we may create too many spots for spanish speakers, or have not have enough spanish speakers for the intended spots.  
+spanishNeed <- function(x) {
+  1.5772*log(x) - 2.1205
+}
+
+# Directly calculates the expected number of ACMs per team for each of the markers.
+# My methodology is to aim for a uniform distribution when it makes sense.
+school_config <- function(school_df, acm_enc){
+  # Precalculate some helpful counts
+  corps_demos <- corps_demographic_targets(school_df, acm_enc)
+  # Unravel list into some variables.  Mostly so that the code is a little cleaner later.
+  education <- corps_demos$education
+  lang <- corps_demos$lang
+  tut_exp <- corps_demos$tut_exp
+  math <- corps_demos$math
+  
+  
+  
+  school.data <- select(school_df, `School_ID`, `Team Size`, `School Type`, `% Caucasian`:`% N/A`) %>%
+    rename(size = `Team Size`,
+           span = `School Type`) %>%
+    mutate(HSGrad_tgt = ifelse(span=="ES", 0, education[education$level %in% 'HS',]$ratio * size),
+           SomeCol_tgt = education[education$level %in% 'SomeCol',]$ratio * size,
+           SpanPref_ES = ifelse(span=="ES", size, 0),
+           SpanPref_MS = ifelse(span=="MS", size, 0),
+           SpanPref_HS = ifelse(span=="HS", size, 0),
+           TutExp = size * tut_exp[tut_exp$HasTutored == 1,]$ratio,
+           SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1),# This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other places.
+           OtherLang_tgt = lang[lang$ability %in% 'other',]$ratio * size,
+           Math_tgt = ifelse(span=="ES", size*.5*math, ifelse(span=="MS", .75*size*math, size*math))) 
+}
+
+acm_enc <- encode_acm_df(acm_df)
+school_targets <- school_config(school_df, acm_enc)
+
+```
+
+
+
+ 
+# Calculate Commutes
+
+To calculate commute times, we essentially send many requests to Google Maps through an API (Applciation Program Interface). To get access to the API we need a key. Visit the [Google Distance Matrix API](https://developers.google.com/maps/documentation/distance-matrix/) page. Click "GET A KEY" in the upper right corner. Save the key privately. This key identifies you to Google.
+
+Many organizations provide access to their data through an API. Many times this service is free, but some organizations charge for this service because of processing costs and the benefits that this access enables. Google will allow you to calculate 2,500 travel times for free in one day. After that, you will need to pay $0.50 for each 1,000 requests, or wait a day to calculate 2,500 more.
+
+The key I included in this script is a free-use key, so it will be limited to 2,500 results per day. However, I did opt to enable pay-as-you-go on my personal key (not shared here). In CYCHI, this expense will hopefully be covered under our Impact Team budget.
+
+```{r commute times}
+# Prior to this step, you may need to ensure that "Address Line 1" 
+# does not include any apartment/suite/room info.
+
+# Note that for public tansit, google does not count 
+# the time spent waiting for the bus/train. For example, 
+# let's say I get off work at 5pm and a bus comes at 5:15pm. 
+# I ride the bus 45 minutes to get home. My commute is more 
+# accurately described as 60 minutes, but this function would 
+# still return 45 minutes.
+
+
+
+
+calc_commutes = function(acm_df, api){
+  set.api.key(api)
+
+  # Convert 'Walking', 'Bicycling', 'Public Transportation' to 'transit'
+  acm_df$Travel.Method <- as.character(acm_df$Travel.Method)
+  acm_df$Travel.Method[acm_df$Travel.Method %in%  c('Walking', 'Bicycling', 'Public Transportation')] <- "transit"
+  acm_df$Travel.Method[acm_df$Travel.Method %in% "Driving"] <- "driving"
+  acm_df$Travel.Method <- as.factor(acm_df$Travel.Method)
+  
+  # This line combines address data into one text string:
+  acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
+  
+  # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
+  acm_df$"Full Address" = gsub(" ", "+", acm_df$"Full Address")
+  school_df$"Address" = gsub(" ", "+", school_df$"Address")
+  school_df$"Address" = gsub(",", "", school_df$"Address")
+  
+  # Create an empty dataframe that we will fill with commute times
+  acm_commutes <- data.frame()
+  
+  # Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance package, and build a new data frame of commute info.
+  for (x in acm_df[1:2,]$acm_id){
+    
+    # select one row from acm_df, and assign it to a new object, acm_row
+    acm_row <- subset(acm_df, acm_id == x)
+    
+    # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a single row of ACM commute times to each school. That row is assigned to a new object, 'commute'
+    commute = gmapsdistance(origin = acm_row$"Full Address", destination = school_df[1:2,]$"Address", mode = acm_row$Travel.Method, combinations = "all", shape = "wide")
+    
+    # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
+    commute$Time[["acm_id"]] = x
+    
+    # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
+    acm_commutes <- rbind(acm_commutes, commute$Time)
+  }
+  
+  acm_commutes
+
+  }
+
+calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
+
+```
+
+# Initial Team Placements
+```{r} 
+# Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
+
+initial_placement <- function(seed=42, acm_df, school_df){
+  # First place acm's at schools designated by Manual.Placement column
+  
+  # first create an empty list
+  team_placements = list()
+  
+  # use a for-loop to read each team size
+  for (x in 1:nrow(school_df)){
+    team_slots = list(
+      # create a list that repeats each school 'id' for the size of each team
+      rep(x, 
+          subset(school_df$"Team Size", school_df$sch_id == x)
+          )
+      )
+    team_placements <- c(team_placements, team_slots)
+  }
+  
+  team_placements <- data.frame(placement=unlist(team_placements))
+  
+  # Randomize Starting Place
+  set.seed(seed)
+  
+  team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ], 
+                                   acm_id= 1:nrow(team_placements))
+  
+  
+  # Merge team_placements_df with acm_df on the 'id' column
+  team_placements_df <- merge(acm_df, team_placements_df, by = "acm_id", all.x = TRUE)
+  
+  # Honor Manual Placements
+  sch_id_names <- school_df[, c("sch_id", "School Name")]
+  colnames(sch_id_names) <- c("Manual.Placement_id", "School.Name")
+  team_placements_df <- merge(team_placements_df, sch_id_names, by.x = "Manual.Placement", by.y = "School.Name", all.x = TRUE)
+  acms_with_Manual.Placement <- subset(team_placements_df, (!is.na(team_placements_df$Manual.Placement)))
+  acms_no_Manual.Placement <- subset(team_placements_df, (is.na(team_placements_df$Manual.Placement)))
+  
+  for (x in acms_with_Manual.Placement$acm_id){
+    team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
+    rownames(team_placements_df) <- 1:nrow(team_placements_df)
+    acm_row <- subset(acms_with_Manual.Placement, acms_with_Manual.Placement$acm_id == x)
+    
+    # Choose 1 acm_id currently assigned to the school at which we want to ensure manual placement is honored
+    acm_id_to_swap <- sample( subset( acms_no_Manual.Placement$acm_id, acms_no_Manual.Placement$placement == acm_row$Manual.Placement_id ), 1 )
+    
+    # Swap the team assignment of those 2 ACMs
+    swap1 <- acm_row$acm_id
+    swap2 <- acm_id_to_swap
+    team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
+  }
+  
+  return(team_placements_df)
+
+}
+
+team_placements_df <- initial_placement(seed=42, acm_enc, school_df)
+team_placements_df
+```
+
+# Calculate score
+
+This is the function that calculates the quality of each placement.
+
+```{r}
+# Instead of trying to validate something like underage folk in High schools, we can just make it expensive.  By making it super expensive we can reduce the probability of getting invalid placements. After having tried this a bit, it seems like our best option would to be to try to place our HS grads appropriatly (minimally assign them )
+
+asym_loss <- function(scores){
+  neg <- sum(scores[scores < 0] * -1e10)
+  pos <- sum(scores[scores >= 0])
+  pos + neg
+}
+
+calculate_score = function(team_placements_df, school_targets) {
+  
+  # Merge  with school_df to pull in school characteristics
+  team_placements_df <- merge(team_placements_df, school_targets, by.x = "placement", by.y = "School_ID", all.x = TRUE)
+  
+  # Store each score in a list
+  scores = list()
+  #################
+  # COMMUTE SCORE #
+  #################
+  
+  # This score is simply the sum number of seconds each ACM travels to their assigned school
+  
+  team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
+  
+  team_placements_df <- within(team_placements_df, id_dest <- paste(acm_id, dest, sep = "_"))
+  
+  dt_commutes <- data.table(acm_commutes_long)
+  
+  scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
+  
+  ################
+  # GENDER SCORE #
+  ################
+
+  # This score measures the average of differences between each gender's percent occurance across the corps and its occurance on each team
+  
+  # Create data.frame with each potential combination of gender and school, based on the survey responses provided
+  
+  gender_frame <- 
+    expand.grid(placement = 1:26, Gender = levels(team_placements_df$Gender))
+    # Note--need to replace sch_id with the appropriate school id values based off of the data
+  
+  # Create tibbl containing percentage representation of each gender category across the entire corps
+  gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(team_placements_df))
+  
+  # Merge previous two frames by "gender"
+  gender_frame_g <-
+    merge(x = gender_frame,
+          y = gender_g,
+          by = "Gender",
+          all.x = TRUE)
+  
+  # Represent percentage of each gender category within each team
+  gender_gs <- 
+    team_placements_df %>%
+    group_by(placement, Gender) %>%
+    dplyr::summarize(n_gs = n()) %>%
+    group_by(placement) %>%
+    dplyr::mutate(pct_gs = n_gs/sum(n_gs))
+  
+  # Calculate absolute value of difference between gender percentages at each team and across the corps
+  gender_frame_gs <-
+    merge(x = gender_frame_g,
+          y = gender_gs,
+          by = c("placement", "Gender"),
+          all.x = TRUE) %>%
+    within({
+      diff_gs <- pct_g - ifelse(is.na(pct_gs), 0, pct_gs)
+      abs_diff_gs <- abs(diff_gs)
+    }) %>%
+    summarise(mean_gend_diff = mean(abs_diff_gs))
+  
+  scores$gender_score <- gender_frame_gs$mean_gend_diff * 10000000 / 2
+  
+  #############
+  # AGE SCORE #
+  #############
+  
+  # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
+  
+  team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.date), format="%Y-%m-%d"))
+
+  age_var <-
+    group_by(team_placements_df, placement) %>%
+    summarize(age_var = var(days_old)) %>%
+    ungroup() %>%
+    summarize(avg_age_var = mean(age_var))
+
+  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
+  
+  #################
+  #    Scoring    #
+  #################  
+  
+  placed <- team_placements_df %>% 
+                group_by(placement) %>%
+                summarise(HS_Grads = sum(HSGrad_tgt),
+                          SomeCol = sum(SomeCol_tgt),
+                          Tutoring = sum(HasTutored),
+                          Spanish = sum(SpanishAble),
+                          OtherLang = sum(Lang_Other),
+                          Pref_HS = sum(Pref_HS),
+                          Pref_MS = sum(Pref_MS),
+                          Pref_ES = sum(Pref_ES),
+                          MathAble = sum(Math_Confidence))
+  
+  scores$HS_score <- asym_loss(school_targets$HSGrad_tgt - placed$HS_Grads)
+  scores$SomeCol <- sum(abs(school_targets$SomeCol_tgt - placed$SomeCol))
+  scores$Tutoring <- sum(abs(school_targets$TutExp - placed$Tutoring))
+  scores$Spanish <- sum(abs(school_targets$SpanishNeed - placed$Spanish))
+  scores$OtherLang <- sum(abs(school_targets$OtherLang_tgt - placed$OtherLang))
+  scores$Grade_Pref <- sum(abs(school_targets$SpanPref_ES - placed$Pref_ES) + abs(school_targets$SpanPref_MS - placed$Pref_MS) + abs(school_targets$SpanPref_HS - placed$Pref_HS))
+  scores$Math <- sum(abs(school_targets$Math_tgt - placed$MathAble))          
+
+  #################
+  # OVERALL SCORE #
+  #################
+  
+  scores$aggr_score <- sum(unlist(scores))
+  
+  return(scores)
+}
+
+#I'm noticing that our scores are on various scales.  We need to carefully scale the scores to represent how important they are proportionately.  
+
+calculate_score(team_placements_df, school_targets)
+```
+
+# Valid Placement Test
+```{r generate logic for invalid placements}
+# This is where we will define firm placement rules that cannot be broken (the placement won't be accepted)
+
+IsValid <- function(assign){
+  valid <- ifelse(any(assign < 9), FALSE, TRUE) 
+  return(valid)
+}
+
+```
+
+# Temperature Function
+```{r}
+current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_width) {
+  s_curve_amplitude * s_curve(iter, s_curve_center, s_curve_width)
+}
+
+s_curve = function(x, center, width) {
+  1 / (1 + exp((x - center) / width))
+}
+
+```
+
+# Annealing and Swap Function
+```{r}
+run_intermediate_annealing_process = function(starting_placements, school_df, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+  
+  team_placements_df <- starting_placements
+  
+  placement_score <- calculate_score(team_placements_df, school_df)$aggr_score
+
+  for(i in 1:number_of_iterations) {
+    iter = starting_iteration + i
+    temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
+    
+    # Nick Question: Necessary to reset acm_id sort and index?
+    # Create a copy of team_placements_df, which is Sorted by acm_id so that each row index will equal acm_id
+    candidate_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
+    rownames(candidate_placements_df) <- 1:nrow(candidate_placements_df)
+    
+    acms_no_Manual.Placement <- subset(candidate_placements_df, (is.na(candidate_placements_df$Manual.Placement)))
+
+    # Choose 2 schools at random
+    schools_to_swap = sample(1:nrow(school_df), 2)
+
+    # Choose 1 ACM from each of those schools. Select only ACMs who have no Manual.Placement
+    swap1 = sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[1] ], 1)
+    swap2 = sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[2] ], 1)
+
+    # Swap the team assignment of those 2 ACMs - NOTE this is done by index, but we use acm_id as index
+    candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
+    
+    # Place firm restrictions here
+    #IsValid(candidate_placements_df)
+    
+    candidate_score = calculate_score(candidate_placements_df, school_df)
+    
+    if (temp > 0) {
+      ratio = exp((placement_score - candidate_score$aggr_score) / temp)
+    } else {
+      ratio = as.numeric(candidate_score$aggr_score < placement_score)
+    }
+    
+    if (runif(1) < ratio) {
+      team_placements_df = candidate_placements_df
+      placement_score = candidate_score$aggr_score
+      
+      if (placement_score < best_score) {
+        best_placements = team_placements_df
+        best_score = placement_score
+      }
+    }
+  }
+  
+  # Merge in School characteristics
+  best_placements <- merge(best_placements, school_df, by.x = "placement", by.y = "School_ID", all.x = TRUE)
+  
+  best_placements <- best_placements[order(best_placements$placement),]
+  
+  return(list(commute_score=candidate_score$commute_score, 
+              avg_commute_mins=(candidate_score$commute_score / nrow(team_placements_df) / 60), 
+              gender_score=candidate_score$gender_score, 
+              age_score=candidate_score$age_score, 
+              best_placements=best_placements, 
+              best_score=best_score))
+}
+
+```
+
+```{r}
+## Useful: system.time({ <<code to time>> })
+
+# initial score
+calculate_score(team_placements_df, school_targets)$aggr_score
+
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = 10000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+
+new_placement <- output$best_placements
+output$best_score
+# last run did 10,000 iters in 216.08 seconds or 46 iters/sec
+```
+>>>>>>> 68a154e3aac268e1794f5b0992e52c7f8f55dfe3
