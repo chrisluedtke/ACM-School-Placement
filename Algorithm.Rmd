@@ -426,7 +426,7 @@ initial_placement <- function(seed=42, acm_df, school_df){
   # Randomize Starting Place
   set.seed(seed)
   
-  team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ], 
+  team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ],
                                    acm_id= 1:nrow(team_placements))
   
   
@@ -452,10 +452,29 @@ initial_placement <- function(seed=42, acm_df, school_df){
     swap1 <- acm_row$acm_id
     swap2 <- acm_id_to_swap
     team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
+    
   }
   
+  # We would like to ensure that high school students get placed in ES or MS
+  acms_for_swaps <- merge(acms_no_Manual.Placement, school_df, by.x = "placement", by.y = "School_ID", all.x = TRUE)
+  
+  #print(acms_for_swaps)
+    
+  hs_acms_to_swap <- acms_for_swaps[(acms_for_swaps$Ed_HS == 1) & (acms_for_swaps$`School Type` == "HS"),]
+  acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$`School Type` != "HS"),]
+  acms_to_swap_with <- acms_to_swap_with[sample(nrow(acms_to_swap_with), nrow(hs_acms_to_swap), replace = F), ]
+  
+  if (nrow(hs_acms_to_swap) != 0){
+    for (i in c(1, nrow(hs_acms_to_swap))){
+      hs_acm <- hs_acms_to_swap[i, ]$placement
+      not_hs_acm <- acms_to_swap_with[i, ]$placement
+      #print(c(hs_acm, not_hs_acm))
+      team_placements_df$placement <- replace(team_placements_df$placement, c(hs_acm, not_hs_acm), team_placements_df$placement[c(not_hs_acm, hs_acm)])
+    } 
+  }
+ 
   return(team_placements_df)
-
+    
 }
 
 team_placements_df <- initial_placement(seed=42, acm_enc, school_df)
