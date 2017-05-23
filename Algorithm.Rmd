@@ -312,10 +312,10 @@ school_config <- function(school_df, acm_enc){
   
   
   
-  school.data <- select(school_df, `School_ID`, `Team Size`, `School Type`, `% Caucasian`:`% N/A`) %>%
+  school.data <- select(school_df, `sch_id`, `Team Size`, `School Type`, `% Caucasian`:`% N/A`) %>%
     rename(size = `Team Size`,
            span = `School Type`) %>%
-    mutate(HSGrad_tgt = ifelse(span=="ES", 0, education[education$level %in% 'HS',]$ratio * size),
+    mutate(HSGrad_tgt = ifelse(span=="HS", 0, education[education$level %in% 'HS',]$ratio * size),
            SomeCol_tgt = education[education$level %in% 'SomeCol',]$ratio * size,
            SpanPref_ES = ifelse(span=="ES", size, 0),
            SpanPref_MS = ifelse(span=="MS", size, 0),
@@ -456,7 +456,7 @@ initial_placement <- function(seed=42, acm_df, school_df){
   }
   
   # We would like to ensure that high school students get placed in ES or MS
-  acms_for_swaps <- merge(acms_no_Manual.Placement, school_df, by.x = "placement", by.y = "School_ID", all.x = TRUE)
+  acms_for_swaps <- merge(acms_no_Manual.Placement, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
   #print(acms_for_swaps)
     
@@ -497,7 +497,7 @@ asym_loss <- function(scores){
 calculate_score = function(team_placements_df, school_targets) {
   
   # Merge  with school_df to pull in school characteristics
-  team_placements_df <- merge(team_placements_df, school_targets, by.x = "placement", by.y = "School_ID", all.x = TRUE)
+  team_placements_df <- merge(team_placements_df, school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
   # Store each score in a list
   scores = list()
@@ -699,25 +699,24 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     if (runif(1) < ratio) {
       team_placements_df = candidate_placements_df
       placement_score = candidate_score$aggr_score
+      all_scores = candidate_score
       
       if (placement_score < best_score) {
         best_placements = team_placements_df
         best_score = placement_score
+        best_score_diff = all_scores
       }
     }
   }
   
   # Merge in School characteristics
-  best_placements <- merge(best_placements, school_df, by.x = "placement", by.y = "School_ID", all.x = TRUE)
+  best_placements <- merge(best_placements, school_df, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
   best_placements <- best_placements[order(best_placements$placement),]
   
-  return(list(commute_score=candidate_score$commute_score, 
-              avg_commute_mins=(candidate_score$commute_score / nrow(team_placements_df) / 60), 
-              gender_score=candidate_score$gender_score, 
-              age_score=candidate_score$age_score, 
-              best_placements=best_placements, 
-              best_score=best_score))
+  return(list(best_placements=best_placements, 
+              best_score=best_score,
+              diff_scores=best_score_diff))
 }
 
 ```
