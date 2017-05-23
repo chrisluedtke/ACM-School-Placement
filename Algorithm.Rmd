@@ -36,10 +36,9 @@ library(dummies)
 ## To Do
   * Determine weights
   * Set parameter inputs (i.e. consider_roommates = FALSE)
-  * Set firm restrictions on random placements
+  * Set firm restrictions on random placements (make random swap -> check if valid placement)
       - no roommates same team (if roommate parameter = TRUE)
       - no under 21 y/o CMs at high school unless some college experience
-      - make random swap -> check if valid placement
       - challenge: how to start at a valid set of placements?
 
 ## Chris
@@ -430,8 +429,10 @@ initial_placement <- function(seed=42, acm_df, school_df){
   acms_no_Manual.Placement <- subset(team_placements_df, (is.na(team_placements_df$Manual.Placement)))
   
   for (x in acms_with_Manual.Placement$acm_id){
+    # Sort by acm_id and resest index so we can make swaps assuming that each index=acm_id
     team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
     rownames(team_placements_df) <- 1:nrow(team_placements_df)
+    
     acm_row <- subset(acms_with_Manual.Placement, acms_with_Manual.Placement$acm_id == x)
     
     # Choose 1 acm_id currently assigned to the school at which we want to ensure manual placement is honored
@@ -448,7 +449,7 @@ initial_placement <- function(seed=42, acm_df, school_df){
 }
 
 team_placements_df <- initial_placement(seed=42, acm_df, school_df)
-team_placements_df
+
 ```
 
 # Calculate score
@@ -467,7 +468,7 @@ calculate_score = function(team_placements_df, school_df) {
   # COMMUTE SCORE #
   #################
   
-  # This score is simply the sum number of seconds all ACMs travel to their assigned schools
+  # This score is simply the sum number of seconds all ACMs travel to their assigned schools (there might be a better measure)
   
   team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
   
@@ -545,7 +546,17 @@ calculate_score = function(team_placements_df, school_df) {
     # Count percentages of different ethnic representations on each team
       # How to make it such that a team of 4 white ACMs and 4 POC ACMs is the same score as 4 white ACMs and 4 Latinx ACMs?
     # Count # different ethnicities represented
-    
+    # average of each team's average percent representation of each ethnicity (I think this is what we want)
+      # should we count multi-ethnic people as a half-person of each or as a whole person of each?
+      # aka would an African American Latino count as 50% of each, or 100% of each as two people.
+  
+  # This does most of what we want, but does not separate comma-separated multi-ethnicities into distinct ethnicities (waiting to see how actual survey presents this data)
+  ethnicity_eths <- 
+    team_placements_df %>%
+    group_by(placement, Race.Ethnicity) %>%
+    dplyr::summarize(n_eths = n()) %>%
+    group_by(placement) %>%
+    dplyr::mutate(pct_eths = n_eths/sum(n_eths))
   
   #################
   # Ed Attainment #
