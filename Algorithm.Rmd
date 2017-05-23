@@ -465,7 +465,7 @@ initial_placement <- function(seed=42, acm_df, school_df){
   acms_to_swap_with <- acms_to_swap_with[sample(nrow(acms_to_swap_with), nrow(hs_acms_to_swap), replace = F), ]
   
   if (nrow(hs_acms_to_swap) != 0){
-    for (i in c(1, nrow(hs_acms_to_swap))){
+    for (i in c(1:nrow(hs_acms_to_swap))){
       hs_acm <- hs_acms_to_swap[i, ]$placement
       not_hs_acm <- acms_to_swap_with[i, ]$placement
       #print(c(hs_acm, not_hs_acm))
