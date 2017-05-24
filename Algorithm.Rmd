@@ -82,14 +82,6 @@ acm_commutes_long <-
   gather(dest, dist, -acm_id) %>%
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
 
-var(c(4/9, 4/9, 4/9, 4/9, 4/9, 4/9, 4/9, 4/9, 1/9))
-var(c(4/10, 4/10, 4/10, 4/10, 5/10, 5/10, 5/10, 5/10, 5/10, 1/10))
-var(c(4/10, 4/10, 4/10, 4/10, 5/10, 5/10, 5/10, 5/10, 5/10, 1/10))
-var(c(8/18, 8/18, 8/18, 8/18, 9/18, 9/18, 9/18, 9/18, 9/18, 1/18))
-
-((4/10) * 4 + (5/10) * 5 + 1/10)/10
-
-(8/9 * 8 + 1/9) / 9
 
 ```
 
@@ -499,15 +491,7 @@ initial_placement <- function(seed=42, acm_df, school_df){
 
 team_placements_df <- initial_placement(seed=42, acm_df, school_df)
 
-ethnicity_eths <- 
-    team_placements_df %>%
-    group_by(placement, Race.Ethnicity) %>%
-    dplyr::summarize(n_eths = n()) %>%
-    group_by(placement) %>%
-    dplyr::mutate(pct_eths = n_eths/sum(n_eths))
 
-
-ethnicity_eths
 ```
 
 # Calculate score
@@ -605,21 +589,25 @@ calculate_score = function(team_placements_df, school_targets) {
   # ETHNICITY SCORE #
   ###################
   
-  # Brainstorming approaches
-    # Count percentages of different ethnic representations on each team
-      # How to make it such that a team of 4 white ACMs and 4 POC ACMs is the same score as 4 white ACMs and 4 Latinx ACMs?
-    # Count # different ethnicities represented
-    # average of each team's average percent representation of each ethnicity (I think this is what we want)
-      # for each team, count # unique race/ethnicities represented
-      # 
+  # This score is the overall average of each team's average % representation that each teammate experiences. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
   
-  # This does most of what we want, but does not separate comma-separated multi-ethnicities into distinct ethnicities (waiting to see how actual survey presents this data)
   ethnicity_eths <- 
     team_placements_df %>%
-    group_by(placement, Race.Ethnicity) %>%
+    group_by(placement, 
+             Race.Ethnicity.African.American.Black, 
+             Race.Ethnicity.White.Caucasian, 
+             Race.Ethnicity.Asian,
+             Race.Ethnicity.Hispanic.Latino,
+             Race.Ethnicity.Middle.Eastern,
+             Race.Ethnicity.Other) %>%
     dplyr::summarize(n_eths = n()) %>%
     group_by(placement) %>%
-    dplyr::mutate(pct_eths = n_eths/sum(n_eths))
+    dplyr::mutate(pct_eths = n_eths/sum(n_eths) * n_eths / sum(n_eths)) %>%
+    dplyr::mutate(avg_eths_rep = sum(pct_eths)) %>%
+    summarize(avg_eths_rep = mean(avg_eths_rep)) %>%
+    summarize(avg_eths_rep = mean(avg_eths_rep))
+
+  scores$ethnicity_score <- ethnicity_eths$avg_eths_rep
   
   #################
   #    Scoring    #
