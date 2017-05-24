@@ -30,13 +30,7 @@ library(dummies)
 # Tasks
 
 ## Nick Q's
-  * Two different score approaches
-    1 - School Targets. Based on ACM survey responses, compute target # ACMs for each category on each team.
-      * Benefit: target computation happens outside of the loop
-    2 - Stats to compare corps-wide features to current set of team placements
-  * How to compare these two scores, how to weight scores in general, what that process looks like
-    - run and gun? - run many iterations and eyeball the results, setting weights as needed
-  * Better to validate swaps with validation function or to blow up the score of some unfavorable placement
+  * Better to validate swaps with validation function or to blow up the score of some unfavorable placement so it won't be kept.
 
 ## To Do
   * Determine weights
@@ -56,6 +50,8 @@ library(dummies)
   * Age variance Score
     * remaining challenge: add weights and probably remove some aspects from the loop
   * ethnicity
+    * How to measure?
+      - variance of percent representations?
   * attend CY school
   * roommates? not necessary?
   * Honor manual placements
@@ -85,6 +81,15 @@ acm_commutes_long <-
   select(acm_commutes, -or) %>%
   gather(dest, dist, -acm_id) %>%
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
+
+var(c(4/9, 4/9, 4/9, 4/9, 4/9, 4/9, 4/9, 4/9, 1/9))
+var(c(4/10, 4/10, 4/10, 4/10, 5/10, 5/10, 5/10, 5/10, 5/10, 1/10))
+var(c(4/10, 4/10, 4/10, 4/10, 5/10, 5/10, 5/10, 5/10, 5/10, 1/10))
+var(c(8/18, 8/18, 8/18, 8/18, 9/18, 9/18, 9/18, 9/18, 9/18, 1/18))
+
+((4/10) * 4 + (5/10) * 5 + 1/10)/10
+
+(8/9 * 8 + 1/9) / 9
 
 ```
 
@@ -233,7 +238,7 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
   
 acm_df_fake <- generate_fake_df(247, school_df, seed=42)
 
-#write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
+write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
 # Encode Variables & Clean Up Input Dataframes
@@ -506,9 +511,6 @@ ethnicity_eths
 ```
 
 # Calculate score
-
-This is the function that calculates the quality of each placement.
-
 ```{r}
 # Instead of trying to validate something like underage folk in High schools, we can just make it expensive.  By making it super expensive we can reduce the probability of getting invalid placements. After having tried this a bit, it seems like our best option would to be to try to place our HS grads appropriatly (minimally assign them )
 
@@ -544,14 +546,13 @@ calculate_score = function(team_placements_df, school_targets) {
   # GENDER SCORE #
   ################
 
-  # This score measures the average of differences between each gender's percent occurance across the corps and its occurance on each team
+  # This score measures the average of differences between each gender's percent occurance across the corps and its percent occurance on each team
   
   # Create data.frame with each potential combination of gender and school, based on the survey responses provided
   
   gender_frame <- 
-    expand.grid(placement = 1:26, Gender = levels(team_placements_df$Gender))
-    # Note--need to replace sch_id with the appropriate school id values based off of the data
-  
+    expand.grid(placement = 1:nrow(school_targets), Gender = levels(team_placements_df$Gender))
+    
   # Create tibbl containing percentage representation of each gender category across the entire corps
   gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(team_placements_df))
   
@@ -609,8 +610,8 @@ calculate_score = function(team_placements_df, school_targets) {
       # How to make it such that a team of 4 white ACMs and 4 POC ACMs is the same score as 4 white ACMs and 4 Latinx ACMs?
     # Count # different ethnicities represented
     # average of each team's average percent representation of each ethnicity (I think this is what we want)
-      # should we count multi-ethnic people as a half-person of each or as a whole person of each?
-      # aka would an African American Latino count as 50% of each, or 100% of each as two people.
+      # for each team, count # unique race/ethnicities represented
+      # 
   
   # This does most of what we want, but does not separate comma-separated multi-ethnicities into distinct ethnicities (waiting to see how actual survey presents this data)
   ethnicity_eths <- 
