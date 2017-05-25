@@ -486,30 +486,29 @@ initial_placement <- function(seed=42, acm_enc, school_targets){
     
 }
 
-misplaced_youth <- function(init_placement){
-  youth <- init_placement %>%
-             filter(is.na(init_placement$Manual.Placement) == T) %>%
-             left_join(., school_targets, by= c("placement"="sch_id")) %>%
-             select(acm_id, placement, Ed_HS, span, HSGrad_tgt, Manual.Placement) %>%
-             filter(Ed_HS == 1 & HSGrad_tgt == 0)
-}
+# Function for identifying HS ACMs in high schools
+# misplaced_youth <- function(init_placement){
+#   youth <- init_placement %>%
+#              filter(is.na(init_placement$Manual.Placement) == T) %>%
+#              left_join(., school_targets, by= c("placement"="sch_id")) %>%
+#              select(acm_id, placement, Ed_HS, span, HSGrad_tgt, Manual.Placement) %>%
+#              filter(Ed_HS == 1 & HSGrad_tgt == 0)
+# }
 
 team_placements_df <- initial_placement(seed=42, acm_enc, school_targets)
-youth <- misplaced_youth(team_placements_df)
 
 ```
 
 # Calculate score
 ```{r}
 
-I notice that 
-
 hs_loss <- function(targets, actuals){
-  loss <- ifelse(targets == 0, (targets - actuals) * -1e10, abs(targets - actuals))
+  loss <- ifelse(targets == 0, (targets - actuals) * -1e10, (targets - actuals)^2)
   sum(loss)
 }
 
-calculate_score = function(team_placements_df, school_targets) {
+
+calculate_score = function(team_placements_df, school_targets, gender_target=gender_g) {
   
   # Merge  with school_df to pull in school characteristics
   team_placements_df <- merge(team_placements_df, school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
@@ -529,7 +528,8 @@ calculate_score = function(team_placements_df, school_targets) {
   
   dt_commutes <- data.table(acm_commutes_long)
   
-  scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)]
+  # Take the sqrt to scale the value closer to the other features
+  scores$commute_score <- sqrt(dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)])
   
   ################
   # GENDER SCORE #
@@ -541,9 +541,10 @@ calculate_score = function(team_placements_df, school_targets) {
   
   gender_frame <- 
     expand.grid(placement = 1:nrow(school_targets), Gender = levels(team_placements_df$Gender))
-    
-  # Create tibbl containing percentage representation of each gender category across the entire corps
-  gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(team_placements_df))
+  
+  # Precalculate tibbl containing percentage representation of each gender category across the entire corps
+  gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(acm_df))
+
   
   # Merge previous two frames by "gender"
   gender_frame_g <-
@@ -572,7 +573,7 @@ calculate_score = function(team_placements_df, school_targets) {
     }) %>%
     summarise(mean_gend_diff = mean(abs_diff_gs))
   
-  scores$gender_score <- gender_frame_gs$mean_gend_diff * 10000000 / 2
+  scores$gender_score <- gender_frame_gs$mean_gend_diff * 5000
   
   #############
   # AGE SCORE #
@@ -588,7 +589,7 @@ calculate_score = function(team_placements_df, school_targets) {
     ungroup() %>%
     summarize(avg_age_var = mean(age_var))
 
-  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
+  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) / 10
   
   ###################
   # ETHNICITY SCORE #
@@ -612,7 +613,7 @@ calculate_score = function(team_placements_df, school_targets) {
     summarize(avg_eths_rep = mean(avg_eths_rep)) %>%
     summarize(avg_eths_rep = mean(avg_eths_rep))
 
-  scores$ethnicity_score <- ethnicity_eths$avg_eths_rep
+  scores$ethnicity_score <- ethnicity_eths$avg_eths_rep * 1000
   
   #################
   #    Scoring    #
@@ -632,13 +633,13 @@ calculate_score = function(team_placements_df, school_targets) {
                           MathAble = sum(Math_Confidence)) %>%
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
-  scores$HS_score <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads)
-  scores$SomeCol <- sum(abs(placed$SomeCol_tgt - placed$SomeCol))
-  scores$Tutoring <- sum(abs(placed$TutExp - placed$Tutoring))
-  scores$Spanish <- sum(abs(placed$SpanishNeed - placed$Spanish))
-  scores$OtherLang <- sum(abs(placed$OtherLang_tgt - placed$OtherLang))
+  scores$HS_score <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) * 10 
+  scores$SomeCol <- sum(abs(placed$SomeCol_tgt - placed$SomeCol)) * 10
+  scores$Tutoring <- sum(abs(placed$TutExp - placed$Tutoring)) * 10
+  scores$Spanish <- sum(abs(placed$SpanishNeed - placed$Spanish)) * 10
+  scores$OtherLang <- sum(abs(placed$OtherLang_tgt - placed$OtherLang)) * 10
   scores$Grade_Pref <- sum(abs(placed$SpanPref_ES - placed$Pref_ES) + abs(placed$SpanPref_MS - placed$Pref_MS) + abs(placed$SpanPref_HS - placed$Pref_HS))
-  scores$Math <- sum(abs(placed$Math_tgt - placed$MathAble))          
+  scores$Math <- sum(abs(placed$Math_tgt - placed$MathAble)) * 10         
 
   #################
   # OVERALL SCORE #
@@ -649,9 +650,10 @@ calculate_score = function(team_placements_df, school_targets) {
   return(scores)
 }
 
-#I'm noticing that our scores are on various scales.  We need to carefully scale the scores to represent how important they are proportionately.  
+system.time(
+  calculate_score(team_placements_df, school_targets)
+)
 
-calculate_score(team_placements_df, school_targets)
 ```
 
 # Temperature Function
@@ -739,7 +741,7 @@ initial_score <- calculate_score(team_placements_df, school_targets)
 
 output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = 10000, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
 
+
 new_placement <- output$best_placements
 output$best_score
-# last run did 10,000 iters in 216.08 seconds or 46 iters/sec
 ```
