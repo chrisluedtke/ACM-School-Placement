@@ -501,7 +501,8 @@ youth <- misplaced_youth(team_placements_df)
 
 # Calculate score
 ```{r}
-# Instead of trying to validate something like underage folk in High schools, we can just make it expensive.  By making it super expensive we can reduce the probability of getting invalid placements. After having tried this a bit, it seems like our best option would to be to try to place our HS grads appropriatly (minimally assign them )
+
+I notice that 
 
 hs_loss <- function(targets, actuals){
   loss <- ifelse(targets == 0, (targets - actuals) * -1e10, abs(targets - actuals))
@@ -579,15 +580,15 @@ calculate_score = function(team_placements_df, school_targets) {
   
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
   
-  # team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.date), format="%Y-%m-%d"))
-  # 
-  # age_var <-
-  #   group_by(team_placements_df, placement) %>%
-  #   summarize(age_var = var(days_old)) %>%
-  #   ungroup() %>%
-  #   summarize(avg_age_var = mean(age_var))
-  # 
-  # scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
+  team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.Date), format="%m/%d/%Y"))
+
+  age_var <-
+    group_by(team_placements_df, placement) %>%
+    summarize(age_var = var(days_old)) %>%
+    ungroup() %>%
+    summarize(avg_age_var = mean(age_var))
+
+  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) * 100
   
   ###################
   # ETHNICITY SCORE #
