@@ -50,13 +50,9 @@ library(dummies)
   * Age variance Score
     * remaining challenge: add weights and probably remove some aspects from the loop
   * ethnicity
-    * How to measure?
-      - variance of percent representations?
-  * attend CY school
+  * attend CY school - are these all manual placements on a case-by-case basis?
   * roommates? not necessary?
   * Honor manual placements
-    - Done! - in initial placement
-    - protect from random swaps
 
 ## Alex
   * educational attainment (potentially different goals for HS/ES)
@@ -81,7 +77,6 @@ acm_commutes_long <-
   select(acm_commutes, -or) %>%
   gather(dest, dist, -acm_id) %>%
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
-
 
 ```
 
@@ -497,13 +492,12 @@ misplaced_youth <- function(init_placement){
 team_placements_df <- initial_placement(seed=42, acm_enc, school_targets)
 youth <- misplaced_youth(team_placements_df)
 
+team_placements_df
+
 ```
 
 # Calculate score
 ```{r}
-
-I notice that 
-
 hs_loss <- function(targets, actuals){
   loss <- ifelse(targets == 0, (targets - actuals) * -1e10, abs(targets - actuals))
   sum(loss)
@@ -535,10 +529,9 @@ calculate_score = function(team_placements_df, school_targets) {
   # GENDER SCORE #
   ################
 
-  # This score measures the average of differences between each gender's percent occurance across the corps and its percent occurance on each team
+  # This score is the average of differences between each gender's percent occurrence across the corps and its percent occurrence on each team.
   
   # Create data.frame with each potential combination of gender and school, based on the survey responses provided
-  
   gender_frame <- 
     expand.grid(placement = 1:nrow(school_targets), Gender = levels(team_placements_df$Gender))
     
@@ -594,7 +587,7 @@ calculate_score = function(team_placements_df, school_targets) {
   # ETHNICITY SCORE #
   ###################
   
-  # This score is the overall average of each team's average % representation that each teammate experiences. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
+  # This score is the average % representation of an ethnicity on a team. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team. We want this number to be low.
   
   ethnicity_eths <- 
     team_placements_df %>%
