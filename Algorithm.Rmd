@@ -89,6 +89,10 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
     acm_id = 1:num_rows,
     
     Full.Name = rep('', num_rows),
+    
+    Pref.Name = rep('', num_rows),
+    
+    Site.Name = rep('', num_rows),
 
     Attnd.CY.School = sample( c('I did not attend a City Year school', school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.95, rep(0.01, length(school_df$`School Name`)))),
     
