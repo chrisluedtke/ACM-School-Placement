@@ -69,6 +69,15 @@ acm_commutes_long <-
   gather(dest, dist, -acm_id) %>%
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
 
+# Rename survey items to variable names
+survey_df <- read.csv(file = "survey_sample.csv")
+vars_df <- read_excel(path = "Survey Items to Variable Names.xls")
+
+for (x in names(survey_df)[2:ncol(survey_df)]){
+  names(survey_df)[names(survey_df) == x] <- vars_df$`Variable Name`[vars_df$`Survey Item` == x]
+}
+
+names(survey_df)
 
 ```
 
@@ -134,8 +143,9 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
       
     Math.Confidence = sample( c('Pre-algebra or lower', 
                                 'Algebra I', 
-                                'Algebra II', 
-                                'Calculus or higher'), num_rows, replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25) ),
+                                'Algebra II',
+                                'Trigonometry',
+                                'Calculus or higher'), num_rows, replace=TRUE, prob=c(0.25, 0.25, 0.25, 0.25, 0.25) ),
   
     Travel.Method = sample( c('Driving', 
                               'Public Transportation', 
@@ -168,15 +178,15 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
     
     Know.Living =  sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
     
-    Address.Line.1 = rep('', num_rows),
+    Res.Address.Line.1 = rep('', num_rows),
       
-    Address.Line.2 = rep('', num_rows),
+    Res.Address.Line.2 = rep('', num_rows),
       
-    City = rep('', num_rows),
+    Res.City = rep('', num_rows),
       
-    State =  rep('', num_rows),
+    Res.State =  rep('', num_rows),
       
-    Postal.Code = rep('', num_rows),
+    Res.Postal.Code = rep('', num_rows),
     
     Roomates = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
     
@@ -384,7 +394,7 @@ calc_commutes = function(acm_df, api){
   acm_df$Travel.Method <- as.factor(acm_df$Travel.Method)
   
   # This line combines address data into one text string:
-  acm_df$"Full Address" = paste(acm_df$"Address Line 1", acm_df$"City", acm_df$"State", acm_df$"Postal Code")
+  acm_df$"Full Address" = paste(acm_df$"Res.Address Line 1", acm_df$"Res.City", acm_df$"Res.State", acm_df$"Res.Postal Code")
   
   # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
   acm_df$"Full Address" = gsub(" ", "+", acm_df$"Full Address")
