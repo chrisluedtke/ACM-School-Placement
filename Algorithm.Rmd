@@ -242,7 +242,8 @@ Before being able to calculate a score, we'll need to encode all of our variable
 ```{r Encoding Variables}
 # This function takes the input acm_df and encodes the variables in a way that makes the mathematically tractable.
 encode_acm_df <- function(df){
-
+  
+  #df <- acm_df
   acm_enc <- select(df, acm_id)
   
   # Ed Attainment
@@ -677,6 +678,8 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   team_placements_df <- starting_placements
   
   placement_score <- calculate_score(team_placements_df, school_df)$aggr_score
+  trace <- data.frame(iter=c(1:number_of_iterations + 1), score=0)
+  trace[1, 2] <- placement_score
 
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
@@ -703,6 +706,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     #IsValid(candidate_placements_df)
     
     candidate_score = calculate_score(candidate_placements_df, school_df)
+    trace[i+1, 2] <- candiate_score
     
     if (temp > 0) {
       ratio = exp((placement_score - candidate_score$aggr_score) / temp)
@@ -730,7 +734,8 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   
   return(list(best_placements=best_placements, 
               best_score=best_score,
-              diff_scores=best_score_diff))
+              diff_scores=best_score_diff,
+              trace=trace))
 }
 
 ```
