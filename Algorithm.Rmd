@@ -42,21 +42,8 @@ library(dummies)
       - challenge: how to start at a valid set of placements?
 
 ## Chris
-  * Commutes time Score
-    * remaining challenge: google's commute calculation doesn't include time spent waiting for bus/train to arrive
-  * Gender representation Score
-    * need to study how different configurations of genders affect overall variance, then weight score as necessary
-    * remaining challenge: add weights and probably remove some aspects from the loop
-  * Age variance Score
-    * remaining challenge: add weights and probably remove some aspects from the loop
-  * ethnicity
-    * How to measure?
-      - variance of percent representations?
-  * attend CY school
-  * roommates? not necessary?
-  * Honor manual placements
-    - Done! - in initial placement
-    - protect from random swaps
+  * attend CY school - thinking this would just lead to manual placements, not necessary to include in calcs.
+  * roommates - some sites might not use this, but I will build it out
 
 ## Alex
   * educational attainment (potentially different goals for HS/ES)
@@ -99,38 +86,37 @@ fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
 generate_fake_df <- function(num_rows, school_df, seed = 42){
   set.seed(seed)
   fake_df <- data.frame(
-    First.Name = rep('', num_rows),
-      
-    Last.Name = rep('', num_rows),
-      
+    acm_id = 1:num_rows,
+    
+    Full.Name = rep('', num_rows),
+
     Attnd.CY.School = sample( c('I did not attend a City Year school', school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.95, rep(0.01, length(school_df$`School Name`)))),
+    
     
     Language.Other.English =  sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.2, 0.8) ),
                                     
-    Language.Ability = sample( c('Spanish', 
-                                 'French', 
-                                 'Arabic',
-                                 'Urdu',
-                                 'Nepali',
-                                 'Swahili',
-                                 'Chinese (Mandarin)',
-                                 'Chinese (Cantonese)',
-                                 'Polish',
-                                 'Other'), 
-                               num_rows, replace=TRUE, prob=c(0.25, 0.05, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,  0.02, 0.02) ),
+    Language.Ability.Arabic = sample ( c('Arabic', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.CapeVerdeanCreole = sample ( c('CapeVerdeanCreole', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Chinese.Cantonese = sample ( c('Chinese Cantonese', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Chinese.Mandarin  = sample ( c('Chinese Mandarin', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.HaitianCreole = sample ( c('Haitian Creole', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.French = sample ( c('French', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Nepali = sample ( c('Nepali', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Polish = sample ( c('Polish', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Spanish = sample ( c('Spanish', NA), num_rows, replace=TRUE, prob=c(0.7, 1)),
+    Language.Ability.Swahili = sample ( c('Swahili', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Urdu = sample ( c('Urdu', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Vietnamese = sample ( c('Vietnamese', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
+    Language.Ability.Other = sample ( c('Other', NA), num_rows, replace=TRUE, prob=c(0.05, 1)),
   
+    
     Tutoring.Experience = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.7, 0.3) ),
   
     Tutoring.Experience.Months = sample(1:12, num_rows, replace = TRUE, prob = 12:1),
     
-    Tutoring.Experience.Grades = sample( c('Elementary School',
-                                           'Elementary School, Middle School',
-                                           'Middle School',
-                                           'Middle School, High School',
-                                           'High School',
-                                           'Elementary School, High School',
-                                           'Elementary School, Middle School, High School'), 
-                                         num_rows, replace=TRUE, prob=c(0.15, 0.15, 0.15, 0.15, 0.15, 0.05, 0.1) ),
+    Tutoring.Experience.EL = sample( c('Elementary School', NA), num_rows, replace=TRUE, prob=c(0.5, 1)),
+    Tutoring.Experience.MS = sample( c('Middle School', NA), num_rows, replace=TRUE, prob=c(0.5, 1)),
+    Tutoring.Experience.HS = sample( c('High School', NA), num_rows, replace=TRUE, prob=c(0.5, 1)),
     
     Teaching.Credential = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.1, 0.9) ),
       
@@ -138,13 +124,9 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
                                     'Math',
                                     'Either/No Preference'), num_rows, replace=TRUE, prob=c(0.4, 0.4, 0.2) ),
     
-    Grade.Lvl.Preference = sample( c('Elementary School',
-                                       'Elementary School, Middle School',
-                                       'Middle School',
-                                       'Middle School, High School',
-                                       'High School',
-                                       'Elementary School, High School',
-                                       'Elementary School, Middle School, High School'), num_rows, replace=TRUE, prob=c(0.16, 0.16, 0.16, 0.16, 0.16, 0.01, 0.2) ),
+    Grade.Lvl.Pref.ES = sample( c('Elementary School', NA), num_rows, replace=TRUE, prob=c(0.5, 0.5)),
+    Grade.Lvl.Pref.MS = sample( c('Middle School', NA), num_rows, replace=TRUE, prob=c(0.5, 0.5)),
+    Grade.Lvl.Pref.HS = sample( c('High School', NA), num_rows, replace=TRUE, prob=c(0.5, 0.5)),
       
     Math.Confidence = sample( c('Pre-algebra or lower', 
                                 'Algebra I', 
@@ -169,8 +151,8 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
     Race.Ethnicity.Asian =  sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
     Race.Ethnicity.Hispanic.Latino = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
     Race.Ethnicity.Middle.Eastern = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
-    #Race.Ethnicity.Native.Hawaiian.Pacific.Islander =  sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
-    #Race.Ethnicity.American.Indian.Alaskan.Native = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    Race.Ethnicity.Native.Hawaiian.Pacific.Islander =  sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
+    Race.Ethnicity.American.Indian.Alaskan.Native = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
     Race.Ethnicity.Other =  sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
   
     Educational.Attainment = sample( c('High School/GED', 
@@ -217,20 +199,36 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
   #fake_df$Race.Ethnicity.Native.Hawaiian.Pacific.Islander = sample( c('Native Hawaiian or Pacific Islander', NA), num_rows, replace=TRUE, prob=c(0.1, 0.9) )
   #fake_df$Race.Ethnicity.American.Indian.Alaskan.Native = sample( c(NA), num_rows, replace=TRUE, prob=c(1) ),
   
-  fake_df$Race.Other[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)] = sample( c('Other'), length(fake_df$Race.Ethnicity.Other[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)]), replace=TRUE, prob=c(1) )
+  fake_df$Race.Ethnicity.Other[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)] = sample( c('Other'), length(fake_df$Race.Ethnicity.Other[is.na(fake_df$Race.Ethnicity.White.Caucasian) & is.na(fake_df$Race.Ethnicity.African.American.Black) & is.na(fake_df$Race.Ethnicity.Asian) & is.na(fake_df$Race.Ethnicity.Hispanic.Latino)]), replace=TRUE, prob=c(1) )
   
   # Fix conditional survey items so that a "No" answer will cause dependent items to be NA
-  fake_df$Language.Ability[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Arabic[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.CapeVerdeanCreole[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Chinese.Cantonese[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Chinese.Mandarin[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.HaitianCreole[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.French[fake_df$Language.Other.English == 'No'] <- NA 
+  fake_df$Language.Ability.Nepali[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Polish[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Spanish[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Swahili[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Urdu[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Vietnamese[fake_df$Language.Other.English == 'No'] <- NA
+  fake_df$Language.Ability.Other[fake_df$Language.Other.English == 'No'] <- NA
+  
   fake_df$Tutoring.Experience.Months[fake_df$Tutoring.Experience == 'No'] <- NA
-  fake_df$Tutoring.Experience.Grades[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Tutoring.Experience.EL[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Tutoring.Experience.MS[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Tutoring.Experience.HS[fake_df$Tutoring.Experience == 'No'] <- NA
   fake_df$Teaching.Credential[fake_df$Tutoring.Experience == 'No'] <- NA
+  
   fake_df$Roommate.Names[fake_df$Roomates == 'No'] <- NA
   return(fake_df)
 }
   
 acm_df_fake <- generate_fake_df(247, school_df, seed=42)
 
-write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
+#write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
 # Encode Variables & Clean Up Input Dataframes
