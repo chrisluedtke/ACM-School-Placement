@@ -25,6 +25,7 @@ library(dplyr)
 library(tidyr)
 library(data.table)
 library(dummies)
+
 ```
 
 # Tasks
@@ -52,6 +53,24 @@ library(dummies)
   * grade level preference
   * language speaking
 
+
+# Load 'survey_sample.csv', convert headers to variable names, and assign to acm_df
+```{r load spreadsheets, message=F}
+
+# Prior to this, user will create the manual placement column (or this could happen some other way?)
+
+# This will look slightly different in Power BI, since Power BI accepts spaces and special characters in the header. In Power BI, instead of `R.Survey.Items`, we will use the column 'PowerBI.Survey.Items'
+
+acm_df <- read.csv(file = "survey_sample.csv")
+
+vars_df <- read_excel(path = "Survey Items to Variable Names.xls")
+
+for (x in names(acm_df)[2:ncol(acm_df)]){
+  names(acm_df)[names(acm_df) == x] <- vars_df$`Variable.Name`[vars_df$`R.Survey.Items` == x]
+}
+
+```
+
 # Read Data
 ```{r load spreadsheets, message=F}
 acm_df <- read.csv(file = "Input 1 - ACM Data.csv")
@@ -69,15 +88,6 @@ acm_commutes_long <-
   gather(dest, dist, -acm_id) %>%
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
 
-# Rename survey items to variable names
-survey_df <- read.csv(file = "survey_sample.csv")
-vars_df <- read_excel(path = "Survey Items to Variable Names.xls")
-
-for (x in names(survey_df)[2:ncol(survey_df)]){
-  names(survey_df)[names(survey_df) == x] <- vars_df$`Variable Name`[vars_df$`Survey Item` == x]
-}
-
-names(survey_df)
 
 ```
 
@@ -127,7 +137,7 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
   
     Tutoring.Experience.Months = sample(1:12, num_rows, replace = TRUE, prob = 12:1),
     
-    Tutoring.Experience.EL = sample( c('Elementary School', NA), num_rows, replace=TRUE, prob=c(0.5, 1)),
+    Tutoring.Experience.ES = sample( c('Elementary School', NA), num_rows, replace=TRUE, prob=c(0.5, 1)),
     Tutoring.Experience.MS = sample( c('Middle School', NA), num_rows, replace=TRUE, prob=c(0.5, 1)),
     Tutoring.Experience.HS = sample( c('High School', NA), num_rows, replace=TRUE, prob=c(0.5, 1)),
     
