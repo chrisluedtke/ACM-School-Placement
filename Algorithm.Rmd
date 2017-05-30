@@ -25,7 +25,6 @@ library(dplyr)
 library(tidyr)
 library(data.table)
 library(dummies)
-
 ```
 
 # Tasks
@@ -275,17 +274,17 @@ encode_acm_df <- function(df){
   acm_enc$HasTutored <- ifelse(df$Tutoring.Experience == "Yes", 1, 0)
   
   # Tutoring Preference
-  acm_enc$Pref_HS <- as.numeric(grepl("High School", df$Grade.Lvl.Preference))
-  acm_enc$Pref_MS <- as.numeric(grepl("Middle School", df$Grade.Lvl.Preference))
-  acm_enc$Pref_ES <- as.numeric(grepl("Elementary School", df$Grade.Lvl.Preference))
+  acm_enc$Pref_HS <- ifelse(df$Grade.Lvl.Pref.HS == "High School", 1, 0)
+  acm_enc$Pref_MS <- ifelse(df$Grade.Lvl.Pref.MS == "Middle School", 1, 0)
+  acm_enc$Pref_ES <- ifelse(df$Grade.Lvl.Pref.ES == "Elementary School", 1, 0)
   
   # Math Proficiency
   acm_enc$Math_Confidence <- ifelse(df$Math.Confidence == "Pre-Algebra or lower" | df$Math.Confidence == "Algebra I", 0, 1)
   
   # Language Ability
-  acm_enc$SpanishAble <- ifelse(df$Language.Ability == "Spanish", 1, 0)
+  acm_enc$SpanishAble <- ifelse(df$Language.Ability.Spanish == "Spanish", 1, 0)
   acm_enc$SpanishAble[is.na(acm_enc$SpanishAble)] <- 0
-  acm_enc$Lang_Other <- ifelse((df$Language.Other.English == "Yes") & (df$Language.Ability != "Spanish"), 1, 0)
+  acm_enc$Lang_Other <- ifelse((df$Language.Other.English == "Yes") & (df$Language.Ability.Spanish != "Spanish"), 1, 0)
   
   # Add in other features
   acm_enc <- acm_enc %>%
