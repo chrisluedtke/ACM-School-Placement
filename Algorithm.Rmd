@@ -6,13 +6,14 @@ output: html_document
 # Install Packages
 
 ```{r install packages, echo = FALSE}
- # install.packages("gmapsdistance")
- # install.packages("readxl")
- # install.packages("googleway")
- # install.packages("dplyr")
- # install.packages("tidyr")
- # install.packages("dummies")
- # install.packages("data.table")
+# install.packages("gmapsdistance")
+# install.packages("readxl")
+# install.packages("googleway")
+# install.packages("dplyr")
+# install.packages("tidyr")
+# install.packages("dummies")
+# install.packages("data.table")
+# install.packages("doParallel")
 ```
 
 # Load Packages
@@ -438,7 +439,7 @@ calc_commutes = function(acm_df, api){
 
   }
 
-calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
+#calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
 
 ```
 
@@ -446,8 +447,9 @@ calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
 ```{r} 
 # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
-initial_placement <- function(seed=42, acm_enc, school_targets){
+initial_placement <- function(acm_enc, school_targets){
   # First place acm's at schools designated by Manual.Placement column
+  # NOTE: Removed seed parameter.  Seed is used for reproducability, but we want randomness in the start.
   
   # first create an empty list
   team_placements = list()
@@ -522,7 +524,7 @@ initial_placement <- function(seed=42, acm_enc, school_targets){
 #              filter(Ed_HS == 1 & HSGrad_tgt == 0)
 # }
 
-team_placements_df <- initial_placement(seed=42, acm_enc, school_targets)
+team_placements_df <- initial_placement(acm_enc, school_targets)
 
 ```
 
@@ -566,10 +568,12 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   
   # Create data.frame with each potential combination of gender and school, based on the survey responses provided
   
+  
   gender_frame <- 
     expand.grid(placement = 1:nrow(school_targets), Gender = levels(team_placements_df$Gender))
   
   # Precalculate tibbl containing percentage representation of each gender category across the entire corps
+  # Can we move this to school targets?  Try to calculate static things once.
   gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(acm_df))
 
   
@@ -608,7 +612,8 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
   
-  team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.Date), format="%Y-%m-%d"))
+  # Moved computation of age for each acm to acm_enc so that we only do it once.
+  #team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.Date), format="%Y-%m-%d"))
 
   age_var <-
     group_by(team_placements_df, placement) %>%
@@ -698,16 +703,16 @@ s_curve = function(x, center, width) {
 ```{r}
 run_intermediate_annealing_process = function(starting_placements, school_df, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
   
-  starting_placements = team_placements_df 
-  school_df = school_targets
-  best_placements = team_placements_df 
-  best_score = 142078800000
-  starting_iteration = 1
-  number_of_iterations = 10000
-  s_curve_amplitude = 4000
-  s_curve_center = 0
-  s_curve_width = 3000
-  
+  # starting_placements = team_placements_df 
+  # school_df = school_targets
+  # best_placements = team_placements_df 
+  # best_score = 142078800000
+  # starting_iteration = 1
+  # number_of_iterations = 10000
+  # s_curve_amplitude = 4000
+  # s_curve_center = 0
+  # s_curve_width = 3000
+  # 
   team_placements_df <- starting_placements
   
   placement_score <- calculate_score(starting_placements, school_df)$aggr_score
@@ -787,12 +792,87 @@ output$trace
 ```
 
 ```{r Visualize Error Over Time}
-library(ggplot2)
+traceplot <- function(trace){
+  library(ggplot2)
 
-tracer <- output$trace
+  ggplot(data = trace, aes(x = iter, y = score)) +
+    geom_point() +
+    coord_cartesian(ylim = c(1e3, 1e4))
+}
 
-ggplot(data = tracer, aes(x = iter, y = score)) +
-  geom_point() +
-  coord_cartesian(ylim = c(1e2, 1e4))
+traceplot(thing[[1]]$trace)
+```
+
+Below I am aiming to create a function for the full implamentation of the algorithm from loading the data in to final product.
+```{r Full Application}
+
+placement <- function(){
+  # Install and load packages
+  install.packages("gmapsdistance")
+  install.packages("readxl")
+  install.packages("dplyr")
+  install.packages("tidyr")
+  install.packages("dummies")
+  install.packages("data.table")
+  install.packages("doParallel")
+
+  library(gmapsdistance)
+  library(readxl)
+  library(dplyr)
+  library(tidyr)
+  library(data.table)
+  library(dummies)
+  
+  acm_df <- read.csv(file = "Input 1 - ACM Data.csv")
+  acm_commutes <- read_excel(path = "Input 2 - ACM Commutes.xlsx")
+  school_df <- read_excel(path = "Input 3 - School Data.xls")
+  
+  # Add id columns
+  acm_df$acm_id <- 1:nrow(acm_df)
+  acm_commutes$acm_id <- 1:nrow(acm_commutes)
+  school_df$sch_id <- 1:nrow(school_df)
+  
+  # Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
+  acm_commutes_long <-
+    select(acm_commutes, -or) %>%
+    gather(dest, dist, -acm_id) %>%
+    mutate(id_dest = paste(acm_id, dest, sep = "_"))
+  
+  # Encode ACM data into computable formate
+  acm_enc <- encode_acm_df(acm_df)
+  # Precalculate school targets
+  school_targets <- school_config(school_df, acm_enc)
+  
+  
+  
+  one_placement(acm_enc, school_targets, number_of_iterations = 2000)
+}
+
+one_placement <- function(acm_enc, school_targets, number_of_iterations = 2000){
+  # Set initial placement
+  team_placements_df <- initial_placement(acm_enc, school_targets)
+  
+  run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
+}
+
+# Identify the number of cores to use in parallel.  detectCores automatically identifies the number of available cores.
+cl <- makeCluster(detectCores())
+registerDoSNOW(cl)
+
+# Executes placement 10 times with 10 different starting locations. 
+system.time({
+  foreach(i=1:10) %dopar% {
+    placement()
+  }
+})
+list <- foreach(i=1:10) %dopar% {
+  placement()
+}
+
+for (i in 1:10) {
+  print(traceplot(list[[i]]$trace))
+  print(list[[i]]$best_score)
+}
+
 ```
 
