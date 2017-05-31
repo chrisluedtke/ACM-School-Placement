@@ -293,7 +293,10 @@ encode_acm_df <- function(df){
                                    Gender, 
                                    Manual.Placement, 
                                    Birth.Date,
-                                   Race.Ethnicity.African.American.Black:Race.Ethnicity.Other), by=c("acm_id" = "acm_id"))
+                                   Race.Ethnicity.African.American.Black:Race.Ethnicity.Other), 
+                         by=c("acm_id" = "acm_id")) %>%
+               replace_na(list(Pref_HS = 0, Pref_MS = 0, Pref_ES = 0,
+                               Lang_Other = 0))
   
   # Return
   acm_enc
@@ -603,7 +606,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
   
-  team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.Date), format="%m/%d/%Y"))
+  team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.Date), format="%Y-%m-%d"))
 
   age_var <-
     group_by(team_placements_df, placement) %>%
@@ -611,7 +614,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
     ungroup() %>%
     summarize(avg_age_var = mean(age_var))
 
-  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) / 10
+  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) /10
   
   ###################
   # ETHNICITY SCORE #
@@ -672,9 +675,8 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   return(scores)
 }
 
-system.time(
-  calculate_score(team_placements_df, school_targets)
-)
+
+calculate_score(team_placements_df, school_targets)
 
 ```
 
