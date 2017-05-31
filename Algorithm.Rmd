@@ -694,9 +694,19 @@ s_curve = function(x, center, width) {
 ```{r}
 run_intermediate_annealing_process = function(starting_placements, school_df, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
   
+  starting_placements = team_placements_df 
+  school_df = school_targets
+  best_placements = team_placements_df 
+  best_score = 142078800000
+  starting_iteration = 1
+  number_of_iterations = 10000
+  s_curve_amplitude = 4000
+  s_curve_center = 0
+  s_curve_width = 3000
+  
   team_placements_df <- starting_placements
   
-  placement_score <- calculate_score(team_placements_df, school_df)$aggr_score
+  placement_score <- calculate_score(starting_placements, school_df)$aggr_score
   trace <- data.frame(iter=c(1:number_of_iterations + 1), score=0)
   trace[1, 2] <- placement_score
 
@@ -725,7 +735,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     #IsValid(candidate_placements_df)
     
     candidate_score = calculate_score(candidate_placements_df, school_df)
-    trace[i+1, 2] <- candiate_score
+    trace[i+1, 2] <- candidate_score$aggr_score
     
     if (temp > 0) {
       ratio = exp((placement_score - candidate_score$aggr_score) / temp)
