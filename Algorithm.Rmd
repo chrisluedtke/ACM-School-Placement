@@ -14,7 +14,8 @@ output: html_document
 # install.packages("dummies")
 # install.packages("data.table")
 # install.packages("doParallel")
-# install.pacakges("doSNOW")
+# install.packages("doSNOW")
+# install.packages("ggplot2")
 ```
 
 # Load Packages
@@ -89,7 +90,6 @@ acm_commutes_long <-
   select(acm_commutes, -or) %>%
   gather(dest, dist, -acm_id) %>%
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
-
 
 ```
 
@@ -566,7 +566,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   # GENDER SCORE #
   ################
 
-  # This score measures the average of differences between each gender's percent occurance across the corps and its percent occurance on each team
+  # This score measures the average of differences between each gender's percent occurrence across the corps and its percent occurrence on each team
   
   # Create data.frame with each potential combination of gender and school, based on the survey responses provided
   
@@ -639,6 +639,8 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
              Race.Ethnicity.Asian,
              Race.Ethnicity.Hispanic.Latino,
              Race.Ethnicity.Middle.Eastern,
+             Race.Ethnicity.Native.Hawaiian.Pacific.Islander,
+             Race.Ethnicity.American.Indian.Alaskan.Native,
              Race.Ethnicity.Other) %>%
     dplyr::summarize(n_eths = n()) %>%
     group_by(placement) %>%
@@ -805,7 +807,7 @@ traceplot <- function(trace){
 traceplot(thing[[1]]$trace)
 ```
 
-Below I am aiming to create a function for the full implamentation of the algorithm from loading the data in to final product.
+Below I am aiming to create a function for the full implementation of the algorithm from loading the data in to final product.
 ```{r Full Application}
 
 placement <- function(){
