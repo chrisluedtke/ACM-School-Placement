@@ -14,7 +14,7 @@ output: html_document
 # install.packages("dummies")
 # install.packages("data.table")
 # install.packages("doParallel")
-# install.pacakges("doSNOW")
+# install.packages("doSNOW")
 ```
 
 # Load Packages
@@ -28,6 +28,7 @@ library(tidyr)
 library(data.table)
 library(dummies)
 library(doSNOW)
+library(doParallel)
 ```
 
 # Tasks
@@ -374,8 +375,8 @@ school_config <- function(school_df, acm_enc){
            Math_tgt = ifelse(span=="ES", size*.5*math, ifelse(span=="MS", .75*size*math, size*math))) 
 }
 
-acm_enc <- encode_acm_df(acm_df)
-school_targets <- school_config(school_df, acm_enc)
+#acm_enc <- encode_acm_df(acm_df)
+#school_targets <- school_config(school_df, acm_enc)
 
 ```
 
@@ -526,7 +527,7 @@ initial_placement <- function(acm_enc, school_targets){
 #              filter(Ed_HS == 1 & HSGrad_tgt == 0)
 # }
 
-team_placements_df <- initial_placement(acm_enc, school_targets)
+#team_placements_df <- initial_placement(acm_enc, school_targets)
 
 ```
 
@@ -685,7 +686,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
 }
 
 
-calculate_score(team_placements_df, school_targets)
+# calculate_score(team_placements_df, school_targets)
 
 ```
 
@@ -698,6 +699,8 @@ current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_
 s_curve = function(x, center, width) {
   1 / (1 + exp((x - center) / width))
 }
+
+#qplot(x = c(1:2000), y = current_temperature(c(1:2000), s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 250), geom="line")
 
 ```
 
@@ -802,7 +805,7 @@ traceplot <- function(trace){
     coord_cartesian(ylim = c(1e3, 1e4))
 }
 
-traceplot(thing[[1]]$trace)
+# traceplot(thing[[1]]$trace)
 ```
 
 Below I am aiming to create a function for the full implamentation of the algorithm from loading the data in to final product.
@@ -810,13 +813,13 @@ Below I am aiming to create a function for the full implamentation of the algori
 
 placement <- function(){
   # Install and load packages
-  install.packages("gmapsdistance")
-  install.packages("readxl")
-  install.packages("dplyr")
-  install.packages("tidyr")
-  install.packages("dummies")
-  install.packages("data.table")
-  install.packages("doParallel")
+  # install.packages("gmapsdistance")
+  # install.packages("readxl")
+  # install.packages("dplyr")
+  # install.packages("tidyr")
+  # install.packages("dummies")
+  # install.packages("data.table")
+  # install.packages("doParallel")
 
   library(gmapsdistance)
   library(readxl)
@@ -845,31 +848,35 @@ placement <- function(){
   # Precalculate school targets
   school_targets <- school_config(school_df, acm_enc)
   
+  one_placement <- function(acm_enc, school_targets, number_of_iterations = 2000){
+    # Set initial placement
+    team_placements_df <- initial_placement(acm_enc, school_targets)
+    
+    run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
+  }
   
-  
-  one_placement(acm_enc, school_targets, number_of_iterations = 2000)
+  list <- foreach(i=1:10) %dopar% {
+    one_placement(acm_enc, school_targets, number_of_iterations = 2000)
+  }
 }
 
-one_placement <- function(acm_enc, school_targets, number_of_iterations = 2000){
-  # Set initial placement
-  team_placements_df <- initial_placement(acm_enc, school_targets)
-  
-  run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 3000)
-}
+
 
 # Identify the number of cores to use in parallel.  detectCores automatically identifies the number of available cores.
 cl <- makeCluster(detectCores())
 registerDoSNOW(cl)
-
+placement()
 # Executes placement 10 times with 10 different starting locations. 
-system.time({
-  foreach(i=1:10) %dopar% {
-    placement()
-  }
-})
+# system.time({
+#   foreach(i=1:10) %dopar% {
+#     placement()
+#   }
+# })
 list <- foreach(i=1:10) %dopar% {
   placement()
 }
+
+stopCluster(cl)
 
 for (i in 1:10) {
   print(traceplot(list[[i]]$trace))
