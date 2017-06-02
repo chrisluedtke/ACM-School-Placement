@@ -12,4 +12,4 @@
     * Change "Folder" query to root directory of your project folder
     * Calculate commutes (not yet built out in Power BI)
     * In the "Output" query, click "Run R - Simulated Annealing" step. At the top of the script, change "root_dir = " to the root directory of your project folder, and set the number_of_iterations you want to run. Click OK. You don't have to wait for the processing to finish, becauase it will re-process when you close the Edit Query window anyway.
-* Placements Done
+* Review placements. Work with site leadership to adjust and make manual placements if necessary.
