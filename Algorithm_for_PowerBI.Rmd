@@ -1,5 +1,6 @@
 ```{r Power BI Step 1: Rename Headers echo=FALSE}
-# See code in Power BI.
+# This portion looks different in Power BI
+
 root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 
 # In Power BI the source is "survey_export.csv" because that's a more accurate representation of a real survey implementation with messy headers and all. "Input 1 - ACM Data.csv" holds the same data, but with clean headers.
@@ -11,11 +12,134 @@ acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
 
 # This line mimics Power BI's behavior
 dataset <- acm_df
+
+
+# How this portion appears in Power BI:
+
+# 'dataset' holds the input data for this script
+# 
+# acm_df <- dataset
+# 
+# vars_df <- data.frame(
+#   PowerBI.Survey.Items = c(
+#     "Date Submitted",
+#     "City",
+#     "State/Region",
+#     "Full name:",
+#     "If applicable, preferred name(s):Â ",
+#     "What is your date of birth?",
+#     "City Year Site:What site will you serve with, and did you attend a City Year school at that site? (choose from # the list of schools)",
+#     "School:What site will you serve with, and did you attend a City Year school at that site? (choose from the list # of schools)",
+#     "What gender do you identify with?",
+#     "African American/Black:What is your race/ethnicity (choose all that apply)",
+#     "American Indian/Alaskan Native:What is your race/ethnicity (choose all that apply)",
+#     "Asian:What is your race/ethnicity (choose all that apply)",
+#     "Hispanic/Latino:What is your race/ethnicity (choose all that apply)",
+#     "Middle Eastern:What is your race/ethnicity (choose all that apply)",
+#     "Native Hawaiian or Pacific Islander:What is your race/ethnicity (choose all that apply)",
+#     "White/Caucasian:What is your race/ethnicity (choose all that apply)",
+#     "Other - Write In:What is your race/ethnicity (choose all that apply)",
+#     "What is the highest level of education you have achieved?",
+#     "Other - Write In:What is the highest level of education you have achieved?",
+#     "Are you able to tutor and mentor students while speaking a language other than English?",
+#     "Arabic:Other language",
+#     "Cape Verdean Creole :Other language",
+#     "Chinese (Cantonese):Other language",
+#     "Chinese (Mandarin):Other language",
+#     "Haitian Creole:Other language",
+#     "French:Other language",
+#     "Nepali:Other language",
+#     "Polish:Other language",
+#     "Spanish:Other language",
+#     "Swahili:Other language",
+#     "Urdu:Other language",
+#     "Vietnamese:Other language",
+#     "Other - Write In (Required):Other language",
+#     "Do you have teaching or tutoring experience?",
+#     "Months Teaching",
+#     "Elementary school (K-5):What grade level(s) have you worked with in the past? Please select all that apply.",
+#     "Middle school (6-8):What grade level(s) have you worked with in the past? Please select all that apply.",
+#     "High school (9-12):What grade level(s) have you worked with in the past? Please select all that apply.",
+#     "Do you have a teaching credential?",
+#     "Elementary school:Which grade levels would you prefer to work with?",
+#     "Middle school:Which grade levels would you prefer to work with?",
+#     "High school:Which grade levels would you prefer to work with?",
+#     "Would you prefer to support with ELA/literacy or math?",
+#     "Please indicate the highest level of math in which you are confident in your skills.",
+#     "Do you know where you will be living during the 2017-2018 school year?",
+#     "Street address Line 1:SYAddress",
+#     "Street address line 2:SYAddress",
+#     "City:SYAddress",
+#     "State:SYAddress",
+#     "Zip:SYAddress",
+#     "Will you be living with other City Year AmeriCorps members during the school year?:SYAddress",
+#     "If so, please list their first and last names here::SYAddress",
+#     "How will you travel to your school site?"
+#   ),
+#   Variable.Name = c(
+#     "Date.Submitted",
+#     "City",
+#     "State.Region",
+#     "Full.Name",
+#     "Pref.Name",
+#     "Birth.Date",
+#     "Site.Name",
+#     "Attnd.CY.School",
+#     "Gender",
+#     "Race.Ethnicity.African.American.Black",
+#     "Race.Ethnicity.American.Indian.Alaskan.Native",
+#     "Race.Ethnicity.Asian",
+#     "Race.Ethnicity.Hispanic.Latino",
+#     "Race.Ethnicity.Middle.Eastern",
+#     "Race.Ethnicity.Native.Hawaiian.Pacific.Islander",
+#     "Race.Ethnicity.White.Caucasian",
+#     "Race.Ethnicity.Other",
+#     "Educational.Attainment",
+#     "Educational.Attainment.WriteIn",
+#     "Language.Other.English",
+#     "Language.Ability.Arabic",
+#     "Language.Ability.CapeVerdeanCreole",
+#     "Language.Ability.Chinese.Cantonese",
+#     "Language.Ability.Chinese.Mandarin",
+#     "Language.Ability.HaitianCreole",
+#     "Language.Ability.French",
+#     "Language.Ability.Nepali",
+#     "Language.Ability.Polish",
+#     "Language.Ability.Spanish",
+#     "Language.Ability.Swahili",
+#     "Language.Ability.Urdu",
+#     "Language.Ability.Vietnamese",
+#     "Language.Ability.Other",
+#     "Tutoring.Experience",
+#     "Tutoring.Experience.Months",
+#     "Tutoring.Experience.ES",
+#     "Tutoring.Experience.MS",
+#     "Tutoring.Experience.HS",
+#     "Teaching.Credential",
+#     "Grade.Lvl.Pref.ES",
+#     "Grade.Lvl.Pref.MS",
+#     "Grade.Lvl.Pref.HS",
+#     "Tutoring.Preference",
+#     "Math.Confidence",
+#     "Know.Living",
+#     "Res.Address.Line.1",
+#     "Res.Address.Line.2",
+#     "Res.City",
+#     "Res.State",
+#     "Res.Postal.Code",
+#     "Roomates",
+#     "Roommate.Names",
+#     "Travel.Method"
+#   ), 
+#   stringsAsFactors=FALSE
+#   )
+# 
+# for (x in names(acm_df)){
+#   try(names(acm_df)[names(acm_df) == x] <- vars_df$`Variable.Name`[vars_df$`PowerBI.Survey.Items` == x])
+# }
 ```
 
 ```{r Power BI Step 2: Encode Variables echo=FALSE}
-# This line mimics Power BI's behavior
-acm_df <- dataset
 
 #  Encode Variables & Clean Up Input Dataframes
 
@@ -25,6 +149,8 @@ acm_df <- dataset
 
 library(dplyr)
 library(tidyr)
+
+acm_df <- dataset
 
 encode_acm_df <- function(df){
 
@@ -75,9 +201,11 @@ dataset <- acm_enc
 
 ```
 
-```{r Power BI Step 3: Encode Variables echo=FALSE}
+```{r Power BI Step 3: Simulated Annealing echo=FALSE}
 # 'dataset' holds the input data for this script
 # changed days_old calculation to expect format="%m/%d/%Y"
+
+number_of_iterations = 10
 
 root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 
@@ -506,12 +634,17 @@ school_targets <- school_config(school_df, acm_enc)
 
 team_placements_df <- initial_placement(acm_enc, school_targets)
     
-output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = 100, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
 
 best_placements <- output$best_placements
 
+# Playing around with methods to get more info in the output. It's probably better to just re-calculate these in visualizations...
+best_placements$best_score <- output$best_score
+best_placements$ethnicity_score <- output$diff_scores$ethnicity_score
+best_placements$commute_score <- output$diff_scores$commute_score
+
 diff_scores <- output$diff_scores
+
 trace <- output$trace
-best_score <- output$best_score
 
 ```
