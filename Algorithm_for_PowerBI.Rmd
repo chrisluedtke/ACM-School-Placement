@@ -1,52 +1,33 @@
-```{r echo=FALSE}
-# 'dataset' holds the input data for this script
-# changed days_old calculation to expect format="%m/%d/%Y"
+```{r Power BI Step 1: Rename Headers echo=FALSE}
+# See code in Power BI.
 root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 
-library(gmapsdistance)
-library(readxl)
-library(dplyr)
-library(tidyr)
-library(data.table)
-library(dummies)
-library(doSNOW)
-# Loading this gave errors in Power BI
-#library(doParallel)
+# In Power BI the source is "survey_export.csv" because that's a more accurate representation of a real survey implementation with messy headers and all. "Input 1 - ACM Data.csv" holds the same data, but with clean headers.
 
-# This will look slightly different in Power BI, since Power BI accepts spaces and special characters in the header. In Power BI, instead of `R.Survey.Items`, we use the column 'PowerBI.Survey.Items'
+acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
 
-acm_df <- read.csv(file = paste(root_dir, "survey_export.csv", sep = ""))
+# This part not necessary in PowerBI, since dates are read in as %m/%d/%Y already
+acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
 
-vars_df <- read_excel(path =paste(root_dir,  "Survey Items to Variable Names.xls",  sep = ""))
-for (x in names(acm_df)[2:ncol(acm_df)]){
-  try(names(acm_df)[names(acm_df) == x] <- vars_df$`Variable.Name`[vars_df$`R.Survey.Items` == x])
-}
+# This line mimics Power BI's behavior
+dataset <- acm_df
+```
 
-acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
-school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
-
-# Add id columns
-acm_commutes$acm_id <- 1:nrow(acm_commutes)
-school_df$sch_id <- 1:nrow(school_df)
-
-# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
-acm_commutes_long <-
-  select(acm_commutes, -or) %>%
-  gather(dest, dist, -acm_id) %>%
-  mutate(id_dest = paste(acm_id, dest, sep = "_"))
-
-#########################
-# Don't Edit Above Here #
-#########################
+```{r Power BI Step 2: Encode Variables echo=FALSE}
+# This line mimics Power BI's behavior
+acm_df <- dataset
 
 #  Encode Variables & Clean Up Input Dataframes
 
 #Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical ## variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
 
 # This function takes the input acm_df and encodes the variables in a way that makes the mathematically tractable.
+
+library(dplyr)
+library(tidyr)
+
 encode_acm_df <- function(df){
-  
-  df <- acm_df
+
   acm_enc <- select(df, acm_id)
   
   # Ed Attainment
@@ -88,6 +69,42 @@ encode_acm_df <- function(df){
   acm_enc
 }
 
+acm_enc <- encode_acm_df(acm_df)
+
+dataset <- acm_enc
+
+```
+
+```{r Power BI Step 3: Encode Variables echo=FALSE}
+# 'dataset' holds the input data for this script
+# changed days_old calculation to expect format="%m/%d/%Y"
+
+root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+
+library(gmapsdistance)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(dummies)
+library(doSNOW)
+# Loading this gave errors in Power BI
+#library(doParallel)
+
+acm_enc <- dataset
+acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
+school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
+
+# Add id columns
+acm_commutes$acm_id <- 1:nrow(acm_commutes)
+school_df$sch_id <- 1:nrow(school_df)
+
+# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
+acm_commutes_long <-
+  select(acm_commutes, -or) %>%
+  gather(dest, dist, -acm_id) %>%
+  mutate(id_dest = paste(acm_id, dest, sep = "_"))
+
 # This function calculates some import counts which I'm going to use a lot when trying to figure out the expected number of ACMs per team per metric.  This function will just be used internally by the school_config function.
 corps_demographic_targets <- function(school_df, acm_enc){
   # Calculate some totals used later in the function
@@ -128,6 +145,7 @@ spanishNeed <- function(x) {
 
 # Directly calculates the expected number of ACMs per team for each of the markers.
 # My methodology is to aim for a uniform distribution when it makes sense.
+
 school_config <- function(school_df, acm_enc){
   # Precalculate some helpful counts
   corps_demos <- corps_demographic_targets(school_df, acm_enc)
@@ -152,71 +170,6 @@ school_config <- function(school_df, acm_enc){
            OtherLang_tgt = lang[lang$ability %in% 'other',]$ratio * size,
            Math_tgt = ifelse(span=="ES", size*.5*math, ifelse(span=="MS", .75*size*math, size*math))) 
 }
-
-#acm_enc <- encode_acm_df(acm_df)
-#school_targets <- school_config(school_df, acm_enc)
-
-
-# Calculate Commutes
-
-# To calculate commute times, we essentially send many requests to Google Maps through an API (Applciation Program Interface). To get access to the API we need a key. Visit the [Google Distance Matrix API](https://developers.google.com/maps/documentation/distance-matrix/) page. Click "GET A KEY" in the upper right corner. Save the key privately. This key identifies you to Google.
-
-#Many organizations provide access to their data through an API. Many times this service is free, but some organizations charge for this service because of processing costs and the benefits that this access enables. Google will allow you to calculate 2,500 travel times for free in one day. After that, you will need to pay $0.50 for each 1,000 requests, or wait a day to calculate 2,500 more.
-
-#The key included in this script is a free-use key, so it will be limited to 2,500 results per day. However, I did opt to enable pay-as-you-go on my personal key (not shared here). In CYCHI, this expense will hopefully be covered under our Impact Team budget.
-
-# Prior to this step, you may need to ensure that "Address Line 1" 
-# does not include any apartment/suite/room info.
-
-# Note that for public tansit, google does not count 
-# the time spent waiting for the bus/train. For example, 
-# let's say I get off work at 5pm and a bus comes at 5:15pm. 
-# I ride the bus 45 minutes to get home. My commute is more 
-# accurately described as 60 minutes, but this function would 
-# still return 45 minutes.
-
-calc_commutes = function(acm_df, api){
-  set.api.key(api)
-
-  # Convert 'Walking', 'Bicycling', 'Public Transportation' to 'transit'
-  acm_df$Travel.Method <- as.character(acm_df$Travel.Method)
-  acm_df$Travel.Method[acm_df$Travel.Method %in%  c('Walking', 'Bicycling', 'Public Transportation')] <- "transit"
-  acm_df$Travel.Method[acm_df$Travel.Method %in% "Driving"] <- "driving"
-  acm_df$Travel.Method <- as.factor(acm_df$Travel.Method)
-  
-  # This line combines address data into one text string:
-  acm_df$"Full Address" = paste(acm_df$"Res.Address Line 1", acm_df$"Res.City", acm_df$"Res.State", acm_df$"Res.Postal Code")
-  
-  # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
-  acm_df$"Full Address" = gsub(" ", "+", acm_df$"Full Address")
-  school_df$"Address" = gsub(" ", "+", school_df$"Address")
-  school_df$"Address" = gsub(",", "", school_df$"Address")
-  
-  # Create an empty dataframe that we will fill with commute times
-  acm_commutes <- data.frame()
-  
-  # Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance package, and build a new data frame of commute info.
-  for (x in acm_df[1:2,]$acm_id){
-    
-    # select one row from acm_df, and assign it to a new object, acm_row
-    acm_row <- subset(acm_df, acm_id == x)
-    
-    # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a single row of ACM commute times to each school. That row is assigned to a new object, 'commute'
-    commute = gmapsdistance(origin = acm_row$"Full Address", destination = school_df[1:2,]$"Address", mode = acm_row$Travel.Method, combinations = "all", shape = "wide")
-    
-    # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
-    commute$Time[["acm_id"]] = x
-    
-    # as the for-loop runs, progressively add each single row of commute data into a new data frame called acm_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
-    acm_commutes <- rbind(acm_commutes, commute$Time)
-  }
-  
-  acm_commutes
-
-  }
-
-#calc_commutes(acm_df, api = "AIzaSyDFlU9RkmJBJdw0YGMswYECXQeZeKxFmuc")
-
 
 # Initial Team Placements
 
@@ -331,13 +284,12 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   
   # Create data.frame with each potential combination of gender and school, based on the survey responses provided
   
-  
   gender_frame <- 
     expand.grid(placement = 1:nrow(school_targets), Gender = levels(team_placements_df$Gender))
   
   # Precalculate tibbl containing percentage representation of each gender category across the entire corps
   # Can we move this to school targets?  Try to calculate static things once.
-  gender_g <- group_by(acm_df, Gender) %>% summarize(pct_g = n()/nrow(acm_df))
+  gender_g <- group_by(team_placements_df, Gender) %>% summarize(pct_g = n()/nrow(team_placements_df))
 
   
   # Merge previous two frames by "gender"
@@ -549,14 +501,17 @@ traceplot <- function(trace){
 
 # Full Application
 
-# Encode ACM data into computable format
-acm_enc <- encode_acm_df(acm_df)
-
 # Precalculate school targets
 school_targets <- school_config(school_df, acm_enc)
 
 team_placements_df <- initial_placement(acm_enc, school_targets)
     
 output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = 100, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
-output
+
+best_placements <- output$best_placements
+
+diff_scores <- output$diff_scores
+trace <- output$trace
+best_score <- output$best_score
+
 ```
