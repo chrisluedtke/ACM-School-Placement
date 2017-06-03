@@ -15,10 +15,7 @@ output: html_document
 # install.packages("data.table")
 # install.packages("doParallel")
 # install.packages("doSNOW")
-<<<<<<< HEAD
-=======
 # install.packages("ggplot2")
->>>>>>> origin/master
 ```
 
 # Load Packages
@@ -364,7 +361,7 @@ school_config <- function(school_df, acm_enc){
   
   
   
-  school.data <- select(school_df, `sch_id`, `Team Size`, `School Type`, `% Caucasian`:`% N/A`) %>%
+  school.data <- select(school_df, `sch_id`, `Team Size`, `School Type`, `% Caucasian`:`% N/A`, `N Spanish Speakers Reqd`) %>%
     rename(size = `Team Size`,
            span = `School Type`) %>%
     mutate(HSGrad_tgt = ifelse(span=="HS", 0, education[education$level %in% 'HS',]$ratio * size),
@@ -378,8 +375,8 @@ school_config <- function(school_df, acm_enc){
            Math_tgt = ifelse(span=="ES", size*.5*math, ifelse(span=="MS", .75*size*math, size*math))) 
 }
 
-#acm_enc <- encode_acm_df(acm_df)
-#school_targets <- school_config(school_df, acm_enc)
+acm_enc <- encode_acm_df(acm_df)
+school_targets <- school_config(school_df, acm_enc)
 
 ```
 
@@ -530,7 +527,7 @@ initial_placement <- function(acm_enc, school_targets){
 #              filter(Ed_HS == 1 & HSGrad_tgt == 0)
 # }
 
-#team_placements_df <- initial_placement(acm_enc, school_targets)
+team_placements_df <- initial_placement(acm_enc, school_targets)
 
 ```
 
@@ -538,10 +535,18 @@ initial_placement <- function(acm_enc, school_targets){
 ```{r}
 
 hs_loss <- function(targets, actuals){
-  loss <- ifelse(targets == 0, (targets - actuals) * -1e10, (targets - actuals)^2)
+  loss <- ifelse(targets == 0, (targets - actuals)^2 * 1e10, (targets - actuals)^2)
   sum(loss)
 }
 
+reqd_spanish_loss <- function(targets, actuals, min_reqd = F){
+  loss <- if (min_reqd == T) {
+        ifelse(actuals < targets, (targets - actuals)^2 * 1e10, (targets - actuals)^2)
+  } else {
+        (targets - actuals)^2
+  }
+  sum(loss)
+}
 
 calculate_score = function(team_placements_df, school_targets, gender_target=gender_g) {
   
@@ -676,7 +681,8 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   scores$HS_score <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) * 10 
   scores$SomeCol <- sum(abs(placed$SomeCol_tgt - placed$SomeCol)) * 10
   scores$Tutoring <- sum(abs(placed$TutExp - placed$Tutoring)) * 10
-  scores$Spanish <- sum(abs(placed$SpanishNeed - placed$Spanish)) * 10
+  #scores$Spanish <- reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = F)
+  scores$Spanish <- reqd_spanish_loss(school_targets$`N Spanish Speakers Reqd`, placed$Spanish, min_reqd = T)
   scores$OtherLang <- sum(abs(placed$OtherLang_tgt - placed$OtherLang)) * 10
   scores$Grade_Pref <- sum(abs(placed$SpanPref_ES - placed$Pref_ES) + abs(placed$SpanPref_MS - placed$Pref_MS) + abs(placed$SpanPref_HS - placed$Pref_HS))
   scores$Math <- sum(abs(placed$Math_tgt - placed$MathAble)) * 10         
@@ -691,7 +697,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
 }
 
 
-# calculate_score(team_placements_df, school_targets)
+calculate_score(team_placements_df, school_targets)
 
 ```
 
@@ -705,7 +711,7 @@ s_curve = function(x, center, width) {
   1 / (1 + exp((x - center) / width))
 }
 
-#qplot(x = c(1:2000), y = current_temperature(c(1:2000), s_curve_amplitude = 4000, s_curve_center = 0, s_curve_width = 250), geom="line")
+qplot(x = c(1:10000), y = current_temperature(c(1:10000), s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 2000), geom="line")
 
 ```
 
@@ -810,7 +816,7 @@ traceplot <- function(trace){
     coord_cartesian(ylim = c(1e3, 1e4))
 }
 
-# traceplot(thing[[1]]$trace)
+traceplot(output$trace)
 ```
 
 Below I am aiming to create a function for the full implementation of the algorithm from loading the data in to final product.
@@ -860,17 +866,19 @@ placement <- function(){
     run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
   }
   
-  list <- foreach(i=1:10) %dopar% {
-    one_placement(acm_enc, school_targets, number_of_iterations = 2000)
-  }
+  # list <- foreach(i=1:10) %dopar% {
+  #   one_placement(acm_enc, school_targets, number_of_iterations = 2000)
+  # }
+  
+  one_placement(acm_enc, school_targets, number_of_iterations = 2000)
 }
 
-
+output <- placement()
 
 # Identify the number of cores to use in parallel.  detectCores automatically identifies the number of available cores.
 cl <- makeCluster(detectCores())
 registerDoSNOW(cl)
-placement()
+output <- placement()
 # Executes placement 10 times with 10 different starting locations. 
 # system.time({
 #   foreach(i=1:10) %dopar% {
