@@ -1,7 +1,7 @@
 ```{r Power BI Step 1: Rename Headers echo=FALSE}
 # This portion looks different in Power BI
 
-root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
 
 # In Power BI the source is "survey_export.csv" because that's a more accurate representation of a real survey implementation with messy headers and all. "Input 1 - ACM Data.csv" holds the same data, but with clean headers.
 
@@ -139,7 +139,7 @@ dataset <- acm_df
 # }
 ```
 
-```{r Power BI Step 2: Encode Variables echo=FALSE}
+```{r "Power BI Step 2: Encode Variables"" echo=FALSE}
 
 #  Encode Variables & Clean Up Input Dataframes
 
@@ -190,6 +190,7 @@ encode_acm_df <- function(df){
                                Lang_Other = 0)) %>%
                mutate(days_old = as.integer(Sys.Date() - as.Date(as.character(df$Birth.Date), format="%m/%d/%Y")))
 
+  acm_enc$days_old[is.na(acm_enc$days_old)] <- 0
   
   # Return
   acm_enc
@@ -207,7 +208,7 @@ dataset <- acm_enc
 
 number_of_iterations = 10
 
-root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
 
 library(gmapsdistance)
 library(readxl)
@@ -556,7 +557,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   team_placements_df <- starting_placements
   
   placement_score <- calculate_score(starting_placements, school_df)$aggr_score
-  trace <- data.frame(iter=c(1:number_of_iterations + 1), score=0)
+  trace <- data.frame(iter=c(1:number_of_iterations), score=0)
   trace[1, 2] <- placement_score
 
   for(i in 1:number_of_iterations) {

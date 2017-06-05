@@ -38,7 +38,7 @@ for (x in acm_df$acm_id[acm_df$Res.Address.Line.1 != ""]){
   
   # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
   commute = gmapsdistance(origin = subset(acm_df, acm_id == x)$Full.Address, 
-                          destination = school_df[1:8,]$Address, 
+                          destination = school_df[1:4,]$Address, 
                           mode = subset(acm_df, acm_id == x)$Travel.Method, 
                           combinations = "all", 
                           shape = "wide")
@@ -50,13 +50,8 @@ for (x in acm_df$acm_id[acm_df$Res.Address.Line.1 != ""]){
   acm_commutes <- rbind(acm_commutes, commute$Time)
 }
 
-# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
+# Write to .csv, which will be referenced by main algorithm
 
-acm_commutes_long <-
-  select(acm_commutes, -or) %>%
-  gather(dest, dist, -acm_id) %>%
-  mutate(id_dest = paste(acm_id, dest, sep = "_"))
-
-# will then write to .csv, which will be referenced by main algorithm
+write.table(acm_commutes, file = paste(root_dir, "ACM_Commutes.csv", sep = ""), sep=",", row.names=FALSE)
 
 ```
