@@ -84,7 +84,8 @@ encode_acm_df <- function(df){
     replace_na(list(Pref_HS = 0, Pref_MS = 0, Pref_ES = 0,
                     Lang_Other = 0)) %>%
     mutate(days_old = as.integer(Sys.Date() - as.Date(as.character(df$Birth.Date), format="%Y-%m-%d")))
-  
+                        
+  acm_enc[is.na(acm_enc)] <- 0
   
   # Return
   acm_enc
