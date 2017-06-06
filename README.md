@@ -48,15 +48,3 @@ Date | Milestone
 -----|----------
 June 23 | Pull all pieces into final product and start extensive testing.
 July 7 | Product complete with demo ready to present to sites across the national network.
-
-## Usage Workflow
-Ideally this will be a tool that City Year sites can use on a natioanl scale.  Usage of the tool would look like this: 
-### Set Up 
-1. Install R Open and necessary packages (and Power BI)
-2. Eval Rep would work with Recruitment & Admissions to distribute survey and pull data into the ACM workbook
-3. Eval Rep would partner with their site leadership to configure parameters and set weights
-### Use 
-1. Once the Excel workbook is configured, Eval Rep would just need to open .pbix file in Power BI
-1. Ensure that connection is made with the Excel Workbook
-1. Refresh the data (thus executing the placement algorithm)
-1. Interpret the results, make necessary adjustments, and re-run as necessary
