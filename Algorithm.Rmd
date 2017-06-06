@@ -16,7 +16,7 @@ output: html_document
 # install.packages("doParallel")
 # install.packages("doSNOW")
 # install.packages("ggplot2")
-install.packages("randomNames")
+# install.packages("randomNames")
 ```
 
 # Load Packages
@@ -31,8 +31,6 @@ library(data.table)
 library(dummies)
 library(doSNOW)
 library(doParallel)
-library(randomNames)
-
 
 ```
 
@@ -100,6 +98,8 @@ acm_commutes_long <-
 
 # Generate Fake Data
 ```{r}
+library(randomNames)
+
 # This function used for Birthdates
 fake_dates <- function(N, st="1991/01/01", et="1996/12/31") {
      st <- as.POSIXct(as.Date(st))
@@ -272,6 +272,53 @@ acm_df_fake <- generate_fake_df(247, school_df, seed=42)
 #write.table(acm_df_fake, file = "Input 1 - ACM Data.csv", sep=",", row.names=FALSE)
 ```
 
+# Clean Roommates
+```{r Roommates}
+# Dataframe of all ACMs who mentioned roommates or were mentioned by others
+roommates_df = acm_df[acm_df$Roomates == 'Yes' 
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names1
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names2
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names3
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names4, ]
+
+roommates_df[] <- lapply(roommates_df, as.character)
+
+acm_df$Roommate.Names1 = as.character(acm_df$Roommate.Names1)
+acm_df$Roommate.Names2 = as.character(acm_df$Roommate.Names2)
+acm_df$Roommate.Names3 = as.character(acm_df$Roommate.Names3)
+acm_df$Roommate.Names4 = as.character(acm_df$Roommate.Names4)
+
+for (x in roommates_df$Full.Name){
+  # select other rows containing ACM name
+  #roommates_df$Full.Name == x
+
+  # Select any rows containing ACM name
+  other_roommates = subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
+  
+  # Select unique roommate names
+  roommates_list = unique(c(other_roommates$Full.Name,
+                            other_roommates$Roommate.Names1,
+                            other_roommates$Roommate.Names2,
+                            other_roommates$Roommate.Names3,
+                            other_roommates$Roommate.Names4))
+  
+  #Sort alphabetically and remove NAs
+  roommate_list = sort(roommates_list[!is.na(roommates_list)])
+  
+  acm_df$Roommate.Names1[roommates_df$Full.Name == x] = roommate_list[1]
+  acm_df$Roommate.Names2[roommates_df$Full.Name == x] = roommate_list[2]
+  acm_df$Roommate.Names3[roommates_df$Full.Name == x] = roommate_list[3]
+  acm_df$Roommate.Names4[roommates_df$Full.Name == x] = roommate_list[4]
+  #roommates_df$Roomies[roommates_df$Full.Name == x] = paste(sort(roommates_list[!is.na(roommates_list)]), collapse=", ")
+}
+
+acm_df
+
+  # convert names to acm_id
+  # for each ACM with roomamtes and without manual placement
+  # find other valid placement (remember not to move any manual.placements)
+
+```
 # Encode Variables & Clean Up Input Dataframes
 
 Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
@@ -464,7 +511,7 @@ calc_commutes = function(acm_df, api){
 ```{r} 
 # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
-initial_placement <- function(acm_enc, school_targets){
+initial_placement <- function(acm_enc, school_targets, prevent_roommates = "No"){
   # First place acm's at schools designated by Manual.Placement column
   # NOTE: Removed seed parameter.  Seed is used for reproducability, but we want randomness in the start.
   
@@ -506,7 +553,7 @@ initial_placement <- function(acm_enc, school_targets){
     rownames(team_placements_df) <- 1:nrow(team_placements_df)
     acm_row <- subset(acms_with_Manual.Placement, acms_with_Manual.Placement$acm_id == x)
     
-    # Choose 1 acm_id currently assigned to the school at which we want to ensure manual placement is honored
+    # Choose 1 acm_id to remove from the school at which we want to ensure manual placement is honored
     acm_id_to_swap <- sample( subset( acms_no_Manual.Placement$acm_id, acms_no_Manual.Placement$placement == acm_row$Manual.Placement_id ), 1 )
     
     # Swap the team assignment of those 2 ACMs
