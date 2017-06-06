@@ -219,14 +219,10 @@ library(doSNOW)
 #library(doParallel)
 
 acm_enc <- dataset
-acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
-school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
-
-# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
-acm_commutes_long <-
-  select(acm_commutes, -or) %>%
-  gather(dest, dist, -acm_id) %>%
-  mutate(id_dest = paste(acm_id, dest, sep = "_"))
+acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - LA ACM Commutes.xlsm", sep = ""),
+                           col_names = c("acm_id", "ACM", "From", "dest", "To", "dist", "time", "min", "blank"),
+                           col_types = c("numeric", "text", "text", "text", "text", "numeric", "numeric", "numeric", "blank"), skip=1)[1:8]
+school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
 
 # This function calculates some import counts which I'm going to use a lot when trying to figure out the expected number of ACMs per team per metric.  This function will just be used internally by the school_config function.
 corps_demographic_targets <- function(school_df, acm_enc){
