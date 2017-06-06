@@ -16,6 +16,7 @@ output: html_document
 # install.packages("doParallel")
 # install.packages("doSNOW")
 # install.packages("ggplot2")
+install.packages("randomNames")
 ```
 
 # Load Packages
@@ -30,6 +31,9 @@ library(data.table)
 library(dummies)
 library(doSNOW)
 library(doParallel)
+library(randomNames)
+
+
 ```
 
 # Tasks
@@ -110,7 +114,12 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
   fake_df <- data.frame(
     acm_id = 1:num_rows,
     
-    Full.Name = rep('', num_rows),
+    Full.Name = names <- randomNames(num_rows,
+                                     which.names="both",
+                                     name.order="first.last",
+                                     name.sep=" ",
+                                     sample.with.replacement=TRUE,
+                                     return.complete.data=FALSE),
     
     Pref.Name = rep('', num_rows),
     
@@ -203,14 +212,19 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
     
     Roomates = sample( c('Yes', 'No'), num_rows, replace=TRUE, prob=c(0.5, 0.5) ),
     
-    Roommate.Names = rep('none', num_rows),
+    Roommate.Names1 = rep(NA, num_rows),
+    
+    Roommate.Names2 = rep(NA, num_rows),
+    
+    Roommate.Names3 = rep(NA, num_rows),
+    
+    Roommate.Names4 = rep(NA, num_rows),
     
     Manual.Placement = sample( c(NA, school_df$`School Name`), num_rows, replace=TRUE, prob=c(0.9, rep(0.01, length(school_df$`School Name`))))
     
     )
+  
   # Set at least one race per ACM
-  
-  
   fake_df$Race.Ethnicity.White.Caucasian[is.na(fake_df$Race.Ethnicity.African.American.Black)] = sample( c('White/Caucasian', NA), length(fake_df$Race.Ethnicity.White.Caucasian[is.na(fake_df$Race.Ethnicity.African.American.Black)]), replace=TRUE, prob=c(0.8, 0.2) )
   
   fake_df$Race.Ethnicity.White.Caucasian[!is.na(fake_df$Race.Ethnicity.African.American.Black)] = sample( c('White/Caucasian', NA), length(fake_df$Race.Ethnicity.White.Caucasian[!is.na(fake_df$Race.Ethnicity.African.American.Black)]), replace=TRUE, prob=c(0.05, 0.95) )
@@ -244,7 +258,7 @@ generate_fake_df <- function(num_rows, school_df, seed = 42){
   fake_df$Language.Ability.Other[fake_df$Language.Other.English == 'No'] <- NA
   
   fake_df$Tutoring.Experience.Months[fake_df$Tutoring.Experience == 'No'] <- NA
-  fake_df$Tutoring.Experience.EL[fake_df$Tutoring.Experience == 'No'] <- NA
+  fake_df$Tutoring.Experience.ES[fake_df$Tutoring.Experience == 'No'] <- NA
   fake_df$Tutoring.Experience.MS[fake_df$Tutoring.Experience == 'No'] <- NA
   fake_df$Tutoring.Experience.HS[fake_df$Tutoring.Experience == 'No'] <- NA
   fake_df$Teaching.Credential[fake_df$Tutoring.Experience == 'No'] <- NA
