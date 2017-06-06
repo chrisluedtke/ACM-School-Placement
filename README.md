@@ -43,10 +43,6 @@ City Year operates in 28 cities across the United States. Each year in Chicago, 
   * Consistent educational attainment across Elementary Schools (3rd-8th grades) and across High Schools (9th grade)
   * Grade level preferences taken into consideration
 
-## Unnecessary but Nice Components
-* Deploy 2nd Year ACMs & TLs
-  * Currently only placement for first year ACMs is possible with the tool. Placement of TLs and 2nd Year ACMs is based on different criteria and is currently a manual process for site leadership. Qualitative data generally unavailable is also used in placing team leaders (like the relationship with the PM), which makes this challenging.
-
 ## Timeline 
 Date | Milestone
 -----|----------
