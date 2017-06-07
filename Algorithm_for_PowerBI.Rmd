@@ -2,17 +2,17 @@
 library(readxl)
 # This portion looks different in Power BI
 
-root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
+# root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
 
 # In Power BI the source is "survey_export.csv" because that's a more accurate representation of a real survey implementation with messy headers and all. "Input 1 - ACM Data.csv" holds the same data, but with clean headers.
 
-acm_df <- read_excel(path = paste(root_dir, "Input 1 - LA ACM Data.xlsx", sep = ""), col_types = c("text", "text", "text", "text","text","text","date", "numeric", "text","text","numeric", "text","text","text"))
-
-# This part not necessary in PowerBI, since dates are read in as %m/%d/%Y already
-acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
-
-# This line mimics Power BI's behavior
-dataset <- acm_df
+# acm_df <- read_excel(path = paste(root_dir, "Input 1 - LA ACM Data.xlsx", sep = ""), col_types = c("text", "text", "text", "text","text","text","date", "numeric", "text","text","numeric", "text","text","text"))
+# 
+# # This part not necessary in PowerBI, since dates are read in as %m/%d/%Y already
+# acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
+# 
+# # This line mimics Power BI's behavior
+# dataset <- acm_df
 
 
 # How this portion appears in Power BI:
@@ -148,10 +148,10 @@ dataset <- acm_df
 
 # This function takes the input acm_df and encodes the variables in a way that makes the mathematically tractable.
 
-library(dplyr)
-library(tidyr)
-
-acm_df <- dataset
+# library(dplyr)
+# library(tidyr)
+# 
+# acm_df <- dataset
 
 encode_acm_df <- function(df){
 
@@ -194,9 +194,9 @@ encode_acm_df <- function(df){
   acm_enc
 }
 
-acm_enc <- encode_acm_df(acm_df)
-
-dataset <- acm_enc
+# acm_enc <- encode_acm_df(acm_df)
+# 
+# dataset <- acm_enc
 
 ```
 
@@ -204,25 +204,23 @@ dataset <- acm_enc
 # 'dataset' holds the input data for this script
 # changed days_old calculation to expect format="%m/%d/%Y"
 
-root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
-
-#library(gmapsdistance)
-library(readxl)
-library(dplyr)
-library(tidyr)
-#library(data.table)
-#library(dummies)
-#library(doSNOW)
-# Loading this gave errors in Power BI
-#library(doParallel)
-
-acm_enc <- dataset
-school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
-acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - LA ACM Commutes.xlsm", sep = ""),
-                           col_names = c("acm_id", "ACM", "From", "dest", "To", "dist", "time", "min", "blank"),
-                           col_types = c("numeric", "text", "text", "text", "text", "numeric", "numeric", "numeric", "blank"), skip=1)[1:8] %>%
-                left_join(., school_df, by = c("dest" = "School")) %>%
-                mutate(acm_dest_id = paste(acm_id, "-", sch_id))
+# root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
+# 
+# #library(gmapsdistance)
+# library(readxl)
+# library(dplyr)
+# library(tidyr)
+# #library(doSNOW)
+# # Loading this gave errors in Power BI
+# #library(doParallel)
+# 
+# acm_enc <- dataset
+# school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
+# acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - LA ACM Commutes.xlsm", sep = ""),
+#                            col_names = c("acm_id", "ACM", "From", "dest", "To", "dist", "time", "min", "blank"),
+#                            col_types = c("numeric", "text", "text", "text", "text", "numeric", "date", "numeric", "skip"), skip=1) %>%
+#                 left_join(., school_df, by = c("dest" = "School")) %>%
+#                 mutate(acm_dest_id = paste(acm_id, "-", sch_id))
 
 
 
@@ -497,7 +495,7 @@ s_curve = function(x, center, width) {
 
 # Annealing and Swap Function
 
-run_intermediate_annealing_process = function(starting_placements, school_df, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+run_intermediate_annealing_process = function(starting_placements, school_df, best_placements=starting_placements, best_score=1e12, starting_iteration=1, number_of_iterations) {
   
    #starting_placements = team_placements_df 
    #school_df = school_targets
@@ -511,13 +509,13 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
    
   team_placements_df <- starting_placements
   
-  placement_score <- calculate_score(starting_placements, school_df)$aggr_score
+  placement_score <- calculate_score(team_placements_df, school_df)$aggr_score
   trace <- data.frame(iter=c(1:number_of_iterations), score=0)
   trace[1, 2] <- placement_score
 
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
-    temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
+    temp = current_temperature(iter, 3000, number_of_iterations * .2, number_of_iterations * .1)
     candidate_placements_df <- team_placements_df
     
     acms_no_Manual.Placement <- subset(candidate_placements_df, (is.na(candidate_placements_df$Manual.Placement)))
@@ -569,7 +567,6 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
               trace=trace))
 }
 
-
 # Visualize Error Over Time
 
 traceplot <- function(trace){
@@ -577,29 +574,96 @@ traceplot <- function(trace){
 
   ggplot(data = trace, aes(x = iter, y = score)) +
     geom_point() +
-    coord_cartesian(ylim = c(1e3, 1e4))
+    coord_cartesian(ylim = c(0, 1e4))
 }
+```
 
+```{r S-Curve Tuning}
+library(ggplot2)
+plot_curve <- function(iters){
+  # Derived these ratios based on the desired shape of the graph.  
+  # Traits that were desirable were about 50% being highly volotile and the other half not.
+  # Wants to give it enough to to be conservative as well. 
+  data <- data.frame(x = 1:iters, y = current_temperature(1:iters, 1000, iters * .1, iters * .1))
+  
+  ggplot(data, aes(x, y)) +
+    geom_line()
+}
+plot_curve(10000)
+```
+
+
+```{r Full Application}
 # Full Application
 
-# Precalculate school targets
-number_of_iterations = 10
+library(readxl)
+library(dplyr)
+library(tidyr)
 
+root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
+
+acm_df <- read_excel(path = paste(root_dir, "Input 1 - LA ACM Data.xlsx", sep = ""), col_types = c("text", "text", "text", "text","text","text","date", "numeric", "text","text","numeric", "text","text","text"))
+
+# This part not necessary in PowerBI, since dates are read in as %m/%d/%Y already
+acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
+
+acm_enc <- encode_acm_df(acm_df)
+
+school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
+acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - LA ACM Commutes.xlsm", sep = ""),
+                           col_names = c("acm_id", "ACM", "From", "dest", "To", "dist", "time", "min", "blank"),
+                           col_types = c("numeric", "text", "text", "text", "text", "numeric", "date", "numeric", "skip"), skip=1) %>%
+                left_join(., school_df, by = c("dest" = "School")) %>%
+                mutate(acm_dest_id = paste(acm_id, "-", sch_id))
+
+# Precalculate school targets
 school_targets <- school_config(school_df, acm_enc)
 
-team_placements_df <- initial_placement(acm_enc, school_targets)
+placement <- function(acm_enc, school_targets, number_iterations) {
+  team_placements_df <- initial_placement(acm_enc, school_targets)
     
-output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
+  output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 1e12, starting_iteration = 1, number_of_iterations = number_iterations)
+}
 
-best_placements <- output$best_placements
+# best_placements <- output$best_placements
+# 
+# # Playing around with methods to get more info in the output. It's probably better to just re-calculate these in visualizations...
+# best_placements$best_score <- output$best_score
+# best_placements$ethnicity_score <- output$diff_scores$ethnicity_score
+# best_placements$commute_score <- output$diff_scores$commute_score
+# 
+# diff_scores <- output$diff_scores
+# 
+# trace <- output$trace
+```
 
-# Playing around with methods to get more info in the output. It's probably better to just re-calculate these in visualizations...
-best_placements$best_score <- output$best_score
-best_placements$ethnicity_score <- output$diff_scores$ethnicity_score
-best_placements$commute_score <- output$diff_scores$commute_score
+```{r Single Run}
 
-diff_scores <- output$diff_scores
+Single_Run <- placement(acm_enc, school_targets, 10000)
 
-trace <- output$trace
+View(Single_Run$best_placements)
+traceplot(Single_Run$trace)
+```
+
+```{r In Parallel}
+library(doSNOW)
+library(foreach)
+cl <- makeCluster(detectCores())
+registerDoSNOW(cl)
+
+Runs <- foreach(i+1:10) %dopar% {
+  placement(acm_enc, school_targets, 10000)
+}
+
+```
+
+```{r Efficiency Testing}
+
+iters <- c(100, 1e4, 1e5, 1e6)
+time <- c()
+
+system.time({
+  placement(acm_enc, school_targets, 10000)
+})
 
 ```
