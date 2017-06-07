@@ -210,8 +210,8 @@ initial_placement <- function(acm_enc, school_targets){
   
   #print(acms_for_swaps)
   
-  hs_acms_to_swap <- acms_for_swaps[(acms_for_swaps$Ed_HS == 1) & (acms_for_swaps$span == "HS"),]
-  acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$span != "HS"),]
+  hs_acms_to_swap <- acms_for_swaps[(acms_for_swaps$Ed_HS == 1) & (acms_for_swaps$span == "High"),]
+  acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$span != "High"),]
   acms_to_swap_with <- acms_to_swap_with[sample(nrow(acms_to_swap_with), nrow(hs_acms_to_swap), replace=F), ]
   
   team_placements_df[team_placements_df$acm_id %in% hs_acms_to_swap$acm_id, ]$placement = acms_to_swap_with$placement
