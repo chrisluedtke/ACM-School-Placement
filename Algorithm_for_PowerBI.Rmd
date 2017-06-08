@@ -2,13 +2,14 @@
 # This portion looks different in Power BI
 
 root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
+root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 
 # In Power BI the source is "survey_export.csv" because that's a more accurate representation of a real survey implementation with messy headers and all. "Input 1 - ACM Data.csv" holds the same data, but with clean headers.
 
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
 
 # This part not necessary in PowerBI, since dates are read in as %m/%d/%Y already
-acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
+# acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
 
 # This line mimics Power BI's behavior
 dataset <- acm_df
@@ -139,7 +140,47 @@ dataset <- acm_df
 # }
 ```
 
-```{r "Power BI Step 2: Encode Variables"" echo=FALSE}
+```{r "Power BI Step 2: Clean Roommates and Encode Variables"" echo=FALSE}
+# Dataframe of all ACMs who mentioned roommates or were mentioned by others
+roommates_df = acm_df[acm_df$Roomates == 'Yes' 
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names1
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names2
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names3
+                      | acm_df$Full.Name %in% acm_df$Roommate.Names4, ]
+
+roommates_df[] <- lapply(roommates_df, as.character)
+
+acm_df$Roommate.Names1 = as.character(acm_df$Roommate.Names1)
+acm_df$Roommate.Names2 = as.character(acm_df$Roommate.Names2)
+acm_df$Roommate.Names3 = as.character(acm_df$Roommate.Names3)
+acm_df$Roommate.Names4 = as.character(acm_df$Roommate.Names4)
+
+for (x in roommates_df$Full.Name){
+  # select other rows containing ACM name
+  #roommates_df$Full.Name == x
+
+  # Select any rows containing ACM name
+  other_roommates = subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
+  
+  # Select unique roommate names
+  roommates_list = unique(c(other_roommates$Full.Name,
+                            other_roommates$Roommate.Names1,
+                            other_roommates$Roommate.Names2,
+                            other_roommates$Roommate.Names3,
+                            other_roommates$Roommate.Names4))
+  
+  #Sort alphabetically and remove NAs
+  roommate_list = sort(roommates_list[!is.na(roommates_list)])
+  
+  acm_df$Roommate.Names1[roommates_df$Full.Name == x] = roommate_list[1]
+  acm_df$Roommate.Names2[roommates_df$Full.Name == x] = roommate_list[2]
+  acm_df$Roommate.Names3[roommates_df$Full.Name == x] = roommate_list[3]
+  acm_df$Roommate.Names4[roommates_df$Full.Name == x] = roommate_list[4]
+  #roommates_df$Roomies[roommates_df$Full.Name == x] = paste(sort(roommates_list[!is.na(roommates_list)]), collapse=", ")
+}
+
+
+
 
 #  Encode Variables & Clean Up Input Dataframes
 
@@ -208,7 +249,7 @@ dataset <- acm_enc
 
 number_of_iterations = 10
 
-root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
+#root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
 
 library(gmapsdistance)
 library(readxl)
@@ -304,10 +345,10 @@ school_config <- function(school_df, acm_enc){
 
 # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
-initial_placement <- function(acm_enc, school_targets){
+initial_placement <- function(acm_enc, school_targets, prevent_roommates = "No"){
   # First place acm's at schools designated by Manual.Placement column
   # NOTE: Removed seed parameter.  Seed is used for reproducability, but we want randomness in the start.
-  
+  set.seed(42)
   # first create an empty list
   team_placements = list()
   
@@ -323,13 +364,9 @@ initial_placement <- function(acm_enc, school_targets){
   }
   
   team_placements <- data.frame(placement=unlist(team_placements))
-  
-  # Randomize Starting Place
-  #set.seed(seed)
-  
+
   team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ],
                                    acm_id= 1:nrow(team_placements))
-  
   
   # Merge team_placements_df with acm_df on the 'id' column
   team_placements_df <- merge(acm_enc, team_placements_df, by = "acm_id", all.x = TRUE)
@@ -337,25 +374,50 @@ initial_placement <- function(acm_enc, school_targets){
   # Honor Manual Placements
   sch_id_names <- school_df[, c("sch_id", "School Name")]
   colnames(sch_id_names) <- c("Manual.Placement_id", "School.Name")
-  team_placements_df <- merge(team_placements_df, sch_id_names, by.x = "Manual.Placement", by.y = "School.Name", all.x = TRUE)
-  acms_with_Manual.Placement <- subset(team_placements_df, (!is.na(team_placements_df$Manual.Placement)))
-  acms_no_Manual.Placement <- subset(team_placements_df, (is.na(team_placements_df$Manual.Placement)))
   
-  for (x in acms_with_Manual.Placement$acm_id){
-    team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
-    rownames(team_placements_df) <- 1:nrow(team_placements_df)
-    acm_row <- subset(acms_with_Manual.Placement, acms_with_Manual.Placement$acm_id == x)
+  team_placements_df <- merge(team_placements_df, sch_id_names, by.x = "Manual.Placement", by.y = "School.Name", all.x = TRUE)
+  
+  # Remove this:
+  team_placements_df <- team_placements_df[, c("acm_id", "placement", "Manual.Placement_id")]
+  
+  # Re-sort by acm_id and reset the index
+  team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
+  rownames(team_placements_df) <- 1:nrow(team_placements_df)
+  
+  acm_ids_with_Manual.Placement <- team_placements_df$acm_id[!is.na(team_placements_df$Manual.Placement_id)]
+
+  for (x in acm_ids_with_Manual.Placement){
+    acms_no_Manual.Placement <- team_placements_df[is.na(team_placements_df$Manual.Placement_id), ]
     
-    # Choose 1 acm_id currently assigned to the school at which we want to ensure manual placement is honored
-    acm_id_to_swap <- sample( subset( acms_no_Manual.Placement$acm_id, acms_no_Manual.Placement$placement == acm_row$Manual.Placement_id ), 1 )
+    swap1 <- x
     
-    # Swap the team assignment of those 2 ACMs
-    swap1 <- acm_row$acm_id
+    x_placement <- team_placements_df[team_placements_df$acm_id == x, ]$Manual.Placement_id
+    
+    # Choose 1 acm_id to swap with at the school we want to ensure manual placement is honored
+    # What if already assigned to that school?
+    eligible_acm_ids_for_swap <- acms_no_Manual.Placement$acm_id[acms_no_Manual.Placement$placement == x_placement]
+    acm_id_to_swap <- sample( eligible_acm_ids_for_swap, 1 )
     swap2 <- acm_id_to_swap
+    
+    # Swap the team placement of those 2 ACMs
     team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
+  }
+  
+  if (prevent_roommates == "Yes"){
+    print("Let's prevent roommates yall")
     
   }
   
+  # Remove Roommates from being on the same team
+  # Check each team for roommates
+  # For each placement with roommats
+  #   randomly choose (N - 1) ACMs to move to other teams
+  #   for x in N-1 acm_id
+  #     randomly choose other team
+  #     randomly choose acm_id from that team (remember not to choose an acm with manual placement)
+  #     swap
+  # for each
+
   # We would like to ensure that high school students get placed in ES or MS
   acms_for_swaps <- merge(team_placements_df[is.na(team_placements_df$Manual.Placement_id), ], school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
@@ -369,12 +431,9 @@ initial_placement <- function(acm_enc, school_targets){
   team_placements_df[team_placements_df$acm_id %in% acms_to_swap_with$acm_id, ]$placement = hs_acms_to_swap$placement
  
   return(team_placements_df)
-    
 }
 
-
 # Calculate score
-
 
 hs_loss <- function(targets, actuals){
   loss <- ifelse(targets == 0, (targets - actuals) * -1e10, (targets - actuals)^2)
@@ -644,8 +703,8 @@ best_placements$best_score <- output$best_score
 best_placements$ethnicity_score <- output$diff_scores$ethnicity_score
 best_placements$commute_score <- output$diff_scores$commute_score
 
-diff_scores <- output$diff_scores
-
-trace <- output$trace
-
+#diff_scores <- output$diff_scores
+#
+#trace <- output$trace
+#
 ```
