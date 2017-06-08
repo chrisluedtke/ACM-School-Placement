@@ -510,12 +510,12 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   team_placements_df <- starting_placements
   
   placement_score <- calculate_score(team_placements_df, school_df)$aggr_score
-  trace <- data.frame(iter=c(1:number_of_iterations), score=0)
+  trace <- data.frame(iter=c(1:number_of_iterations), score=0, ratio=0)
   trace[1, 2] <- placement_score
 
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
-    temp = current_temperature(iter, 3000, number_of_iterations * .2, number_of_iterations * .1)
+    temp = current_temperature(iter, 3000, number_of_iterations * .1, number_of_iterations * .1)
     candidate_placements_df <- team_placements_df
     
     acms_no_Manual.Placement <- subset(candidate_placements_df, (is.na(candidate_placements_df$Manual.Placement)))
@@ -542,7 +542,9 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     } else {
       ratio = as.numeric(candidate_score$aggr_score < placement_score)
     }
-   
+    
+    trace[i+1, 3] <- ratio
+    
     if (runif(1) < ratio) {
       team_placements_df = candidate_placements_df
       placement_score = candidate_score$aggr_score
@@ -574,7 +576,7 @@ traceplot <- function(trace){
 
   ggplot(data = trace, aes(x = iter, y = score)) +
     geom_point() +
-    coord_cartesian(ylim = c(0, 1e4))
+    coord_cartesian(ylim = c(0, 1e3))
 }
 ```
 
@@ -639,21 +641,33 @@ placement <- function(acm_enc, school_targets, number_iterations) {
 
 ```{r Single Run}
 
-Single_Run <- placement(acm_enc, school_targets, 10000)
+Single_Run <- placement(acm_enc, school_targets, 5000)
 
 View(Single_Run$best_placements)
 traceplot(Single_Run$trace)
+Single_Run$trace
 ```
 
 ```{r In Parallel}
 library(doSNOW)
 library(foreach)
-cl <- makeCluster(detectCores())
+cl <- makeCluster(8)
 registerDoSNOW(cl)
 
-Runs <- foreach(i+1:10) %dopar% {
-  placement(acm_enc, school_targets, 10000)
+Runs <- foreach(i=1:10) %dopar% {
+  library(dplyr)
+  library(tidyr)
+  placement(acm_enc, school_targets, 25000)
 }
+
+stopCluster(cl)
+
+for (i in 1:10){
+  print(traceplot(Runs[[i]]$trace))
+  print(Runs[[i]]$best_score)
+}
+
+View(Runs[[1]]$best_placements)
 
 ```
 
