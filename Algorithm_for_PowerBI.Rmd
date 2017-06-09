@@ -259,8 +259,6 @@ corps_demographic_targets <- function(school_df, acm_enc){
   distros
 }
 
-# thing <- corps_demographic_targets(school_df, dataset)
-
 # I derived this function mildly arbitrarily. The logic is that we probably want at least one spanish speaker at a school, but there are then diminishing returns.  It scales so that for a school that 100% hispanic, we would aim to have 2.6 spanish speakers on the team.  A team thats 80% hispanic will aim to have 4. The main problem with this approach is that we may create too many spots for spanish speakers, or have not have enough spanish speakers for the intended spots.  
 # Shifted down by 75% for LA, since everyone has over 80% Hispanic
 spanishNeed <- function(x) {
@@ -282,7 +280,7 @@ school_config <- function(school_df, acm_enc){
   
   
   
-  school.data <- select(school_df, `sch_id`, `Team Size`, GradeLevel, `% Hispanic`) %>%
+  school.data <- select(school_df, `sch_id`, School, `Team Size`, GradeLevel, `% Hispanic`) %>%
     rename(size = `Team Size`,
            span = GradeLevel) %>%
     mutate(HSGrad_tgt = ifelse(span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(size)),
@@ -305,12 +303,26 @@ initial_placement <- function(acm_enc, school_targets){
   # first create an empty list
   team_placements = list()
   
+  acms_with_Manual.Placement <- acm_enc %>%
+                                  left_join(., select(school_targets, sch_id:School), 
+                                            by=c("Manual.Placement" = "School")) %>%
+                                  filter(!is.na(sch_id))
+  
+  filled_slot_counts <- acms_with_Manual.Placement %>%
+                          group_by(sch_id) %>%
+                          summarise(filled = n())
+  
+  team_size_targets <- select(school_targets, sch_id:size) %>%
+                        left_join(., filled_slot_counts, by=("sch_id")) %>%
+                        replace_na(list(filled = 0)) %>%
+                        mutate(unfilled_slots = as.numeric(size) - as.numeric(filled))
+  
   # use a for-loop to read each team size
-  for (x in school_targets$sch_id){
+  for (x in team_size_targets$sch_id){
     team_slots = list(
       # create a list that repeats each school 'id' for the size of each team
       rep(x, 
-          subset(school_targets$size, school_targets$sch_id == x)
+          subset(team_size_targets$unfilled_slots, team_size_targets$sch_id == x)
           )
       )
     team_placements <- c(team_placements, team_slots)
@@ -319,12 +331,14 @@ initial_placement <- function(acm_enc, school_targets){
   team_placements <- data.frame(placement=unlist(team_placements))
   
   slots <- nrow(team_placements)
-  filled_acm_roster <- c(acm_enc$acm_id, 9000:(9000 + slots - nrow(acm_enc) - 1))
+  filled_acm_roster <- c(acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id, 9000:(9000 + slots - nrow(acm_enc[is.na(acm_enc$Manual.Placement), ]) - 1))
   
   # Randomize Starting Place
   
-  team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ],
-                                   acm_id= filled_acm_roster)
+  team_placements_df <- data.frame(sch_id=team_placements[sample(nrow(team_placements), replace=F), ],
+                                   acm_id= filled_acm_roster) %>%
+                        union(., select(acms_with_Manual.Placement, sch_id, acm_id)) %>%
+                        rename(placement = sch_id)
   
   
   # Merge team_placements_df with acm_df on the 'id' column
@@ -340,24 +354,7 @@ initial_placement <- function(acm_enc, school_targets){
   sch_id_names <- school_df[, c("sch_id", "School")]
   colnames(sch_id_names) <- c("Manual.Placement_id", "School.Name")
   team_placements_df <- merge(team_placements_df, sch_id_names, by.x = "Manual.Placement", by.y = "School.Name", all.x = TRUE)
-  acms_with_Manual.Placement <- subset(team_placements_df, (!is.na(team_placements_df$Manual.Placement)))
-  acms_no_Manual.Placement <- subset(team_placements_df, (is.na(team_placements_df$Manual.Placement)))
-  
-  for (x in acms_with_Manual.Placement$acm_id){
-    #x <- 345
-    acm_row <- subset(acms_with_Manual.Placement, acms_with_Manual.Placement$acm_id == x)
-    
-    # Choose 1 acm_id currently assigned to the school at which we want to ensure manual placement is honored
-    acm_id_to_swap <- sample( subset( acms_no_Manual.Placement$acm_id, acms_no_Manual.Placement$placement == acm_row$Manual.Placement_id ), 1 )
-    
-    # Swap the team assignment of those 2 ACMs
-    swap1 <- acm_row$placement # School of the ACM with a Manual Placement
-    swap2 <- team_placements_df[team_placements_df$acm_id == acm_id_to_swap, ]$placement # School of ACM at the target school for manual placement
-    team_placements_df[team_placements_df$acm_id == acm_id_to_swap, ]$placement <- swap1
-    team_placements_df[team_placements_df$acm_id == acm_row$acm_id, ]$placement <- swap2
-    
-  }
-  
+
   # We would like to ensure that high school students get placed in ES or MS
   acms_for_swaps <- merge(team_placements_df[is.na(team_placements_df$Manual.Placement_id), ], school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
@@ -367,11 +364,10 @@ initial_placement <- function(acm_enc, school_targets){
   acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$span != "High"),]
   acms_to_swap_with <- acms_to_swap_with[sample(nrow(acms_to_swap_with), nrow(hs_acms_to_swap), replace=F), ]
   
-  team_placements_df[team_placements_df$acm_id %in% hs_acms_to_swap$acm_id, ]$placement = acms_to_swap_with$placement
-  team_placements_df[team_placements_df$acm_id %in% acms_to_swap_with$acm_id, ]$placement = hs_acms_to_swap$placement
+  team_placements_df[team_placements_df$acm_id %in% hs_acms_to_swap$acm_id, ]$placement <- acms_to_swap_with$placement
+  team_placements_df[team_placements_df$acm_id %in% acms_to_swap_with$acm_id, ]$placement <- hs_acms_to_swap$placement
  
   return(team_placements_df)
-    
 }
 
 
@@ -391,7 +387,7 @@ reqd_spanish_loss <- function(targets, actuals, min_reqd = 1){
 calculate_score = function(team_placements_df, school_targets, gender_target=gender_g) {
   
   # Merge  with school_df to pull in school characteristics
-  team_placements_filtered <- team_placements_df %>%
+  team_placements_df <- team_placements_df %>%
                           left_join(., school_targets, by=c("placement" = "sch_id")) %>%
                           filter(acm_id < 9000)
   
@@ -600,7 +596,7 @@ plot_curve <- function(iters){
   ggplot(data, aes(x, y)) +
     geom_line()
 }
-plot_curve(10000)
+#plot_curve(10000)
 ```
 
 
@@ -611,7 +607,8 @@ library(readxl)
 library(dplyr)
 library(tidyr)
 
-root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
+root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
+#root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
 
 acm_df <- read_excel(path = paste(root_dir, "Input 1 - LA ACM Data.xlsx", sep = ""), col_types = c("text", "text", "text", "text","text","text","date", "numeric", "text","text","numeric", "text","text","text"))
 
@@ -623,7 +620,7 @@ acm_enc <- encode_acm_df(acm_df)
 school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
 acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - LA ACM Commutes.xlsm", sep = ""),
                            col_names = c("acm_id", "ACM", "From", "dest", "To", "dist", "time", "min", "blank"),
-                           col_types = c("numeric", "text", "text", "text", "text", "numeric", "date", "numeric", "skip"), skip=1) %>%
+                           col_types = c("numeric", "text", "text", "text", "text", "numeric", "date", "numeric", "blank"), skip=1) %>%
                 left_join(., school_df, by = c("dest" = "School")) %>%
                 mutate(acm_dest_id = paste(acm_id, "-", sch_id))
 
@@ -632,7 +629,7 @@ school_targets <- school_config(school_df, acm_enc)
 
 placement <- function(acm_enc, school_targets, number_iterations, center_scale, width_scale) {
   team_placements_df <- initial_placement(acm_enc, school_targets)
-    
+  #validity <- left_join(team_placements_df, school_targets, by=c("placement" = "sch_id"))  
   output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 1e12, starting_iteration = 1, number_of_iterations = number_iterations, center_scale=center_scale, width_scale=width_scale)
 }
 
@@ -652,9 +649,9 @@ placement <- function(acm_enc, school_targets, number_iterations, center_scale, 
 
 Single_Run <- placement(acm_enc, school_targets, 10000, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
 
-View(Single_Run$best_placements)
+#View(Single_Run$best_placements)
 traceplot(Single_Run$trace)
-Single_Run$trace
+
 ```
 
 ```{r In Parallel}
