@@ -391,6 +391,8 @@ reqd_males <- function(targets, actuals, min_reqd = 1){
 
 calculate_score = function(team_placements_df, school_targets, gender_target=gender_g) {
   
+  #team_placements_df <- bestPlacement$best_placements %>% filter(acm_id < 9000)
+  
   # Merge  with school_df to pull in school characteristics
   team_placements_df <- team_placements_df %>%
                           left_join(., school_targets, by=c("placement" = "sch_id")) %>%
@@ -454,8 +456,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   #    Scoring    #
   #################  
   
-  placed <- team_placements_df %>% 
-                filter(is.na(team_placements_df$Manual.Placement)) %>%
+  placed <- team_placements_df %>%
                 group_by(placement) %>%
                 summarise(HS_Grads = sum(Ed_HS),
                           SomeCol = sum(Ed_SomeCol),
@@ -577,7 +578,7 @@ traceplot <- function(trace){
 
   ggplot(data = trace, aes(x = iter, y = score)) +
     geom_point() +
-    coord_cartesian(ylim = c(0, 2800))
+    coord_cartesian(ylim = c(1e10, 1e10+2800))
 }
 
 tempplot <- function(trace){
@@ -663,31 +664,34 @@ traceplot(Single_Run$trace)
 library(doSNOW)
 library(foreach)
 library(gridExtra)
-cl <- makeCluster(4)
+
+n_processors = 8
+cl <- makeCluster(n_processors)
 registerDoSNOW(cl)
 
-Runs <- foreach(i=1:8) %dopar% {
+n_runs = 1*n_processors
+n_iters = 10000
+
+Runs <- foreach(i=1:n_runs) %dopar% {
   library(dplyr)
   library(tidyr)
   #print(system.time(placement(acm_enc, school_targets, 25000)))
-  placement(acm_enc, school_targets, 2000, center_scale=runif(1, 1e-3, 0.15), width_scale=runif(1, 1e-3, 0.2))
+  placement(acm_enc, school_targets, n_iters, center_scale=runif(1, 1e-3, 0.15), width_scale=runif(1, 1e-3, 0.2))
 }
 
 stopCluster(cl)
 
-for (i in 1:16){
-  ax <- traceplot(Runs[[i]]$trace)
-  bx <- tempplot(Runs[[i]]$trace)
-  plot(grid.arrange(ax, bx, ncol=2))
-  print(Runs[[i]]$best_score)
-}
+best_run <- which.min(sapply(Runs, "[", i=2))
 
-#View(Runs[[1]]$best_placements)
+ax <- traceplot(Runs[[best_run]]$trace)
+bx <- tempplot(Runs[[best_run]]$trace)
+plot(grid.arrange(ax, bx, ncol=2))
+#print(Runs[[i]]$diff_scores)
 
 ```
 
 ```{r Running Validity Checks}
-bestPlacement <- Runs[[1]]
+bestPlacement <- Runs[[best_run]]
 
 validate_placement <- bestPlacement$best_placements %>%
                         group_by(School) %>%
