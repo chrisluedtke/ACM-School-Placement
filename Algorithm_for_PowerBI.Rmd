@@ -1,5 +1,5 @@
 ```{r Power BI Step 1 Rename Headers, echo=FALSE}
-library(readxl)
+#library(readxl)
 # This portion looks different in Power BI
 
 # root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
@@ -384,6 +384,11 @@ reqd_spanish_loss <- function(targets, actuals, min_reqd = 1){
   sum(loss)
 }
 
+reqd_males <- function(targets, actuals, min_reqd = 1){
+  loss <- ifelse(actuals < min_reqd, 1e10, (targets - actuals)^2)
+  sum(loss)
+}
+
 calculate_score = function(team_placements_df, school_targets, gender_target=gender_g) {
   
   # Merge  with school_df to pull in school characteristics
@@ -421,7 +426,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
               ungroup() %>%
               summarize(avg_age_var = mean(age_var))
 
-  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old))
+  scores$age_score <- sqrt(abs(age_var$avg_age_var - var(team_placements_df$days_old)))
   
   ###################
   # ETHNICITY SCORE #
@@ -443,7 +448,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
     summarize(avg_eths_rep = mean(avg_eths_rep)) %>%
     summarize(avg_eths_rep = mean(avg_eths_rep))
 
-  scores$ethnicity_score <- ethnicity_eths$avg_eths_rep
+  scores$ethnicity_score <- (ethnicity_eths$avg_eths_rep*1000)
   
   #################
   #    Scoring    #
@@ -458,14 +463,14 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
                           Spanish = sum(SpanishAble),
                           OtherLang = sum(Lang_Other),
                           MathAble = sum(Math.Confidence),
-                          Gender = sum(Male) + sum(Other.Gender)) %>%
+                          Males = sum(Male)) %>%
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
-  scores$Edscore <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) + sum(abs(placed$SomeCol_tgt - placed$SomeCol))
-  scores$Tutoring <- sum(abs(placed$TutExp - placed$Tutoring))
-  scores$Spanish <- reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = 1) + sum(abs(placed$OtherLang_tgt - placed$OtherLang))
-  scores$Math <- sum(abs(placed$Math_tgt - placed$MathAble))
-  scores$Gender <- sum(abs(placed$Male_tgt - placed$Gender))
+  scores$Edscore <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) + sum((placed$SomeCol_tgt - placed$SomeCol)^2)
+  scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2)
+  scores$Spanish <- (reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = 1) + sum((placed$OtherLang_tgt - placed$OtherLang)^2))
+  scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2)
+  scores$Gender <- reqd_males(placed$Male_tgt, placed$Males, 1)
 
   #################
   # OVERALL SCORE #
@@ -572,7 +577,7 @@ traceplot <- function(trace){
 
   ggplot(data = trace, aes(x = iter, y = score)) +
     geom_point() +
-    coord_cartesian(ylim = c(0, 1e3))
+    coord_cartesian(ylim = c(0, 2800))
 }
 
 tempplot <- function(trace){
@@ -581,7 +586,7 @@ tempplot <- function(trace){
   ggplot(data = trace, aes(x = iter)) +
     geom_point(aes(y=ratio)) +
     geom_line(aes(y=temp)) +
-    coord_cartesian(ylim = c(0, 1e3))
+    coord_cartesian(ylim = c(0, 2800))
 }
 ```
 
@@ -607,8 +612,8 @@ library(readxl)
 library(dplyr)
 library(tidyr)
 
-root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
-#root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
+#root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
+root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
 
 acm_df <- read_excel(path = paste(root_dir, "Input 1 - LA ACM Data.xlsx", sep = ""), col_types = c("text", "text", "text", "text","text","text","date", "numeric", "text","text","numeric", "text","text","text"))
 
@@ -665,12 +670,12 @@ Runs <- foreach(i=1:8) %dopar% {
   library(dplyr)
   library(tidyr)
   #print(system.time(placement(acm_enc, school_targets, 25000)))
-  placement(acm_enc, school_targets, 15000, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
+  placement(acm_enc, school_targets, 2000, center_scale=runif(1, 1e-3, 0.15), width_scale=runif(1, 1e-3, 0.2))
 }
 
 stopCluster(cl)
 
-for (i in 1:8){
+for (i in 1:16){
   ax <- traceplot(Runs[[i]]$trace)
   bx <- tempplot(Runs[[i]]$trace)
   plot(grid.arrange(ax, bx, ncol=2))
@@ -681,8 +686,23 @@ for (i in 1:8){
 
 ```
 
-```{r }
-bestPlacement <- Runs[[7]]$best_placements
+```{r Running Validity Checks}
+bestPlacement <- Runs[[1]]
 
-View(bestPlacement)
+validate_placement <- bestPlacement$best_placements %>%
+                        group_by(School) %>%
+                        summarise(HS_Grads = sum(Ed_HS),
+                                  SomeCol = sum(Ed_SomeCol),
+                                  Tutoring = sum(HasTutored),
+                                  Spanish = sum(SpanishAble),
+                                  OtherLang = sum(Lang_Other),
+                                  MathAble = sum(Math.Confidence),
+                                  Males = sum(Male), 
+                                  Gender.Other = sum(Other.Gender),
+                                  Hispanic.Latino = sum(Race.Ethnicity.Hispanic),
+                                  Asian.PI = sum(Race.Ethnicity.Asian), 
+                                  White = sum(Race.Ethnicity.White),
+                                  Black = sum(Race.Ethnicity.Black))
+
+#write.csv(bestPlacement$best_placements, file = "acm_Placements.csv")
 ```
