@@ -658,10 +658,10 @@ traceplot(Single_Run$trace)
 library(doSNOW)
 library(foreach)
 library(gridExtra)
-cl <- makeCluster(8)
+cl <- makeCluster(4)
 registerDoSNOW(cl)
 
-Runs <- foreach(i=1:16) %dopar% {
+Runs <- foreach(i=1:8) %dopar% {
   library(dplyr)
   library(tidyr)
   #print(system.time(placement(acm_enc, school_targets, 25000)))
@@ -670,7 +670,7 @@ Runs <- foreach(i=1:16) %dopar% {
 
 stopCluster(cl)
 
-for (i in 1:10){
+for (i in 1:8){
   ax <- traceplot(Runs[[i]]$trace)
   bx <- tempplot(Runs[[i]]$trace)
   plot(grid.arrange(ax, bx, ncol=2))
