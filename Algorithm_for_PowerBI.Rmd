@@ -140,7 +140,13 @@ dataset <- acm_df
 # }
 ```
 
+
 ```{r "Power BI Step 2: Clean Roommates and Encode Variables"" echo=FALSE}
+library(dplyr)
+library(tidyr)
+
+acm_df <- dataset
+
 # Dataframe of all ACMs who mentioned roommates or were mentioned by others
 roommates_df = acm_df[acm_df$Roomates == 'Yes' 
                       | acm_df$Full.Name %in% acm_df$Roommate.Names1
@@ -156,9 +162,6 @@ acm_df$Roommate.Names3 = as.character(acm_df$Roommate.Names3)
 acm_df$Roommate.Names4 = as.character(acm_df$Roommate.Names4)
 
 for (x in roommates_df$Full.Name){
-  # select other rows containing ACM name
-  #roommates_df$Full.Name == x
-
   # Select any rows containing ACM name
   other_roommates = subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
   
@@ -176,22 +179,15 @@ for (x in roommates_df$Full.Name){
   acm_df$Roommate.Names2[roommates_df$Full.Name == x] = roommate_list[2]
   acm_df$Roommate.Names3[roommates_df$Full.Name == x] = roommate_list[3]
   acm_df$Roommate.Names4[roommates_df$Full.Name == x] = roommate_list[4]
-  #roommates_df$Roomies[roommates_df$Full.Name == x] = paste(sort(roommates_list[!is.na(roommates_list)]), collapse=", ")
+  
+  acm_df$Roommate.Names[acm_df$Full.Name == x] = paste(roommate_list, collapse=", ")
 }
-
-
-
 
 #  Encode Variables & Clean Up Input Dataframes
 
 #Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical ## variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
 
 # This function takes the input acm_df and encodes the variables in a way that makes the mathematically tractable.
-
-library(dplyr)
-library(tidyr)
-
-acm_df <- dataset
 
 encode_acm_df <- function(df){
 
@@ -225,7 +221,9 @@ encode_acm_df <- function(df){
                                    Gender, 
                                    Manual.Placement, 
                                    Birth.Date,
-                                   Race.Ethnicity.African.American.Black:Race.Ethnicity.Other), 
+                                   Race.Ethnicity.African.American.Black:Race.Ethnicity.Other,
+                                   Roommate.Names),
+                                  
                          by=c("acm_id" = "acm_id")) %>%
                replace_na(list(Pref_HS = 0, Pref_MS = 0, Pref_ES = 0,
                                Lang_Other = 0)) %>%
@@ -240,14 +238,13 @@ encode_acm_df <- function(df){
 acm_enc <- encode_acm_df(acm_df)
 
 dataset <- acm_enc
-
 ```
 
 ```{r Power BI Step 3: Simulated Annealing echo=FALSE}
 # 'dataset' holds the input data for this script
-# changed days_old calculation to expect format="%m/%d/%Y"
 
 number_of_iterations = 10
+prevent_roommates = "Yes"
 
 #root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
 
@@ -345,10 +342,10 @@ school_config <- function(school_df, acm_enc){
 
 # Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
-initial_placement <- function(acm_enc, school_targets, prevent_roommates = "No"){
+initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   # First place acm's at schools designated by Manual.Placement column
   # NOTE: Removed seed parameter.  Seed is used for reproducability, but we want randomness in the start.
-  set.seed(42)
+
   # first create an empty list
   team_placements = list()
   
@@ -377,9 +374,6 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates = "No")
   
   team_placements_df <- merge(team_placements_df, sch_id_names, by.x = "Manual.Placement", by.y = "School.Name", all.x = TRUE)
   
-  # Remove this:
-  team_placements_df <- team_placements_df[, c("acm_id", "placement", "Manual.Placement_id")]
-  
   # Re-sort by acm_id and reset the index
   team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
   rownames(team_placements_df) <- 1:nrow(team_placements_df)
@@ -403,21 +397,55 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates = "No")
     team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
   }
   
+  # Prevent Roommates from being on the same team
   if (prevent_roommates == "Yes"){
-    print("Let's prevent roommates yall")
-    
+  # useful function we use later. could probably replace with some usage of any()
+  `%not in%` <- function (x, table) is.na(match(x, table, nomatch=NA_integer_))  
+    # Check each team for roommates
+    for (y in 1:nrow(school_targets)){
+      school_frame = team_placements_df[team_placements_df$placement == y, ]
+      
+      # get list of duplicated roommate sets
+      dup_roommates <- unique(school_frame$Roommate.Names[duplicated(school_frame$Roommate.Names)])
+      dup_roommates <- dup_roommates[!is.na(dup_roommates)]
+      
+      if (length(dup_roommates) > 0){
+        
+        for (z in  dup_roommates){
+          roommate_set <- school_frame[which(school_frame$Roommate.Names == z), ]
+          
+          roommate_set_no_manual <- roommate_set[is.na(roommate_set$Manual.Placement_id), ]
+          
+          # manual placements will override preventing roommates
+          # if no roommates on team were manually placed, choose 1 of the roommates to keep on the team
+          if (length(roommate_set[!is.na(roommate_set$Manual.Placement_id), ]) == 0){
+            acm_to_keep <- sample(roommate_set$acm_id, 1)
+          } else {
+            acm_to_keep <- 0
+          }
+          # swap out all roommates who were not manually placed or who were 'acm_to_keep'
+          for (k in roommate_set_no_manual$acm_id[roommate_set_no_manual$acm_id != acm_to_keep]){
+            swap1 <- k
+            
+            # choose other school where no roommate conflict exists
+            schools_no_roommate = unique(team_placements_df$placement[which(team_placements_df$Roommate.Names != z)])
+            school_to_swap <- sample(schools_no_roommate, 1)
+            school_to_swap_frame <- acms_no_Manual.Placement[acms_no_Manual.Placement$placement == school_to_swap, ]
+            
+            # choose 1 ACM who has no Manual.Placement, and whose roommates are not on the team we swap them to
+            swap2 <- sample(school_to_swap_frame$acm_id[is.na(school_to_swap_frame$Roommate.Names)
+                                                        | school_to_swap_frame$Roommate.Names %not in% school_frame$Roommate.Names], 1)
+            
+            # Swap the team placement of those 2 ACMs
+            team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
+            
+            acms_no_Manual.Placement <- team_placements_df[is.na(team_placements_df$Manual.Placement_id), ]
+          }
+        }
+      }
+    }
   }
   
-  # Remove Roommates from being on the same team
-  # Check each team for roommates
-  # For each placement with roommats
-  #   randomly choose (N - 1) ACMs to move to other teams
-  #   for x in N-1 acm_id
-  #     randomly choose other team
-  #     randomly choose acm_id from that team (remember not to choose an acm with manual placement)
-  #     swap
-  # for each
-
   # We would like to ensure that high school students get placed in ES or MS
   acms_for_swaps <- merge(team_placements_df[is.na(team_placements_df$Manual.Placement_id), ], school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
@@ -432,6 +460,7 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates = "No")
  
   return(team_placements_df)
 }
+
 
 # Calculate score
 
@@ -692,7 +721,7 @@ traceplot <- function(trace){
 # Precalculate school targets
 school_targets <- school_config(school_df, acm_enc)
 
-team_placements_df <- initial_placement(acm_enc, school_targets)
+team_placements_df <- initial_placement(acm_enc, school_targets, prevent_roommates)
     
 output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
 
@@ -703,6 +732,8 @@ best_placements$best_score <- output$best_score
 best_placements$ethnicity_score <- output$diff_scores$ethnicity_score
 best_placements$commute_score <- output$diff_scores$commute_score
 
+
+output
 #diff_scores <- output$diff_scores
 #
 #trace <- output$trace
