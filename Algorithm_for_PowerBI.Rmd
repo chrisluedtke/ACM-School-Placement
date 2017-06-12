@@ -669,8 +669,8 @@ n_processors = 8
 cl <- makeCluster(n_processors)
 registerDoSNOW(cl)
 
-n_runs = 1*n_processors
-n_iters = 10000
+n_runs = 2*n_processors
+n_iters = 25000
 
 Runs <- foreach(i=1:n_runs) %dopar% {
   library(dplyr)
@@ -680,6 +680,10 @@ Runs <- foreach(i=1:n_runs) %dopar% {
 }
 
 stopCluster(cl)
+```
+
+
+```{r Running Validity Checks}
 
 best_run <- which.min(sapply(Runs, "[", i=2))
 
@@ -688,9 +692,6 @@ bx <- tempplot(Runs[[best_run]]$trace)
 plot(grid.arrange(ax, bx, ncol=2))
 #print(Runs[[i]]$diff_scores)
 
-```
-
-```{r Running Validity Checks}
 bestPlacement <- Runs[[best_run]]
 
 validate_placement <- bestPlacement$best_placements %>%
