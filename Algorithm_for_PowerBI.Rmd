@@ -1,4 +1,5 @@
 ```{r Power BI Step 1: Rename Headers echo=FALSE}
+rm(list=ls(all=TRUE))
 # This portion looks different in Power BI
 
 #root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
@@ -137,13 +138,11 @@ dataset <- acm_df
 # for (x in names(acm_df)){
 #   try(names(acm_df)[names(acm_df) == x] <- vars_df$`Variable.Name`[vars_df$`PowerBI.Survey.Items` == x])
 # }
+
 ```
 
 
-```{r "Power BI Step 2: Clean Roommates and Encode Variables"" echo=FALSE}
-library(dplyr)
-library(tidyr)
-
+```{r Power BI Step 2: Clean Roommates echo=FALSE}
 acm_df <- dataset
 
 # Dataframe of all ACMs who mentioned roommates or were mentioned by others
@@ -160,11 +159,10 @@ acm_df$Roommate.Names2 = as.character(acm_df$Roommate.Names2)
 acm_df$Roommate.Names3 = as.character(acm_df$Roommate.Names3)
 acm_df$Roommate.Names4 = as.character(acm_df$Roommate.Names4)
 
-acm_df$Roommate.Names <- ""
+acm_df$Roommate.Names <- NA
 
 for (x in roommates_df$Full.Name){
   # Select any rows containing ACM name
-  print(x)
   other_roommates = subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
   
   # Select unique roommate names
@@ -173,18 +171,62 @@ for (x in roommates_df$Full.Name){
                             other_roommates$Roommate.Names2,
                             other_roommates$Roommate.Names3,
                             other_roommates$Roommate.Names4))
+  #Sort alphabetically, remove NAs, remove blanks
+  roommates_list = roommates_list[!is.na(roommates_list)]
+  roommates_list = roommates_list[roommates_list != ""]
+  roommates_list = sort(roommates_list)
   
-  #Sort alphabetically and remove NAs
-  roommate_list = sort(roommates_list[!is.na(roommates_list)])
   
-  acm_df$Roommate.Names1[roommates_df$Full.Name == x] = roommate_list[1]
-  acm_df$Roommate.Names2[roommates_df$Full.Name == x] = roommate_list[2]
-  acm_df$Roommate.Names3[roommates_df$Full.Name == x] = roommate_list[3]
-  acm_df$Roommate.Names4[roommates_df$Full.Name == x] = roommate_list[4]
+  acm_df$Roommate.Names1[acm_df$Full.Name == x] = roommates_list[1]
+  acm_df$Roommate.Names2[acm_df$Full.Name == x] = roommates_list[2]
+  acm_df$Roommate.Names3[acm_df$Full.Name == x] = roommates_list[3]
+  acm_df$Roommate.Names4[acm_df$Full.Name == x] = roommates_list[4]
   
-  acm_df$Roommate.Names[acm_df$Full.Name == x] = paste(roommate_list, collapse=", ")
+  acm_df$Roommate.Names[acm_df$Full.Name == x] = paste(roommates_list, collapse=", ")
 }
 
+acm_df
+
+dataset <- acm_df
+
+```
+
+
+```{r Power BI Step 3: Encoding and Annealing}
+
+number_of_iterations = 1000
+prevent_roommates = "No"
+
+#root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
+root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+
+library(gmapsdistance)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(dummies)
+library(doSNOW)
+# Loading this gave errors in Power BI
+#library(doParallel)
+
+acm_df <- dataset
+acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
+school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
+
+# Add id columns
+acm_commutes$acm_id <- 1:nrow(acm_commutes)
+school_df$sch_id <- 1:nrow(school_df)
+
+# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
+acm_commutes_long <-
+  select(acm_commutes, -or) %>%
+  gather(dest, dist, -acm_id) %>%
+  mutate(id_dest = paste(acm_id, dest, sep = "_"))
+
+
+# useful function we use later. could probably replace with some usage of any()
+`%not in%` <- function (x, table) is.na(match(x, table, nomatch=NA_integer_))  
 
 #  Encode Variables & Clean Up Input Dataframes
 
@@ -237,51 +279,6 @@ encode_acm_df <- function(df){
   # Return
   acm_enc
 }
-
-acm_enc <- encode_acm_df(acm_df)
-
-dataset <- acm_enc
-
-dataset
-```
-
-
-
-```{r Power BI Step 3: Simulated Annealing echo=FALSE}
-# 'dataset' holds the input data for this script
-
-number_of_iterations = 10
-prevent_roommates = "Yes"
-
-#root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
-root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
-
-# useful function we use later. could probably replace with some usage of any()
-`%not in%` <- function (x, table) is.na(match(x, table, nomatch=NA_integer_))  
-
-library(gmapsdistance)
-library(readxl)
-library(dplyr)
-library(tidyr)
-library(data.table)
-library(dummies)
-library(doSNOW)
-# Loading this gave errors in Power BI
-#library(doParallel)
-
-acm_enc <- dataset
-acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
-school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
-
-# Add id columns
-acm_commutes$acm_id <- 1:nrow(acm_commutes)
-school_df$sch_id <- 1:nrow(school_df)
-
-# Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
-acm_commutes_long <-
-  select(acm_commutes, -or) %>%
-  gather(dest, dist, -acm_id) %>%
-  mutate(id_dest = paste(acm_id, dest, sep = "_"))
 
 # This function calculates some import counts which I'm going to use a lot when trying to figure out the expected number of ACMs per team per metric.  This function will just be used internally by the school_config function.
 corps_demographic_targets <- function(school_df, acm_enc){
@@ -389,24 +386,25 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
   rownames(team_placements_df) <- 1:nrow(team_placements_df)
   
-  acm_ids_with_Manual.Placement <- team_placements_df$acm_id[!is.na(team_placements_df$Manual.Placement_id)]
+  acm_ids_with_Manual.Placement <- team_placements_df$acm_id[!is.na(team_placements_df$Manual.Placement)]
 
   for (x in acm_ids_with_Manual.Placement){
-    acms_no_Manual.Placement <- team_placements_df[is.na(team_placements_df$Manual.Placement_id), ]
+    acms_no_Manual.Placement <- team_placements_df[is.na(team_placements_df$Manual.Placement), ]
     
     swap1 <- x
     
-    x_placement <- team_placements_df[team_placements_df$acm_id == x, ]$Manual.Placement_id
+    x_placement <- team_placements_df$Manual.Placement_id[team_placements_df$acm_id == x]
     
     # Choose 1 acm_id to swap with at the school we want to ensure manual placement is honored
     # What if already assigned to that school?
     eligible_acm_ids_for_swap <- acms_no_Manual.Placement$acm_id[acms_no_Manual.Placement$placement == x_placement]
     acm_id_to_swap <- sample( eligible_acm_ids_for_swap, 1 )
     swap2 <- acm_id_to_swap
-    
+
     # Swap the team placement of those 2 ACMs
     team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
   }
+  
   
   # Prevent Roommates from being on the same team
   if (prevent_roommates == "Yes"){
@@ -415,40 +413,44 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
       school_frame = team_placements_df[team_placements_df$placement == y, ]
       
       # get list of duplicated roommate sets
-      dup_roommates <- unique(school_frame$Roommate.Names[duplicated(school_frame$Roommate.Names)])
-      dup_roommates <- dup_roommates[!is.na(dup_roommates)]
+      dup_roommates <- unique(school_frame$Roommate.Names[!is.na(school_frame$Roommate.Names) & duplicated(school_frame$Roommate.Names)])
       
       if (length(dup_roommates) > 0){
-        
         for (z in  dup_roommates){
+          
           roommate_set <- school_frame[which(school_frame$Roommate.Names == z), ]
           
           roommate_set_no_manual <- roommate_set[is.na(roommate_set$Manual.Placement_id), ]
           
           # manual placements will override preventing roommates
-          # if no roommates on team were manually placed, choose 1 of the roommates to keep on the team
-          if (length(roommate_set[!is.na(roommate_set$Manual.Placement_id), ]) == 0){
+          # if all roommates were NOT manually placed, choose 1 of the roommates to keep on the team
+          if (all(is.na(roommate_set$Manual.Placement_id))){
             acm_to_keep <- sample(roommate_set$acm_id, 1)
           } else {
             acm_to_keep <- 0
           }
+          
           # swap out all roommates who were not manually placed or who were 'acm_to_keep'
           for (k in roommate_set_no_manual$acm_id[roommate_set_no_manual$acm_id != acm_to_keep]){
+            
+            acms_no_Manual.Placement <- team_placements_df[is.na(team_placements_df$Manual.Placement), ]
+            
             swap1 <- k
             
             # choose other school where no roommate conflict exists
-            schools_no_roommate = unique(team_placements_df$placement[which(team_placements_df$Roommate.Names != z)])
+            schools_no_roommate <- unique(team_placements_df$placement[which(team_placements_df$Roommate.Names != z)])
             school_to_swap <- sample(schools_no_roommate, 1)
-            school_to_swap_frame <- acms_no_Manual.Placement[acms_no_Manual.Placement$placement == school_to_swap, ]
+            
+            acms_to_swap_frame <- acms_no_Manual.Placement[acms_no_Manual.Placement$placement == school_to_swap, ]
             
             # choose 1 ACM who has no Manual.Placement, and whose roommates are not on the team we swap them to
-            swap2 <- sample(school_to_swap_frame$acm_id[is.na(school_to_swap_frame$Roommate.Names)
-                                                        | school_to_swap_frame$Roommate.Names %not in% school_frame$Roommate.Names], 1)
+            #POWERBI
+            swap2 <- sample(acms_to_swap_frame$acm_id[(is.na(acms_to_swap_frame$Roommate.Names))
+                                                      | (acms_to_swap_frame$Roommate.Names %not in% school_frame$Roommate.Names)], 1)
             
             # Swap the team placement of those 2 ACMs
             team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
             
-            acms_no_Manual.Placement <- team_placements_df[is.na(team_placements_df$Manual.Placement_id), ]
           }
         }
       }
@@ -639,7 +641,6 @@ s_curve = function(x, center, width) {
 
 # Annealing and Swap Function
 
-
 run_intermediate_annealing_process = function(starting_placements, school_df, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
   
   # starting_placements = team_placements_df 
@@ -755,14 +756,15 @@ traceplot <- function(trace){
 
 # Full Application
 
+acm_enc <- encode_acm_df(acm_df)
+
 # Precalculate school targets
 school_targets <- school_config(school_df, acm_enc)
 
 team_placements_df <- initial_placement(acm_enc, school_targets, prevent_roommates)
 
-system.time(    
-  output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
-)
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
+
 
 # best_placements <- output$best_placements
 # 
@@ -796,9 +798,9 @@ names(best_placements)[names(best_placements)=="dist"] <- "Commute.Time"
 
 best_placements$Commute.Time <- best_placements$Commute.Time/60
 
+best_placements
 
 ```
-
 
 # Check Roommates
 ```{r}
