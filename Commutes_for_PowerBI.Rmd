@@ -3,35 +3,39 @@ library(dplyr)
 library(tidyr)
 library(readxl)
 library(gmapsdistance)
+library(foreach)
 
 root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
-api = "AIzaSyDQh2XWQHdWxfGOpNSDzD4pGb3UMCSV6TE"
+api = "AIzaSyACVv7obZEb9YH75CIgjAPCC2ucJdqZDus"
 
 # acm_df <- dataset
 acm_df <- read_excel(path = paste(root_dir, "Input 1 - LA ACM Data.xlsx", sep = "")) %>%
             filter(is.na(Manual.Placement), !is.na(Res.Postal.Code)) %>%
-            mutate(Res.Postal.Code = as.character(Res.Postal.Code))
-school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
-
-acm_df$Travel.Method <- "driving"
+            mutate(Res.Postal.Code = enc2utf8(as.character(Res.Postal.Code)))
+school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = "")) 
 
 # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
 school_df$Address = gsub(" ", "+", school_df$Address)
-school_df$Address = gsub(",", "", school_df$Address)
+school_df$Address = enc2utf8(gsub(",", "", school_df$Address))
 
 # Set api key
 set.api.key(api)
 
+commutes = list()
 # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
-commute <- gmapsdistance(origin = acm_df$Res.Postal.Code, 
-                          destination = school_df[school_df$sch_id %in% c(1:30), ]$Address, 
-                          mode = "driving", 
-                          combinations = "all", 
-                          shape = "long")
+commutes <- for (acm in acm_df$acm_id) {
+  print(paste("Calculating distances for ", acm))
+  commute <- gmapsdistance(origin = acm_df[acm_df$acm_id == acm, ]$Res.Postal.Code, 
+                            destination = school_df[school_df$sch_id %in% c(1:2), ]$Address, 
+                            mode = "driving",
+                            shape = "long")
+  print("distance calculated")
+  commutes[acm] <- commute
+}
 
 
 # Write to .csv, which will be referenced by main algorithm
 
-write.table(acm_commutes, file = paste(root_dir, "ACM_Commutes.csv", sep = ""), sep=",", row.names=FALSE)
+#write.table(acm_commutes, file = paste(root_dir, "ACM_Commutes.csv", sep = ""), sep=",", row.names=FALSE)
 
 ```
