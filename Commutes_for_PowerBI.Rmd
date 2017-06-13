@@ -4,51 +4,31 @@ library(tidyr)
 library(readxl)
 library(gmapsdistance)
 
-root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
-api = ""
+root_dir = "C:\\Users\\aperusse\\GitHub\\ACM-School-Placement\\"
+api = "AIzaSyDQh2XWQHdWxfGOpNSDzD4pGb3UMCSV6TE"
 
 # acm_df <- dataset
-acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
+acm_df <- read_excel(path = paste(root_dir, "Input 1 - LA ACM Data.xlsx", sep = "")) %>%
+            filter(is.na(Manual.Placement), !is.na(Res.Postal.Code)) %>%
+            mutate(Res.Postal.Code = as.character(Res.Postal.Code))
+school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
 
-school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
-
-# Convert 'Walking', 'Bicycling', 'Public Transportation' to 'transit'
-acm_df$Travel.Method <- as.character(acm_df$Travel.Method)
-acm_df$Travel.Method[acm_df$Travel.Method %in%  c('Walking', 'Bicycling', 'Public Transportation')] <- "transit"
-acm_df$Travel.Method[acm_df$Travel.Method %in% "Driving"] <- "driving"
-acm_df$Travel.Method <- as.factor(acm_df$Travel.Method)
-
-# This line combines address data into one text string:
-acm_df$Full.Address = paste(as.character(acm_df$"Res.Address.Line.1"), as.character(acm_df$"Res.City"), as.character(acm_df$"Res.State"), as.character(acm_df$"Res.Postal Cde"))
+acm_df$Travel.Method <- "driving"
 
 # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
-acm_df$Full.Address = gsub(" ", "+", acm_df$Full.Address)
 school_df$Address = gsub(" ", "+", school_df$Address)
 school_df$Address = gsub(",", "", school_df$Address)
 
 # Set api key
 set.api.key(api)
 
-# Create an empty dataframe that we will fill with commute times
-acm_commutes <- data.frame()
-
-# Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance pckage, and build a new data frame of commute info.
-for (x in acm_df$acm_id[acm_df$Res.Address.Line.1 != ""]){
-  # select one row from acm_df, and assign it to a new object, acm_row
-  
-  # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
-  commute = gmapsdistance(origin = subset(acm_df, acm_id == x)$Full.Address, 
-                          destination = school_df[1:4,]$Address, 
-                          mode = subset(acm_df, acm_id == x)$Travel.Method, 
+# feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
+commute <- gmapsdistance(origin = acm_df$Res.Postal.Code, 
+                          destination = school_df[school_df$sch_id %in% c(1:30), ]$Address, 
+                          mode = "driving", 
                           combinations = "all", 
-                          shape = "wide")
-  
-  # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
-  commute$Time[["acm_id"]] = x
-  
-  # as the for-loop runs, progressively add each single row of commute data into a new data frame called am_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
-  acm_commutes <- rbind(acm_commutes, commute$Time)
-}
+                          shape = "long")
+
 
 # Write to .csv, which will be referenced by main algorithm
 
