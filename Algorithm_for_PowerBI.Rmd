@@ -669,7 +669,7 @@ n_processors = 8
 cl <- makeCluster(n_processors)
 registerDoSNOW(cl)
 
-n_runs = 2*n_processors
+n_runs = 1*n_processors
 n_iters = 25000
 
 Runs <- foreach(i=1:n_runs) %dopar% {
@@ -694,8 +694,12 @@ plot(grid.arrange(ax, bx, ncol=2))
 
 bestPlacement <- Runs[[best_run]]
 
-validate_placement <- bestPlacement$best_placements %>%
-                        group_by(School) %>%
+aggregate_features <- function(df){
+  validate_placement <- df %>%
+                        mutate(acm_dest_id = paste(acm_id, "-", placement)) %>%
+                        left_join(., acm_commutes, by="acm_dest_id") %>%
+                        replace_na(replace = list("dist" = 0)) %>%
+                        group_by(School, placement) %>%
                         summarise(HS_Grads = sum(Ed_HS),
                                   SomeCol = sum(Ed_SomeCol),
                                   Tutoring = sum(HasTutored),
@@ -707,7 +711,29 @@ validate_placement <- bestPlacement$best_placements %>%
                                   Hispanic.Latino = sum(Race.Ethnicity.Hispanic),
                                   Asian.PI = sum(Race.Ethnicity.Asian), 
                                   White = sum(Race.Ethnicity.White),
-                                  Black = sum(Race.Ethnicity.Black))
+                                  Black = sum(Race.Ethnicity.Black),
+                                  AvgCommute = mean(dist))
+}
 
-#write.csv(bestPlacement$best_placements, file = "acm_Placements.csv")
+validate <- aggregate_features(bestPlacement$best_placements)
+
+#write.csv(bestPlacement$best_placements, file = "outputs/acm_placements.csv")
+#write.csv(school_targets, file="outputs/school_targets.csv")
+#write.csv(placements_and_commute, file="outputs/placements_with_commutes.csv")
 ```
+
+```{r Post Placement Visualization}
+placement <- read.csv("acm_Placements.csv")
+
+# placements_and_commute <- placement %>%
+#                             mutate(acm_dest_id = paste(acm_id, "-", placement)) %>%
+#                             left_join(., select(acm_commutes, acm_dest_id, dist), by="acm_dest_id") %>%
+#                             replace_na(replace = list("dist" = 0))
+
+school_totals_and_targets <- aggregate_features(placement) %>%
+                              left_join(., select(school_targets, -School), by=c("placement" = "sch_id"))
+
+
+
+```
+
