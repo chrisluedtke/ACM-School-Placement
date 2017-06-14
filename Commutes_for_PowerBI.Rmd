@@ -21,21 +21,32 @@ school_df$Address = enc2utf8(gsub(",", "", school_df$Address))
 # Set api key
 set.api.key(api)
 
-commutes = list()
-# feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
-commutes <- for (acm in acm_df$acm_id) {
-  print(paste("Calculating distances for ", acm))
-  commute <- gmapsdistance(origin = acm_df[acm_df$acm_id == acm, ]$Res.Postal.Code, 
-                            destination = school_df[school_df$sch_id %in% c(1:2), ]$Address, 
-                            mode = "driving",
-                            shape = "long")
-  print("distance calculated")
-  commutes[acm] <- commute
+acm_commutes <- data.frame()
+
+# Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance pckage, and build a new data frame of commute info.
+for (x in acm_df$acm_id){
+  # select one row from acm_df, and assign it to a new object, acm_row
+  
+  # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
+  commute = gmapsdistance(origin = subset(acm_df, acm_id == x)$Res.Postal.Code, 
+                          destination = school_df$Address, 
+                          mode = "driving", 
+                          combinations = "all", 
+                          shape = "long")
+  
+  # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
+  commute$Time[["acm_id"]] = x
+  
+  # as the for-loop runs, progressively add each single row of commute data into a new data frame called am_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
+  acm_commutes <- rbind(acm_commutes, commute$Time)
 }
 
+commutes <- acm_commutes %>% 
+              left_join(., select(school_df, sch_id, Address), by = c("de" = "Address")) %>%
+              .[!duplicated(.[, c("acm_id", "sch_id")]), ]
 
 # Write to .csv, which will be referenced by main algorithm
 
-#write.table(acm_commutes, file = paste(root_dir, "ACM_Commutes.csv", sep = ""), sep=",", row.names=FALSE)
+write.table(commutes, file = paste(root_dir, "Input 2 - LA ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
 
 ```

@@ -280,16 +280,19 @@ school_config <- function(school_df, acm_enc){
   
   
   
-  school.data <- select(school_df, `sch_id`, School, `Team Size`, GradeLevel, `% Hispanic`) %>%
+  school.data <- select(school_df, `sch_id`, School, `Team Size`, GradeLevel, `% Hispanic`, Address, `Geographic Neighborhood`) %>%
     rename(size = `Team Size`,
-           span = GradeLevel) %>%
-    mutate(HSGrad_tgt = ifelse(span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(size)),
-           SomeCol_tgt = education[education$level %in% 'SomeCol',]$ratio * as.numeric(size),
-           TutExp = as.numeric(size) * tut_exp[tut_exp$HasTutored == 1,]$ratio,
+           span = GradeLevel,
+           nhood = `Geographic Neighborhood`) %>%
+    mutate(size = as.numeric(size),
+           HSGrad_tgt = ifelse(span=="High", 0, education[education$level %in% 'HS',]$'ratio' * size),
+           SomeCol_tgt = education[education$level %in% 'SomeCol',]$'ratio' * as.numeric(size),
+           TutExp = as.numeric(size) * tut_exp[tut_exp$HasTutored == 1,]$'ratio',
            SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1),# This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other places.
-           OtherLang_tgt = lang[lang$ability %in% 'other',]$ratio * as.numeric(size),
+           OtherLang_tgt = lang[lang$ability %in% 'other',]$'ratio' * as.numeric(size),
            Math_tgt = ifelse(span=="Elementary", as.numeric(size)*.5*math, ifelse(span=="Middle", .75*as.numeric(size)*math, as.numeric(size)*math)),
-           Male_tgt = as.numeric(size)*gender) 
+           Male_tgt = as.numeric(size)*gender,
+           AA_tgt = ifelse(nhood == "W", 1, 0))
 }
 
 # Initial Team Placements
@@ -389,6 +392,11 @@ reqd_males <- function(targets, actuals, min_reqd = 1){
   sum(loss)
 }
 
+reqd_AA <- function(targets, actuals, min_reqd = 1){
+  loss <- ifelse(targets == 1 & actuals == 0, 1e10, 0)
+  sum(loss)
+}
+
 calculate_score = function(team_placements_df, school_targets, gender_target=gender_g) {
   
   #team_placements_df <- bestPlacement$best_placements %>% filter(acm_id < 9000)
@@ -400,24 +408,16 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   
   # Store each score in a list
   scores = list()
-  
-  #################
-  # COMMUTE SCORE #
-  #################
-  
+
   # This score is simply the sum number of seconds each ACM travels to their assigned school
   
   commutes = team_placements_df %>% 
               mutate(acm_dest_id = paste(acm_id, "-", placement)) %>%
               left_join(., acm_commutes, by="acm_dest_id") %>%
-              replace_na(replace = list("dist" = 0))
+              .[!is.na(.$time), ]
   
   # Take the sqrt to scale the value closer to the other features
-  scores$commute_score <- mean(commutes$dist)
-  
-  #############
-  # AGE SCORE #
-  #############
+  scores$commute_score <- mean(commutes$time)
   
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
 
@@ -429,10 +429,6 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
               summarize(avg_age_var = mean(age_var))
 
   scores$age_score <- sqrt(abs(age_var$avg_age_var - var(team_placements_df$days_old)))
-  
-  ###################
-  # ETHNICITY SCORE #
-  ###################
   
   # This score is the overall average of each team's average % representation that each teammate experiences. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
   
@@ -451,11 +447,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
     summarize(avg_eths_rep = mean(avg_eths_rep))
 
   scores$ethnicity_score <- (ethnicity_eths$avg_eths_rep*1000)
-  
-  #################
-  #    Scoring    #
-  #################  
-  
+
   placed <- team_placements_df %>%
                 group_by(placement) %>%
                 summarise(HS_Grads = sum(Ed_HS),
@@ -464,7 +456,8 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
                           Spanish = sum(SpanishAble),
                           OtherLang = sum(Lang_Other),
                           MathAble = sum(Math.Confidence),
-                          Males = sum(Male)) %>%
+                          Males = sum(Male),
+                          AAs = sum(Race.Ethnicity.Black)) %>%
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
   scores$Edscore <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) + sum((placed$SomeCol_tgt - placed$SomeCol)^2)
@@ -472,11 +465,8 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   scores$Spanish <- (reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = 1) + sum((placed$OtherLang_tgt - placed$OtherLang)^2))
   scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2)
   scores$Gender <- reqd_males(placed$Male_tgt, placed$Males, 1)
+  scores$AA <- reqd_AA(placed$AA_tgt, placed$AAs)
 
-  #################
-  # OVERALL SCORE #
-  #################
-  
   scores$aggr_score <- sum(unlist(scores))
   
   return(scores)
@@ -497,15 +487,14 @@ s_curve = function(x, center, width) {
 
 run_intermediate_annealing_process = function(starting_placements, school_df, best_placements=starting_placements, best_score=1e12, starting_iteration=1, number_of_iterations, center_scale=0.1, width_scale=0.1) {
   
-   #starting_placements = team_placements_df 
-   #school_df = school_targets
-   #best_placements = team_placements_df 
-   #best_score = 142078800000
-   #starting_iteration = 1
-   #number_of_iterations = 10000
-   #s_curve_amplitude = 4000
-   #s_curve_center = 0
-   #s_curve_width = 3000
+  # starting_placements = team_placements_df 
+  # school_df = school_targets
+  # best_placements = team_placements_df 
+  # best_score = 142078800000
+  # starting_iteration = 1
+  # number_of_iterations = 10000
+  # center_scale = 0.1
+  # width_scale = 0.1
    
   team_placements_df <- starting_placements
   
@@ -514,6 +503,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   trace[1, 2] <- placement_score
 
   for(i in 1:number_of_iterations) {
+    i <- 1
     iter = starting_iteration + i
     temp = current_temperature(iter, 3000, number_of_iterations * center_scale, number_of_iterations * width_scale)
     candidate_placements_df <- team_placements_df
@@ -521,15 +511,18 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     acms_no_Manual.Placement <- subset(candidate_placements_df, (is.na(candidate_placements_df$Manual.Placement)))
 
     # Choose 2 schools at random
-    schools_to_swap = sample(school_df$sch_id, 2)
+    # We need to ensure that those schools aren't fully placed
+    schools_to_swap = sample(unique(acms_no_Manual.Placement$placement), 2)
 
     # Choose 1 ACM from each of those schools. Select only ACMs who have no Manual.Placement
-    swap1 = sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[1] ], 1)
-    swap2 = sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[2] ], 1)
-
+    swap1 = as.numeric(sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[1] ], 1))
+    swap2 = as.numeric(sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[2] ], 1))
+  
+    #print(c(swap1, swap2))
     swap_school_1 = acms_no_Manual.Placement$placement[acms_no_Manual.Placement$acm_id == swap1]
     swap_school_2 = acms_no_Manual.Placement$placement[acms_no_Manual.Placement$acm_id == swap2]
     
+    #print(c(swap_school_1, swap_school_2))
     # Swap the team assignment of those 2 ACMs - NOTE this is done by index, but we use acm_id as index
     candidate_placements_df$placement[candidate_placements_df$acm_id == swap1] <- swap_school_2
     candidate_placements_df$placement[candidate_placements_df$acm_id == swap2] <- swap_school_1
@@ -578,7 +571,7 @@ traceplot <- function(trace){
 
   ggplot(data = trace, aes(x = iter, y = score)) +
     geom_point() +
-    coord_cartesian(ylim = c(1e10, 1e10+2800))
+    coord_cartesian(ylim = c(1e9, 1e11))
 }
 
 tempplot <- function(trace){
@@ -623,12 +616,12 @@ acm_df$Birth.Date <- format(as.Date(acm_df$Birth.Date), "%m/%d/%Y")
 
 acm_enc <- encode_acm_df(acm_df)
 
-school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""))
-acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - LA ACM Commutes.xlsm", sep = ""),
-                           col_names = c("acm_id", "ACM", "From", "dest", "To", "dist", "time", "min", "blank"),
-                           col_types = c("numeric", "text", "text", "text", "text", "numeric", "date", "numeric", "blank"), skip=1) %>%
-                left_join(., school_df, by = c("dest" = "School")) %>%
-                mutate(acm_dest_id = paste(acm_id, "-", sch_id))
+school_df <- read_excel(path = paste(root_dir, "Input 3 - LA School Data.xlsx", sep = ""),
+                        col_types = c("numeric", "text", "numeric", "text", "numeric", "text", "text"))
+acm_commutes <- read.csv(paste(root_dir, "Input 2 - LA ACM Commutes.csv", sep = ""),
+                         col.names = c("or", "de", "time", "acm_id", "sch_id")) %>%
+                mutate(acm_dest_id = paste(acm_id, "-", sch_id),
+                       time = time/60)
 
 # Precalculate school targets
 school_targets <- school_config(school_df, acm_enc)
@@ -653,7 +646,7 @@ placement <- function(acm_enc, school_targets, number_iterations, center_scale, 
 
 ```{r Single Run}
 
-Single_Run <- placement(acm_enc, school_targets, 10000, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
+Single_Run <- placement(acm_enc, school_targets, 1000, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
 
 #View(Single_Run$best_placements)
 traceplot(Single_Run$trace)
@@ -669,8 +662,8 @@ n_processors = 8
 cl <- makeCluster(n_processors)
 registerDoSNOW(cl)
 
-n_runs = 1*n_processors
-n_iters = 25000
+n_runs = 4*n_processors
+n_iters = 50000
 
 Runs <- foreach(i=1:n_runs) %dopar% {
   library(dplyr)
@@ -698,7 +691,7 @@ aggregate_features <- function(df){
   validate_placement <- df %>%
                         mutate(acm_dest_id = paste(acm_id, "-", placement)) %>%
                         left_join(., acm_commutes, by="acm_dest_id") %>%
-                        replace_na(replace = list("dist" = 0)) %>%
+                        replace_na(replace = list("time" = 0)) %>%
                         group_by(School, placement) %>%
                         summarise(HS_Grads = sum(Ed_HS),
                                   SomeCol = sum(Ed_SomeCol),
@@ -712,10 +705,10 @@ aggregate_features <- function(df){
                                   Asian.PI = sum(Race.Ethnicity.Asian), 
                                   White = sum(Race.Ethnicity.White),
                                   Black = sum(Race.Ethnicity.Black),
-                                  AvgCommute = mean(dist))
+                                  AvgCommute = mean(time))
 }
 
-validate <- aggregate_features(bestPlacement$best_placements)
+validate <- aggregate_features(Single_Run$best_placements)
 
 #write.csv(bestPlacement$best_placements, file = "outputs/acm_placements.csv")
 #write.csv(school_targets, file="outputs/school_targets.csv")
@@ -725,10 +718,10 @@ validate <- aggregate_features(bestPlacement$best_placements)
 ```{r Post Placement Visualization}
 placement <- read.csv("acm_Placements.csv")
 
-# placements_and_commute <- placement %>%
-#                             mutate(acm_dest_id = paste(acm_id, "-", placement)) %>%
-#                             left_join(., select(acm_commutes, acm_dest_id, dist), by="acm_dest_id") %>%
-#                             replace_na(replace = list("dist" = 0))
+placements_and_commute <- bestPlacement$best_placements %>%
+                            mutate(acm_dest_id = paste(acm_id, "-", placement)) %>%
+                            left_join(., select(acm_commutes, acm_dest_id, time), by="acm_dest_id") %>%
+                            replace_na(replace = list("time" = 0))
 
 school_totals_and_targets <- aggregate_features(placement) %>%
                               left_join(., select(school_targets, -School), by=c("placement" = "sch_id"))
