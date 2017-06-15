@@ -334,7 +334,10 @@ initial_placement <- function(acm_enc, school_targets){
   team_placements <- data.frame(placement=unlist(team_placements))
   
   slots <- nrow(team_placements)
-  filled_acm_roster <- c(acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id, 9000:(9000 + slots - nrow(acm_enc[is.na(acm_enc$Manual.Placement), ]) - 1))
+  
+  if (slots != nrow(acm_enc[is.na(acm_enc$Manual.Placement), ])){
+    filled_acm_roster <- c(acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id, 9000:(9000 + slots - nrow(acm_enc[is.na(acm_enc$Manual.Placement), ]) - 1))
+  }
   
   # Randomize Starting Place
   
@@ -491,7 +494,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   # school_df = school_targets
   # best_placements = team_placements_df 
   # best_score = 142078800000
-  # starting_iteration = 1
+  # starting_iteration = 10000
   # number_of_iterations = 10000
   # center_scale = 0.1
   # width_scale = 0.1
@@ -685,7 +688,7 @@ bx <- tempplot(Runs[[best_run]]$trace)
 plot(grid.arrange(ax, bx, ncol=2))
 #print(Runs[[i]]$diff_scores)
 
-bestPlacement <- Runs[[best_run]]
+bestPlacement <- Runs[[25]]
 
 aggregate_features <- function(df){
   validate_placement <- df %>%
@@ -708,11 +711,22 @@ aggregate_features <- function(df){
                                   AvgCommute = mean(time))
 }
 
-validate <- aggregate_features(Single_Run$best_placements)
+
+diff_scores <- data.frame(t(sapply(Runs,function(x) unlist(x[3])))) 
+diff_scores$id <- c(1:length(Runs))
+tidy_scores <- gather(diff_scores, feature, score, 1:10)
+tidy_scores$feature <- factor(tidy_scores$feature)
+
+validation <- list()
+for (i in c(1:32)){
+  validation[[i]] <- aggregate_features(Runs[[i]]$best_placements)
+}
+validate <- aggregate_features(bestPlacement$best_placements)
 
 #write.csv(bestPlacement$best_placements, file = "outputs/acm_placements.csv")
 #write.csv(school_targets, file="outputs/school_targets.csv")
-#write.csv(placements_and_commute, file="outputs/placements_with_commutes.csv")
+#write.csv(placements_and_commute, file="outputs/acm_Placements.csv")
+#write.csv(diff_scores, file="outputs/diff_scores.csv")
 ```
 
 ```{r Post Placement Visualization}
@@ -723,10 +737,13 @@ placements_and_commute <- bestPlacement$best_placements %>%
                             left_join(., select(acm_commutes, acm_dest_id, time), by="acm_dest_id") %>%
                             replace_na(replace = list("time" = 0))
 
-school_totals_and_targets <- aggregate_features(placement) %>%
+school_totals_and_targets <- aggregate_features(bestPlacement$best_placements) %>%
                               left_join(., select(school_targets, -School), by=c("placement" = "sch_id"))
 
-
+library(ggplot2)
+ggplot(filter(tidy_scores, feature != "diff_scores.aggr_score", feature != "diff_scores.Spanish"), aes(x=id, y=score)) + 
+  geom_point() +
+  facet_grid(~ feature)
 
 ```
 
