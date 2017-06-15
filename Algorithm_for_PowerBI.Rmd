@@ -250,13 +250,7 @@ encode_acm_df <- function(df){
   # Gender
   acm_enc$Male <- as.numeric(grepl("Male", df$Gender))
   acm_enc$Other.Gender <- as.numeric(grepl("Other", df$Gender))
-  
-  # Ethnicity
-  acm_enc$Race.Ethnicity.Hispanic <- as.numeric(grepl("Hispanic/Latino", df$Race.Ethnicity))
-  acm_enc$Race.Ethnicity.Asian <- as.numeric(grepl("Asian/Asian-American", df$Race.Ethnicity))
-  acm_enc$Race.Ethnicity.White <- as.numeric(grepl("Caucasian/White", df$Race.Ethnicity))
-  acm_enc$Race.Ethnicity.Black <- as.numeric(grepl("African-American/Black", df$Race.Ethnicity))
-  
+  browser()
   # Add in other features
   acm_enc <- acm_enc %>%
                left_join(., select(df,
