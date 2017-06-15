@@ -194,21 +194,18 @@ dataset <- acm_df
 
 ```{r Power BI Step 3: Encoding and Annealing}
 
-number_of_iterations = 1000
-prevent_roommates = "No"
+number_of_iterations = 10
+prevent_roommates = "Yes"
 
 #root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
 root_dir = "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 
-library(gmapsdistance)
 library(readxl)
 library(dplyr)
 library(tidyr)
 library(data.table)
 library(dummies)
 library(doSNOW)
-# Loading this gave errors in Power BI
-#library(doParallel)
 
 acm_df <- dataset
 acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
@@ -236,7 +233,7 @@ acm_commutes_long <-
 
 encode_acm_df <- function(df){
 
-  acm_enc <- select(df, acm_id)
+  acm_enc <- select(acm_df, acm_id, Math.Confidence)
   
   # Ed Attainment
   acm_enc$Ed_HS <- as.numeric(grepl("High School/GED", df$Educational.Attainment))
@@ -244,24 +241,25 @@ encode_acm_df <- function(df){
   acm_enc$Ed_Col <- grepl("Bachelor's Degree", df$Educational.Attainment) + grepl("Master's Degree", df$Educational.Attainment)
   
   # Tutoring Experience
-  acm_enc$HasTutored <- ifelse(df$Tutoring.Experience == "Yes", 1, 0)
-  
-  # Tutoring Preference
-  acm_enc$Pref_HS <- ifelse(df$Grade.Lvl.Pref.HS == "High School", 1, 0)
-  acm_enc$Pref_MS <- ifelse(df$Grade.Lvl.Pref.MS == "Middle School", 1, 0)
-  acm_enc$Pref_ES <- ifelse(df$Grade.Lvl.Pref.ES == "Elementary School", 1, 0)
-  
-  # Math Proficiency
-  acm_enc$Math_Confidence <- ifelse(df$Math.Confidence == "Pre-Algebra or lower" | df$Math.Confidence == "Algebra I", 0, 1)
-  
+  acm_enc$HasTutored <- as.numeric(grepl("Yes", df$Tutoring.Experience))
+
   # Language Ability
-  acm_enc$SpanishAble <- ifelse(df$Language.Ability.Spanish == "Spanish", 1, 0)
-  acm_enc$SpanishAble[is.na(acm_enc$SpanishAble)] <- 0
-  acm_enc$Lang_Other <- ifelse((df$Language.Other.English == "Yes") & (is.na(df$Language.Ability.Spanish != "Spanish")), 1, 0)
+  acm_enc$SpanishAble <- as.numeric(grepl("Spanish", df$Language.Ability.Spanish))
+  acm_enc$Lang_Other <- ifelse(grepl("Spanish", df$Language.Ability.Spanish) == F & grepl("Yes", df$Language.Other.English), 1, 0)
+  
+  # Gender
+  acm_enc$Male <- as.numeric(grepl("Male", df$Gender))
+  acm_enc$Other.Gender <- as.numeric(grepl("Other", df$Gender))
+  
+  # Ethnicity
+  acm_enc$Race.Ethnicity.Hispanic <- as.numeric(grepl("Hispanic/Latino", df$Race.Ethnicity))
+  acm_enc$Race.Ethnicity.Asian <- as.numeric(grepl("Asian/Asian-American", df$Race.Ethnicity))
+  acm_enc$Race.Ethnicity.White <- as.numeric(grepl("Caucasian/White", df$Race.Ethnicity))
+  acm_enc$Race.Ethnicity.Black <- as.numeric(grepl("African-American/Black", df$Race.Ethnicity))
   
   # Add in other features
   acm_enc <- acm_enc %>%
-               left_join(., select(acm_df,
+               left_join(., select(df,
                                    acm_id,
                                    Gender, 
                                    Manual.Placement, 
@@ -272,10 +270,9 @@ encode_acm_df <- function(df){
                          by=c("acm_id" = "acm_id")) %>%
                replace_na(list(Pref_HS = 0, Pref_MS = 0, Pref_ES = 0,
                                Lang_Other = 0)) %>%
-               mutate(days_old = as.integer(Sys.Date() - as.Date(as.character(df$Birth.Date), format="%m/%d/%Y")))
+               mutate(days_old = as.integer(Sys.Date() - as.Date(as.character(df$Birth.Date), format="%m/%d/%Y"))) %>%
+               replace_na(list(Lang_Other = 0, days_old = 0))
 
-  acm_enc$days_old[is.na(acm_enc$days_old)] <- 0
-  
   # Return
   acm_enc
 }
@@ -287,7 +284,7 @@ corps_demographic_targets <- function(school_df, acm_enc){
   S <- nrow(school_df)
   
   # Counts of schools by level
-  school_counts <- group_by(school_df, `School Type`) %>% summarise(count=n())
+  school_counts <- group_by(school_df, GradeLevel) %>% summarise(count=n())
   
   # Approximation of densly spanish speaking schools
   dense_hispanic <- nrow(school_df[school_df$`% Hispanic` > 10, ])
@@ -304,16 +301,19 @@ corps_demographic_targets <- function(school_df, acm_enc){
     mutate(ratio = count/N)
   
   # Spanish and other spoken language distribution
-  distros$lang <- data.frame(ability = c("other"), ratio = c(nrow(acm_enc[acm_enc$Lang_Other == 1, ]) / N))
+  distros$lang <- data.frame(ability = c("spanish","other"), ratio = c(nrow(acm_enc[acm_enc$SpanishAble == 1, ]) / N, nrow(acm_enc[acm_enc$Lang_Other == 1, ]) / N))
   
   # Math Ability
-  distros$math <- nrow(acm_enc[acm_enc$Math_Confidence == 1,]) / N
+  distros$math <- nrow(acm_enc[acm_enc$Math.Confidence == 1,]) / N
   
-  # Note on tutoring pref.  We'll simply set this parameter to the team size appropriate for the level type.  This should thus maximize the incentive on putting folks with the appropriate tutoring pref at the appropriate levels.
+  # Gender
+  distros$gender <- nrow(acm_enc[(acm_enc$Male == 1) | (acm_enc$Other.Gender == 1), ]) / N
+  
   distros
 }
 
-# I derived this function mildly arbitrarily. The logic is that we probably want at least one spanish speaker at a school, but there are then diminishing returns.  It scales so that for a school that 100% hispanic, we would aim to have 5 spanish speakers on the team.  A team thats 50% hispanic will aim to have 4. The main problem with this approach is that we may create too many spots for spanish speakers, or have not have enough spanish speakers for the intended spots.  
+# I derived this function mildly arbitrarily. The logic is that we probably want at least one spanish speaker at a school, but there are then diminishing returns.  It scales so that for a school that 100% hispanic, we would aim to have 2.6 spanish speakers on the team.  A team thats 80% hispanic will aim to have 4. The main problem with this approach is that we may create too many spots for spanish speakers, or have not have enough spanish speakers for the intended spots.  
+# Shifted down by 75% for LA, since everyone has over 80% Hispanic
 spanishNeed <- function(x) {
   1.5772*log(x) - 2.1205
 }
@@ -329,21 +329,19 @@ school_config <- function(school_df, acm_enc){
   lang <- corps_demos$lang
   tut_exp <- corps_demos$tut_exp
   math <- corps_demos$math
+  gender <- corps_demos$gender
   
   
-  
-  school.data <- select(school_df, `sch_id`, `Team Size`, `School Type`, `% Caucasian`:`% N/A`) %>%
+  school.data <- select(school_df, `sch_id`, `School`, `Team Size`, `GradeLevel`, `% Hispanic`) %>%
     rename(size = `Team Size`,
-           span = `School Type`) %>%
-    mutate(HSGrad_tgt = ifelse(span=="HS", 0, education[education$level %in% 'HS',]$ratio * size),
-           SomeCol_tgt = education[education$level %in% 'SomeCol',]$ratio * size,
-           SpanPref_ES = ifelse(span=="ES", size, 0),
-           SpanPref_MS = ifelse(span=="MS", size, 0),
-           SpanPref_HS = ifelse(span=="HS", size, 0),
-           TutExp = size * tut_exp[tut_exp$HasTutored == 1,]$ratio,
+           span = `GradeLevel`) %>%
+    mutate(HSGrad_tgt = ifelse(span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(size)),
+           SomeCol_tgt = education[education$level %in% 'SomeCol',]$ratio * as.numeric(size),
+           TutExp = as.numeric(size) * tut_exp[tut_exp$HasTutored == 1,]$ratio,
            SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1),# This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other places.
-           OtherLang_tgt = lang[lang$ability %in% 'other',]$ratio * size,
-           Math_tgt = ifelse(span=="ES", size*.5*math, ifelse(span=="MS", .75*size*math, size*math))) 
+           OtherLang_tgt = lang[lang$ability %in% 'other',]$ratio * as.numeric(size),
+           Math_tgt = ifelse(span=="Elementary", as.numeric(size)*.5*math, ifelse(span=="Middle", .75*as.numeric(size)*math, as.numeric(size)*math)),
+           Male_tgt = as.numeric(size)*gender)
 }
 
 # Initial Team Placements
@@ -357,29 +355,87 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   # first create an empty list
   team_placements = list()
   
-  # use a for-loop to read each team size
-  for (x in 1:nrow(school_targets)){
+  ## use a for-loop to read each team size
+  #for (x in 1:nrow(school_targets)){
+  #  team_slots = list(
+  #    # create a list that repeats each school 'id' for the size of each team
+  #    rep(x, 
+  #        subset(school_targets$size, school_targets$sch_id == x)
+  #        )
+  #    )
+  #  team_placements <- c(team_placements, team_slots)
+  #}
+  #
+  #team_placements <- data.frame(placement=unlist(team_placements))
+  
+  #######
+  #######
+  #######
+  
+  acms_with_Manual.Placement <- acm_enc %>%
+                                  left_join(., select(school_targets, sch_id:School), 
+                                            by=c("Manual.Placement" = "School")) %>%
+                                  filter(!is.na(sch_id))
+  
+  filled_slot_counts <- acms_with_Manual.Placement %>%
+                          group_by(sch_id) %>%
+                          summarise(filled = n())
+  
+  team_size_targets <- select(school_targets, sch_id:size) %>%
+                        left_join(., filled_slot_counts, by=("sch_id")) %>%
+                        replace_na(list(filled = 0)) %>%
+                        mutate(unfilled_slots = as.numeric(size) - as.numeric(filled))
+  
+  # use a for-loop to assign each survey respondent (who was not already manually placed) to a team
+  for (x in team_size_targets$sch_id){
     team_slots = list(
       # create a list that repeats each school 'id' for the size of each team
       rep(x, 
-          subset(school_targets$size, school_targets$sch_id == x)
+          subset(team_size_targets$unfilled_slots, team_size_targets$sch_id == x)
           )
       )
     team_placements <- c(team_placements, team_slots)
   }
   
+  # non-random placements of CMs who were not manually placed  
   team_placements <- data.frame(placement=unlist(team_placements))
-
-  team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ],
-                                   acm_id= 1:nrow(team_placements))
+  
+  # Number of survey respondents who were just placed
+  slots <- nrow(team_placements)
+  
+  # List of ACM ids of survey respondents who were not manually placed, plus dummy id's for team slots that were not filled by any survey respondent
+  if (slots + nrow(acms_with_Manual.Placement) == sum(team_size_targets$size)){
+    filled_acm_roster <- acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id
+  } else {
+    filled_acm_roster <- c(acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id, 
+                         9000:(9000 + slots - nrow(acm_enc[is.na(acm_enc$Manual.Placement), ]) - 1))
+  }
+  
+  # Randomize Starting Place
+  
+  team_placements_df <- data.frame(sch_id=team_placements[sample(nrow(team_placements), replace=F), ],
+                                   acm_id= filled_acm_roster) %>%
+                        union(., select(acms_with_Manual.Placement, sch_id, acm_id)) %>%
+                        rename(placement = sch_id)
+  
+  #######
+  #######
+  #######
+  
+  #team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ],
+  #                                 acm_id= 1:nrow(team_placements))
   
   # Merge team_placements_df with acm_df on the 'id' column
-  team_placements_df <- merge(acm_enc, team_placements_df, by = "acm_id", all.x = TRUE)
+  team_placements_df <- left_join(team_placements_df, acm_enc, by = "acm_id") %>%
+                        replace_na(replace = list(Math.Confidence = 0, Ed_HS = 0, Ed_SomeCol = 0, Ed_Col = 0,
+                                                  HasTutored = 0, SpanishAble = 0, Lang_Other = 0, Male = 0, 
+                                                  Other.Gender =0, Race.Ethnicity.Hispanic = 0, 
+                                                  Race.Ethnicity.Asian = 0, Race.Ethnicity.White = 0, 
+                                                  Race.Ethnicity.Black = 0, days_old = 0))
   
   # Honor Manual Placements
-  sch_id_names <- school_df[, c("sch_id", "School Name")]
+  sch_id_names <- school_df[, c("sch_id", "School")]
   colnames(sch_id_names) <- c("Manual.Placement_id", "School.Name")
-  
   team_placements_df <- merge(team_placements_df, sch_id_names, by.x = "Manual.Placement", by.y = "School.Name", all.x = TRUE)
   
   # Re-sort by acm_id and reset the index
@@ -462,12 +518,12 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   
   #print(acms_for_swaps)
     
-  hs_acms_to_swap <- acms_for_swaps[(acms_for_swaps$Ed_HS == 1) & (acms_for_swaps$span == "HS"),]
-  acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$span != "HS"),]
+  hs_acms_to_swap <- acms_for_swaps[(acms_for_swaps$Ed_HS == 1) & (acms_for_swaps$span == "High"),]
+  acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$span != "High"),]
   acms_to_swap_with <- acms_to_swap_with[sample(nrow(acms_to_swap_with), nrow(hs_acms_to_swap), replace=F), ]
   
-  team_placements_df[team_placements_df$acm_id %in% hs_acms_to_swap$acm_id, ]$placement = acms_to_swap_with$placement
-  team_placements_df[team_placements_df$acm_id %in% acms_to_swap_with$acm_id, ]$placement = hs_acms_to_swap$placement
+  team_placements_df[team_placements_df$acm_id %in% hs_acms_to_swap$acm_id, ]$placement <- acms_to_swap_with$placement
+  team_placements_df[team_placements_df$acm_id %in% acms_to_swap_with$acm_id, ]$placement <- hs_acms_to_swap$placement
  
   return(team_placements_df)
 }
@@ -596,28 +652,23 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   #    Scoring    #
   #################  
   
-  placed <- team_placements_df %>% 
-                filter(is.na(team_placements_df$Manual.Placement)) %>%
+  placed <- team_placements_df %>%
                 group_by(placement) %>%
                 summarise(HS_Grads = sum(Ed_HS),
                           SomeCol = sum(Ed_SomeCol),
                           Tutoring = sum(HasTutored),
                           Spanish = sum(SpanishAble),
                           OtherLang = sum(Lang_Other),
-                          Pref_HS = sum(Pref_HS),
-                          Pref_MS = sum(Pref_MS),
-                          Pref_ES = sum(Pref_ES),
-                          MathAble = sum(Math_Confidence)) %>%
+                          MathAble = sum(Math.Confidence),
+                          Males = sum(Male)) %>%
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
-  scores$HS_score <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) * 10 
-  scores$SomeCol <- sum(abs(placed$SomeCol_tgt - placed$SomeCol)) * 10
-  scores$Tutoring <- sum(abs(placed$TutExp - placed$Tutoring)) * 10
-  scores$Spanish <- sum(abs(placed$SpanishNeed - placed$Spanish)) * 10
-  scores$OtherLang <- sum(abs(placed$OtherLang_tgt - placed$OtherLang)) * 10
-  scores$Grade_Pref <- sum(abs(placed$SpanPref_ES - placed$Pref_ES) + abs(placed$SpanPref_MS - placed$Pref_MS) + abs(placed$SpanPref_HS - placed$Pref_HS))
-  scores$Math <- sum(abs(placed$Math_tgt - placed$MathAble)) * 10         
-
+  scores$Edscore <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) + sum((placed$SomeCol_tgt - placed$SomeCol)^2)
+  scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2)
+  scores$Spanish <- (reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = 1) + sum((placed$OtherLang_tgt - placed$OtherLang)^2))
+  scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2)
+  scores$Gender <- reqd_males(placed$Male_tgt, placed$Males, 1)
+  
   #################
   # OVERALL SCORE #
   #################
