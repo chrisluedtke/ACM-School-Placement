@@ -335,8 +335,11 @@ initial_placement <- function(acm_enc, school_targets){
   
   slots <- nrow(team_placements)
   
-  if (slots != nrow(acm_enc[is.na(acm_enc$Manual.Placement), ])){
-    filled_acm_roster <- c(acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id, 9000:(9000 + slots - nrow(acm_enc[is.na(acm_enc$Manual.Placement), ]) - 1))
+  if (slots + nrow(acms_with_Manual.Placement) == sum(team_size_targets$size)){
+    filled_acm_roster <- acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id
+  } else {
+    filled_acm_roster <- c(acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id, 
+                         9000:(9000 + slots - nrow(acm_enc[is.na(acm_enc$Manual.Placement), ]) - 1))
   }
   
   # Randomize Starting Place
