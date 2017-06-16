@@ -194,7 +194,7 @@ dataset <- acm_df
 
 ```{r Power BI Step 3: Encoding and Annealing}
 
-number_of_iterations = 10
+number_iterations = 10
 prevent_roommates = "Yes"
 
 #root_dir = "C:\\Users\\perus\\OneDrive\\Documents\\GitHub\\ACM-School-Placement\\"
@@ -250,7 +250,10 @@ encode_acm_df <- function(df){
   # Gender
   acm_enc$Male <- as.numeric(grepl("Male", df$Gender))
   acm_enc$Other.Gender <- as.numeric(grepl("Other", df$Gender))
-  browser()
+  
+  # Math Confidence
+  acm_enc$Math.Confidence <- as.numeric(grepl(paste(c("Algebra I", "Algebra II", "Trigonometry", "Calculus or higher"), collapse = "|"), acm_enc$Math.Confidence))
+
   # Add in other features
   acm_enc <- acm_enc %>%
                left_join(., select(df,
@@ -262,8 +265,6 @@ encode_acm_df <- function(df){
                                    Roommate.Names),
                                   
                          by=c("acm_id" = "acm_id")) %>%
-               replace_na(list(Pref_HS = 0, Pref_MS = 0, Pref_ES = 0,
-                               Lang_Other = 0)) %>%
                mutate(days_old = as.integer(Sys.Date() - as.Date(as.character(df$Birth.Date), format="%m/%d/%Y"))) %>%
                replace_na(list(Lang_Other = 0, days_old = 0))
 
@@ -308,6 +309,7 @@ corps_demographic_targets <- function(school_df, acm_enc){
 
 # I derived this function mildly arbitrarily. The logic is that we probably want at least one spanish speaker at a school, but there are then diminishing returns.  It scales so that for a school that 100% hispanic, we would aim to have 2.6 spanish speakers on the team.  A team thats 80% hispanic will aim to have 4. The main problem with this approach is that we may create too many spots for spanish speakers, or have not have enough spanish speakers for the intended spots.  
 # Shifted down by 75% for LA, since everyone has over 80% Hispanic
+
 spanishNeed <- function(x) {
   1.5772*log(x) - 2.1205
 }
@@ -349,22 +351,7 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   # first create an empty list
   team_placements = list()
   
-  ## use a for-loop to read each team size
-  #for (x in 1:nrow(school_targets)){
-  #  team_slots = list(
-  #    # create a list that repeats each school 'id' for the size of each team
-  #    rep(x, 
-  #        subset(school_targets$size, school_targets$sch_id == x)
-  #        )
-  #    )
-  #  team_placements <- c(team_placements, team_slots)
-  #}
-  #
-  #team_placements <- data.frame(placement=unlist(team_placements))
-  
-  #######
-  #######
-  #######
+  acm_enc$Manual.Placement <- as.character(acm_enc$Manual.Placement)
   
   acms_with_Manual.Placement <- acm_enc %>%
                                   left_join(., select(school_targets, sch_id:School), 
@@ -412,20 +399,19 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
                         union(., select(acms_with_Manual.Placement, sch_id, acm_id)) %>%
                         rename(placement = sch_id)
   
-  #######
-  #######
-  #######
-  
-  #team_placements_df <- data.frame(placement=team_placements[sample(nrow(team_placements), replace=F), ],
-  #                                 acm_id= 1:nrow(team_placements))
-  
+
   # Merge team_placements_df with acm_df on the 'id' column
   team_placements_df <- left_join(team_placements_df, acm_enc, by = "acm_id") %>%
-                        replace_na(replace = list(Math.Confidence = 0, Ed_HS = 0, Ed_SomeCol = 0, Ed_Col = 0,
-                                                  HasTutored = 0, SpanishAble = 0, Lang_Other = 0, Male = 0, 
-                                                  Other.Gender =0, Race.Ethnicity.Hispanic = 0, 
-                                                  Race.Ethnicity.Asian = 0, Race.Ethnicity.White = 0, 
-                                                  Race.Ethnicity.Black = 0, days_old = 0))
+                        replace_na(replace = list(Math.Confidence = 0, 
+                                                  Ed_HS = 0, 
+                                                  Ed_SomeCol = 0, 
+                                                  Ed_Col = 0,
+                                                  HasTutored = 0, 
+                                                  SpanishAble = 0, 
+                                                  Lang_Other = 0, 
+                                                  Male = 0, 
+                                                  Other.Gender =0, 
+                                                  days_old = 0))
   
   # Honor Manual Placements
   sch_id_names <- school_df[, c("sch_id", "School")]
@@ -530,6 +516,15 @@ hs_loss <- function(targets, actuals){
   sum(loss)
 }
 
+reqd_spanish_loss <- function(targets, actuals, min_reqd = 1){
+  loss <- ifelse(actuals < min_reqd, 1e10, (targets - actuals)^2)
+  sum(loss)
+}
+
+reqd_males <- function(targets, actuals, min_reqd = 1){
+  loss <- ifelse(actuals < min_reqd, 1e10, (targets - actuals)^2)
+  sum(loss)
+}
 
 calculate_score = function(team_placements_df, school_targets, gender_target=gender_g) {
   
@@ -569,7 +564,6 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   # Can we move this to school targets?  Try to calculate static things once.
   gender_g <- group_by(team_placements_df, Gender) %>% summarize(pct_g = n()/nrow(team_placements_df))
 
-  
   # Merge previous two frames by "gender"
   gender_frame_g <-
     merge(x = gender_frame,
@@ -683,21 +677,10 @@ s_curve = function(x, center, width) {
   1 / (1 + exp((x - center) / width))
 }
 
-
 # Annealing and Swap Function
 
-run_intermediate_annealing_process = function(starting_placements, school_df, best_placements, best_score, starting_iteration, number_of_iterations, s_curve_amplitude, s_curve_center, s_curve_width) {
+run_intermediate_annealing_process = function(starting_placements, school_df, best_placements=starting_placements, best_score=1e12, starting_iteration=1, number_of_iterations, center_scale, width_scale) {
   
-  # starting_placements = team_placements_df 
-  # school_df = school_targets
-  # best_placements = team_placements_df 
-  # best_score = 142078800000
-  # starting_iteration = 1
-  # number_of_iterations = 10000
-  # s_curve_amplitude = 4000
-  # s_curve_center = 0
-  # s_curve_width = 3000
-  # 
   team_placements_df <- starting_placements
   
   # Sort by acm_id so that each row index will equal acm_id
@@ -710,7 +693,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
 
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
-    temp = current_temperature(iter, s_curve_amplitude, s_curve_center, s_curve_width)
+    temp = current_temperature(iter, 3000, number_of_iterations * center_scale, number_of_iterations * width_scale)
     
     # Create a copy of team_placements_df
     candidate_placements_df <- team_placements_df
@@ -808,22 +791,7 @@ school_targets <- school_config(school_df, acm_enc)
 
 team_placements_df <- initial_placement(acm_enc, school_targets, prevent_roommates)
 
-output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 142078800000, starting_iteration = 1, number_of_iterations = number_of_iterations, s_curve_amplitude = 3000, s_curve_center = 0, s_curve_width = 250)
-
-
-# best_placements <- output$best_placements
-# 
-# # Playing around with methods to get more info in the output. It's probably better to just re-calculate these in visualizations...
-# best_placements$best_score <- output$best_score
-# best_placements$ethnicity_score <- output$diff_scores$ethnicity_score
-# best_placements$commute_score <- output$diff_scores$commute_score
-# 
-# 
-# output
-#diff_scores <- output$diff_scores
-#
-#trace <- output$trace
-#
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 1e12, starting_iteration = 1, number_of_iterations = number_iterations, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
 
 best_placements <- output$best_placements
 
