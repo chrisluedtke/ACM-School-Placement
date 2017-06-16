@@ -549,50 +549,6 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   # Take the sqrt to scale the value closer to the other features
   scores$commute_score <- sqrt(dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)])
   
-  ################
-  # GENDER SCORE #
-  ################
-
-  # This score measures the average of differences between each gender's percent occurrence across the corps and its percent occurrence on each team
-  
-  # Create data.frame with each potential combination of gender and school, based on the survey responses provided
-  
-  gender_frame <- 
-    expand.grid(placement = 1:nrow(school_targets), Gender = levels(team_placements_df$Gender))
-  
-  # Precalculate tibbl containing percentage representation of each gender category across the entire corps
-  # Can we move this to school targets?  Try to calculate static things once.
-  gender_g <- group_by(team_placements_df, Gender) %>% summarize(pct_g = n()/nrow(team_placements_df))
-
-  # Merge previous two frames by "gender"
-  gender_frame_g <-
-    merge(x = gender_frame,
-          y = gender_g,
-          by = "Gender",
-          all.x = TRUE)
-  
-  # Represent percentage of each gender category within each team
-  gender_gs <- 
-    team_placements_df %>%
-    group_by(placement, Gender) %>%
-    dplyr::summarize(n_gs = n()) %>%
-    group_by(placement) %>%
-    dplyr::mutate(pct_gs = n_gs/sum(n_gs))
-  
-  # Calculate absolute value of difference between gender percentages at each team and across the corps
-  gender_frame_gs <-
-    merge(x = gender_frame_g,
-          y = gender_gs,
-          by = c("placement", "Gender"),
-          all.x = TRUE) %>%
-    within({
-      diff_gs <- pct_g - ifelse(is.na(pct_gs), 0, pct_gs)
-      abs_diff_gs <- abs(diff_gs)
-    }) %>%
-    summarise(mean_gend_diff = mean(abs_diff_gs))
-  
-  scores$gender_score <- gender_frame_gs$mean_gend_diff * 5000
-  
   #############
   # AGE SCORE #
   #############
