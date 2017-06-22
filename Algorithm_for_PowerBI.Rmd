@@ -1,5 +1,6 @@
 ```{r Inputs}
 dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+dataset$prevent_roommates[1]<-"Yes"
 ```
 
 ```{r}
@@ -12,9 +13,9 @@ library(tidyr)
 library(data.table)
 
 number_iterations = 100
-prevent_roommates = "Yes"
 
 root_dir <- dataset$FP[1]
+prevent_roommates <- dataset$prevent_roommates[1]
 
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
 
