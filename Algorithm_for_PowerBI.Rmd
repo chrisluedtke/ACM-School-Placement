@@ -1,3 +1,7 @@
+```{r Inputs}
+dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+```
+
 ```{r}
 # 'dataset' holds the input data for this script
 rm(list=ls(all=TRUE))
@@ -10,9 +14,7 @@ library(data.table)
 number_iterations = 100
 prevent_roommates = "Yes"
 
-#root_dir <- dataset$FP[1]
-
-root_dir <- "C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+root_dir <- dataset$FP[1]
 
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
 
@@ -72,10 +74,6 @@ acm_commutes_long <-
   select(acm_commutes, -or) %>%
   gather(dest, dist, -acm_id) %>%
   mutate(id_dest = paste(acm_id, dest, sep = "_"))
-
-
-# useful function we use later. could probably replace with some usage of any()
-`%not in%` <- function (x, table) is.na(match(x, table, nomatch=NA_integer_))  
 
 #  Encode Variables & Clean Up Input Dataframes
 
@@ -196,46 +194,53 @@ school_config <- function(school_df, acm_enc){
 prev_roommates <- function(school_targets, team_placements_df){
   
   roommie_violations <- 
-    team_placements_df[!is.na(team_placements_df$Roommate.Names), ] %>% 
+    team_placements_df %>% 
+      filter(!is.na(Roommate.Names)) %>%
       group_by(placement) %>%
-      count(Roommate.Names)
+      count(Roommate.Names) %>%
+      filter(n > 1)
   
-  roommie_violations <- roommie_violations[roommie_violations$n > 1, ]
+  school_ids <- 1:nrow(school_targets)
+  schools_to_swap <- c(0, 0)
   
   for (z in  roommie_violations$Roommate.Names){
-    school1_swap <- roommie_violations$placement[roommie_violations$Roommate.Names == z]
+    
+    schools_to_swap[1] <- roommie_violations$placement[roommie_violations$Roommate.Names == z]
         
     roommate_set <- team_placements_df[which(team_placements_df$Roommate.Names == z), ]
     
     roommate_set_no_manual <- roommate_set[is.na(roommate_set$Manual.Placement), ]
     
-    # manual placements will override preventing roommates
-    # if all roommates were NOT manually placed, choose 1 of the roommates to keep on the team
+    acm_to_keep <- 0
+    
+    # if no roommates were manually placed, choose one to keep
     if (all(is.na(roommate_set$Manual.Placement))){
-      acm_to_keep <- sample(roommate_set$acm_id, 1)
-    } else {
-      acm_to_keep <- 0
+      acm_to_keep <- sample(roommate_set_no_manual$acm_id, 1)
     }
     
     # swap out all ACMs who were not manually placed or chosen to be acm_to_keep
-    for (k in roommate_set_no_manual$acm_id[roommate_set_no_manual$acm_id != acm_to_keep]){
-      
-      acms_no_Manual.Placement <- team_placements_df[is.na(team_placements_df$Manual.Placement), ]
-      
+    for (k in roommate_set_no_manual$acm_id[!(roommate_set_no_manual$acm_id %in% acm_to_keep)]){
       swap1 <- k
+      swap1_roommates <- z
       
-      # choose school2_swap where no roommate conflict exists with swap1 ((HERE!!! also was searcing "roommate.names !="))
-      n_same_roommie <- team_placements_df %>%
-        group_by(placement) %>%
-        summarise(n = sum(Roommate.Names %in% z))
+      # flag schools with roommate conflicts
+      ineligible_schools <- 
+        team_placements_df %>%
+          filter(!is.na(Roommate.Names)) %>%
+          group_by(placement) %>%
+          summarise(n = sum(Roommate.Names %in% swap1_roommates)) %>%
+          filter(n > 0)
 
-      school2_swap <- sample(n_same_roommie$placement[n_same_roommie$n == 0], 1)
+      schools_to_swap[2] <- sample(school_ids[!(school_ids %in% ineligible_schools$placement)], 1)
       
-      school2_acms_to_swap <- acms_no_Manual.Placement[acms_no_Manual.Placement$placement == school2_swap, ]
+      # find acm in schools_to_swap[2] who does not have roommates on schools_to_swap[1] (and who was not manually placed)
+      school1_roommates <- team_placements_df$Roommate.Names[team_placements_df$placement == schools_to_swap[1]]
+      # filter for ACMs on schools_to_swap[2] with no Manual.Placement
+      school2_frame <- team_placements_df[(team_placements_df$placement == schools_to_swap[2] & is.na(team_placements_df$Manual.Placement)), ]
       
-      # choose an ACM2 on school2_swap who has no Manual.Placement, and whose roommates are not on school1_swap
-      swap2 <- sample(school2_acms_to_swap$acm_id[(is.na(school2_acms_to_swap$Roommate.Names))
-                                                  | !(school2_acms_to_swap$Roommate.Names %in% team_placements_df$Roommate.Names[team_placements_df$placement == school1_swap])], 1)
+      # choose a swap2 on schools_to_swap[2] whose roommates are not on schools_to_swap[1]
+      swap2 <- sample(school2_frame$acm_id[(is.na(school2_frame$Roommate.Names))
+                                           | !(school2_frame$Roommate.Names %in% school1_roommates)], 1)
       
       # Swap the team placement of those 2 ACMs
       team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
@@ -248,32 +253,34 @@ prev_roommates <- function(school_targets, team_placements_df){
   hs_acm_to_swap <- acms_for_swaps[(acms_for_swaps$Ed_HS == 1) & (acms_for_swaps$span == "High"), ]
   
   for (x in hs_acm_to_swap$acm_id){
+    acms_for_swaps <- merge(team_placements_df[is.na(team_placements_df$Manual.Placement), ], school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
+    
     swap1 <- x
     
-    school1_swap <- hs_acm_to_swap$placement[hs_acm_to_swap$acm_id == x]
-    
-    acms_to_swap_with <- acms_for_swaps[(acms_for_swaps$Ed_HS == 0) & (acms_for_swaps$span != "High"),]
-    
-    # If ACM1 from Team1 has roommates, find a non-HS Team2 without those roommates
-    if (!is.na(hs_acm_to_swap$Roommate.Names[hs_acm_to_swap$acm_id == x])){
-      acm1_roommates <- hs_acm_to_swap$Roommate.Names[hs_acm_to_swap$acm_id == x]
-      
-      schools_no_roommate_conf <- unique(acms_to_swap_with$placement[(acms_to_swap_with$Roommate.Names != acm1_roommates)
-                                                                     | is.na(acms_to_swap_with$Roommate.Names)])
-      
-      school2_swap <- sample(schools_no_roommate_conf, 1)
-      
-    # Else choose any non-HS Team2
-    } else {
-      school2_swap <- sample(unique(acms_for_swaps$placement[acms_for_swaps$span != "High"]), 1)
-      
-    }
-    
-    # Find an ACM2 without roomamtes on Team1, and who is eligible to serve in HS
-    acms_to_swap_with <- acms_to_swap_with[acms_to_swap_with$placement == school2_swap, ]
+    schools_to_swap[1] <- team_placements_df$placement[team_placements_df$acm_id == swap1]
 
-    swap2 <- sample(acms_to_swap_with$acm_id[(is.na(acms_to_swap_with$Roommate.Names))
-                                             | !(acms_to_swap_with$Roommate.Names %in% team_placements_df$Roommate.Names[team_placements_df$placement == school1_swap])], 1)
+    swap1_roommates <- team_placements_df$Roommate.Names[team_placements_df$acm_id == swap1]
+    
+    # flag schools with roommate conflicts with swap1_roommates
+    ineligible_schools <- 
+      team_placements_df %>%
+        filter(!is.na(Roommate.Names)) %>%
+        group_by(placement) %>%
+        summarise(n = sum(Roommate.Names %in% swap1_roommates)) %>%
+        filter(n > 0)
+    
+    # Sample from non-HS schools without roommate conflicts
+    schools_to_swap[2] <- sample(school_ids[!(school_ids %in% ineligible_schools$placement) 
+                                            & !(school_ids %in% schools_to_swap[1])
+                                            & (school_ids %in% acms_for_swaps$placement[acms_for_swaps$span != "High"])], 1)
+    
+    # find acm in schools_to_swap[2] who does not have roommates on schools_to_swap[1], was not manually placed, and is HS-eligible
+    school1_roommates <- team_placements_df$Roommate.Names[team_placements_df$placement == schools_to_swap[1]]
+    school2_frame <- acms_for_swaps[(acms_for_swaps$placement == schools_to_swap[2] & acms_for_swaps$Ed_HS == 0), ]
+    
+    # choose a swap2 in school2_frame whose roommates are not on schools_to_swap[1]
+    swap2 <- sample(school2_frame$acm_id[(is.na(school2_frame$Roommate.Names)
+                                          | !(school2_frame$Roommate.Names %in% school1_roommates))], 1)
     
     # Swap the team placement of those 2 ACMs
     team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
@@ -283,9 +290,6 @@ prev_roommates <- function(school_targets, team_placements_df){
   return(team_placements_df)
 }
 
-# Initial Team Placements
-
-# Assumption: the number of ACMs in acm_df is exactly the same as the number of team slots
 
 initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   # First place acm's at schools designated by Manual.Placement column
@@ -365,7 +369,7 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   
   # Prevent Roommates from being on the same team
   if (prevent_roommates == "Yes"){
-    prev_roommates(school_targets, team_placements_df)
+    team_placements_df <- prev_roommates(school_targets, team_placements_df)
   
   } else {
 
@@ -383,10 +387,10 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   team_placements_df[team_placements_df$acm_id %in% acms_to_swap_with$acm_id, ]$placement <- hs_acms_to_swap$placement
   
   }
- 
-  return(team_placements_df)
-}
 
+  return(team_placements_df)
+  
+}
 
 # Calculate score
 
@@ -538,41 +542,39 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     school_ids <- 1:nrow(school_df)
     schools_to_swap <- sample(school_ids, 2)
 
-    # Choose 1 ACM from each of those schools. Select only ACMs who have no Manual.Placement
+    # Choose 1 ACM from each of those schools. Select only ACMs who have no Manual.Placement.
     swap1 <- sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[1] ], 1)
     swap2 <- sample(acms_no_Manual.Placement$acm_id[ acms_no_Manual.Placement$placement == schools_to_swap[2] ], 1)
     
-    if (prevent_roommates == "Yes" & !is.na(candidate_placements_df$Roommate.Names[candidate_placements_df$acm_id == swap1])){
+    # if preventing roommates
+    if (prevent_roommates == "Yes"){
       # find schools that do not contain swap1's roommates
       swap1_roommates <- candidate_placements_df$Roommate.Names[candidate_placements_df$acm_id == swap1]
       
-      ineligible_schools <- unique(candidate_placements_df$placement[which(candidate_placements_df$Roommate.Names == swap1_roommates)])
+      # find schools where no roommate conflict exists with swap1. Filter out NA's in Roommate.Names so that a swap1 with NA roommates will have no conflicts on any team.
+      ineligible_schools <- 
+        candidate_placements_df %>%
+          filter(!is.na(Roommate.Names)) %>%
+          group_by(placement) %>%
+          summarise(n = sum(Roommate.Names %in% swap1_roommates)) %>%
+          filter(n > 0)
       
-      schools_to_swap[2] <- sample(school_ids[school_ids  != ineligible_schools], 1)
+      schools_to_swap[2] <- sample(school_ids[!(school_ids %in% ineligible_schools$placement) 
+                                              & !(school_ids %in% schools_to_swap[1])], 1)
       
-      # find acm in schools_to_swap[2] who does not have roommates on schools_to_swap[1]
-      school1_frame <- candidate_placements_df[candidate_placements_df$placement == schools_to_swap[1], ]
-      school2_frame <- acms_no_Manual.Placement[acms_no_Manual.Placement$placement == schools_to_swap[2], ]
-      
+      # find acm in schools_to_swap[2] who does not have roommates on schools_to_swap[1] (and who was not manually placed)
+      school1_roommates <- candidate_placements_df$Roommate.Names[candidate_placements_df$placement == schools_to_swap[1]]
+      school2_frame <- candidate_placements_df[(candidate_placements_df$placement == schools_to_swap[2]
+                                                & is.na(candidate_placements_df$Manual.Placement)), ]
+
       swap2 <- sample(school2_frame$acm_id[is.na(school2_frame$Roommate.Names)
-                                           | school2_frame$Roommate.Names %not in% school1_frame$Roommate.Names], 1)
-      
-    } else if (prevent_roommates == "Yes"){
-      # leave schools_to_swap[1] and schools_to_swap[2] as-is, but still ensure acm chosen from schools_to_swap[2] does not have roommates on schools_to_swap[1]
-      
-      school1_frame <- candidate_placements_df[candidate_placements_df$placement == schools_to_swap[1], ]
-      school2_frame <- acms_no_Manual.Placement[acms_no_Manual.Placement$placement == schools_to_swap[2], ]
-      
-      swap2 <- sample(school2_frame$acm_id[is.na(school2_frame$Roommate.Names)
-                                           | school2_frame$Roommate.Names %not in% school1_frame$Roommate.Names], 1)
+                                           | !(school2_frame$Roommate.Names %in% school1_roommates)], 1)
+
     }
-    
+     
     # Swap the team assignment of those 2 ACMs - NOTE this is done by index, and we use acm_id as index
     candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
-    
-    # Place firm restrictions here?
-    #IsValid(candidate_placements_df)
-    
+     
     candidate_score = calculate_score(candidate_placements_df, school_df)
     trace[i+1, 2] <- candidate_score$aggr_score
     
@@ -651,6 +653,7 @@ trace <- output$trace
 ```
 
 
+
 ```{r Visualizations: Number Teams at Various % Ethnic Representations}
 ethnicity_eths <- 
     team_placements_df %>%
@@ -676,18 +679,15 @@ hist(best_placements$Commute.Time, breaks = 10, main = "Number ACMs at Various #
 
 
 ```{r Check Roommates}
-for (y in 1:nrow(school_targets)){
-  school_frame = best_placements[best_placements$placement == y, ]
-      
-  # get list of duplicated roommate sets
-  dup_roommates <- unique(school_frame$Roommate.Names[duplicated(school_frame$Roommate.Names)])
-  dup_roommates <- dup_roommates[!is.na(dup_roommates)]
-      
-  print(c(y,dup_roommates))
-  
-  
-}
+dplyr::select(best_placements, c(placement, Manual.Placement, Roommate.Names)) %>%
+  arrange(placement)
 
+roommie_violations <- 
+    best_placements %>% 
+      filter(!is.na(Roommate.Names)) %>%
+      group_by(placement) %>%
+      count(Roommate.Names) %>%
+      filter(n > 1)
 
-best_placements[best_placements$placement == 6, ]
+roommie_violations
 ```
