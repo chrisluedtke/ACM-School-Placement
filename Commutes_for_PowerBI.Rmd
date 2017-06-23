@@ -1,8 +1,8 @@
 ```{r}
+dataset <- data.frame(FP = 1)
 dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 dataset$calc_commutes[1] <-"Yes"
-dataset$API_Key[1] <- ""
-
+dataset$API_Key[1] <- "AIzaSyC7lEAL5Tk1x7TJyOUuornA4lcjkJ-PxFM"
 ```
 
 
@@ -27,7 +27,7 @@ if(dataset$calc_commutes[1] == "Yes"){
   acm_df$Travel.Method[acm_df$Travel.Method %in% "Driving"] <- "driving"
   acm_df$Travel.Method <- as.factor(acm_df$Travel.Method)
   
-  # This line combines address data into one text string:
+  # Combine address data into one text string:
   acm_df$Full.Address = paste(as.character(acm_df$"Res.Address.Line.1"), as.character(acm_df$"Res.City"), as.character(acm_df$"Res.State"), as.character(acm_df$"Res.Postal Cde"))
   
   # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
@@ -47,7 +47,7 @@ if(dataset$calc_commutes[1] == "Yes"){
     
     # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
     commute = gmapsdistance(origin = subset(acm_df, acm_id == x)$Full.Address, 
-                            destination = school_df[1:4,]$Address, 
+                            destination = school_df$Address, 
                             mode = subset(acm_df, acm_id == x)$Travel.Method, 
                             combinations = "all", 
                             shape = "wide")

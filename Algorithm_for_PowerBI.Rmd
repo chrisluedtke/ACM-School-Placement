@@ -1,4 +1,5 @@
 ```{r Inputs}
+dataset <- data.frame(FP = 1)
 dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 dataset$prevent_roommates[1] <-"Yes"
 dataset$number_iterations[1] <- 100
@@ -20,6 +21,8 @@ number_iterations <- dataset$number_iterations[1]
 calc_commutes <- dataset$calc_commutes[1]
 
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
+acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
+school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
 
 clean_roommates <- function(acm_df){
   roommates_df = acm_df[acm_df$Roommates == 'Yes' 
@@ -65,8 +68,7 @@ clean_roommates <- function(acm_df){
 
 acm_df <- clean_roommates(acm_df)
 
-acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
-school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
+
 
 # Add id columns
 acm_commutes$acm_id <- 1:nrow(acm_commutes)
