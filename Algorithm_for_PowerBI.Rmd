@@ -1,6 +1,8 @@
 ```{r Inputs}
 dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
-dataset$prevent_roommates[1]<-"Yes"
+dataset$prevent_roommates[1] <-"Yes"
+dataset$number_iterations[1] <- 100
+dataset$calc_commutes[1] <- "Yes"
 ```
 
 ```{r}
@@ -12,10 +14,10 @@ library(dplyr)
 library(tidyr)
 library(data.table)
 
-number_iterations = 100
-
 root_dir <- dataset$FP[1]
 prevent_roommates <- dataset$prevent_roommates[1]
+number_iterations <- dataset$number_iterations[1]
+calc_commutes <- dataset$calc_commutes[1]
 
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
 
