@@ -1,15 +1,16 @@
 ```{r Inputs}
+rm(list=ls(all=TRUE))
+
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+dataset$FP[1] <-"C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\"
 dataset$prevent_roommates[1] <-"Yes"
 dataset$number_iterations[1] <- 100
-dataset$calc_commutes[1] <- "Yes"
+dataset$consider_commutes[1] <- "No"
+dataset$used_surveygizmo[1] <- "No"
 ```
 
 ```{r}
 # 'dataset' holds the input data for this script
-rm(list=ls(all=TRUE))
-
 library(readxl)
 library(dplyr)
 library(tidyr)
@@ -18,48 +19,53 @@ library(data.table)
 root_dir <- dataset$FP[1]
 prevent_roommates <- dataset$prevent_roommates[1]
 number_iterations <- dataset$number_iterations[1]
-calc_commutes <- dataset$calc_commutes[1]
+consider_commutes <- dataset$consider_commutes[1]
+used_surveygizmo <- dataset$used_surveygizmo[1]
 
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
-acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
+
+if(consider_commutes == "Yes"){
+  acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
+}
+
 school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
 
 clean_roommates <- function(acm_df){
-  roommates_df = acm_df[acm_df$Roommates == 'Yes' 
-                        | acm_df$Full.Name %in% acm_df$Roommate.Names1
-                        | acm_df$Full.Name %in% acm_df$Roommate.Names2
-                        | acm_df$Full.Name %in% acm_df$Roommate.Names3
-                        | acm_df$Full.Name %in% acm_df$Roommate.Names4, ]
+  roommates_df <- acm_df[acm_df$Roommates == 'Yes'
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names1
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names2
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names3
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names4, ]
   
   roommates_df[] <- lapply(roommates_df, as.character)
   
-  acm_df$Roommate.Names1 = as.character(acm_df$Roommate.Names1)
-  acm_df$Roommate.Names2 = as.character(acm_df$Roommate.Names2)
-  acm_df$Roommate.Names3 = as.character(acm_df$Roommate.Names3)
-  acm_df$Roommate.Names4 = as.character(acm_df$Roommate.Names4)
+  acm_df$Roommate.Names1 <- as.character(acm_df$Roommate.Names1)
+  acm_df$Roommate.Names2 <- as.character(acm_df$Roommate.Names2)
+  acm_df$Roommate.Names3 <- as.character(acm_df$Roommate.Names3)
+  acm_df$Roommate.Names4 <- as.character(acm_df$Roommate.Names4)
   
   acm_df$Roommate.Names <- NA
   
   for (x in roommates_df$Full.Name){
     # Select any rows containing ACM name
-    other_roommates = subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
+    other_roommates <- subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
     
     # Select unique roommate names
-    roommates_list = unique(c(other_roommates$Full.Name,
-                              other_roommates$Roommate.Names1,
-                              other_roommates$Roommate.Names2,
-                              other_roommates$Roommate.Names3,
-                              other_roommates$Roommate.Names4))
+    roommates_list <- unique(c(other_roommates$Full.Name,
+                               other_roommates$Roommate.Names1,
+                               other_roommates$Roommate.Names2,
+                               other_roommates$Roommate.Names3,
+                               other_roommates$Roommate.Names4))
     #Sort alphabetically, remove NAs, remove blanks
-    roommates_list = roommates_list[!is.na(roommates_list)]
-    roommates_list = roommates_list[roommates_list != ""]
-    roommates_list = sort(roommates_list)
+    roommates_list <- roommates_list[!is.na(roommates_list)]
+    roommates_list <- roommates_list[roommates_list != ""]
+    roommates_list <- sort(roommates_list)
     
     
-    acm_df$Roommate.Names1[acm_df$Full.Name == x] = roommates_list[1]
-    acm_df$Roommate.Names2[acm_df$Full.Name == x] = roommates_list[2]
-    acm_df$Roommate.Names3[acm_df$Full.Name == x] = roommates_list[3]
-    acm_df$Roommate.Names4[acm_df$Full.Name == x] = roommates_list[4]
+    acm_df$Roommate.Names1[acm_df$Full.Name == x] <- roommates_list[1]
+    acm_df$Roommate.Names2[acm_df$Full.Name == x] <- roommates_list[2]
+    acm_df$Roommate.Names3[acm_df$Full.Name == x] <- roommates_list[3]
+    acm_df$Roommate.Names4[acm_df$Full.Name == x] <- roommates_list[4]
     
     acm_df$Roommate.Names[acm_df$Full.Name == x] = paste(roommates_list, collapse=", ")
   }
@@ -68,17 +74,27 @@ clean_roommates <- function(acm_df){
 
 acm_df <- clean_roommates(acm_df)
 
+rename_headers <- function(acm_df){
+  acm_df  
+}
 
+if(used_surveygizmo == "Yes"){
+  acm_df <- rename_headers(acm_df)
+}
 
 # Add id columns
-acm_commutes$acm_id <- 1:nrow(acm_commutes)
+if(consider_commutes == "Yes"){
+  acm_commutes$acm_id <- 1:nrow(acm_commutes)
+}
 school_df$sch_id <- 1:nrow(school_df)
 
 # Commute times in long format will be easier to index and subset. This can be accomplished in the output of "gmapsdistance" function later.
-acm_commutes_long <-
-  select(acm_commutes, -or) %>%
-  gather(dest, dist, -acm_id) %>%
-  mutate(id_dest = paste(acm_id, dest, sep = "_"))
+if(consider_commutes == "Yes"){
+  acm_commutes_long <-
+    select(acm_commutes, -or) %>%
+    gather(dest, dist, -acm_id) %>%
+    mutate(id_dest = paste(acm_id, dest, sep = "_"))
+}
 
 #  Encode Variables & Clean Up Input Dataframes
 
@@ -340,11 +356,11 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   acm_enc$Manual.Placement
   
   # List of ACM ids of survey respondents who were not manually placed, plus dummy id's for team slots that were not filled by any survey respondent
-  if (slots + nrow(acms_with_Manual.Placement) == sum(team_size_targets$size)){
+  if (nrow(acm_enc) == sum(team_size_targets$size)){
     filled_acm_roster <- acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id
   } else {
     filled_acm_roster <- c(acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id, 
-                         9000:(9000 + slots - nrow(acm_enc[is.na(acm_enc$Manual.Placement), ]) - 1))
+                         (nrow(acm_enc)+1):sum(team_size_targets$size))
   }
   
   # Randomize Starting Place
@@ -427,15 +443,18 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   #################
   
   # This score is simply the sum number of seconds each ACM travels to their assigned school
-  
-  team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
-  
-  team_placements_df <- within(team_placements_df, id_dest <- paste(acm_id, dest, sep = "_"))
-  
-  dt_commutes <- data.table(acm_commutes_long)
+  if(consider_commutes == "Yes"){
+    team_placements_df$dest = colnames(acm_commutes)[team_placements_df$placement + 1]
+    
+    team_placements_df <- within(team_placements_df, id_dest <- paste(acm_id, dest, sep = "_"))
+    
+    dt_commutes <- data.table(acm_commutes_long)
   
   # Take the sqrt to scale the value closer to the other features
   scores$commute_score <- sqrt(dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(dist)])
+  } else {
+    scores$commute_score <- 0
+  }
   
   #############
   # AGE SCORE #
@@ -637,24 +656,29 @@ output <- run_intermediate_annealing_process(starting_placements = team_placemen
 
 best_placements <- output$best_placements
 
-best_placements$dest = colnames(acm_commutes)[best_placements$placement + 1]
+if(consider_commutes == "Yes"){
+  best_placements$dest = colnames(acm_commutes)[best_placements$placement + 1]
+    
+  best_placements <- within(best_placements, id_dest <- paste(acm_id, dest, sep = "_"))
   
-best_placements <- within(best_placements, id_dest <- paste(acm_id, dest, sep = "_"))
+  dt_commutes <- data.table(acm_commutes_long)
 
-dt_commutes <- data.table(acm_commutes_long)
+  commutes <- dt_commutes[id_dest %in% best_placements$id_dest, ]
 
-commutes <- dt_commutes[id_dest %in% best_placements$id_dest, ]
+  commutes <- select(commutes, acm_id, dist)
 
-commutes <- select(commutes, acm_id, dist)
+  best_placements <- merge(best_placements, commutes, by = "acm_id")
 
-best_placements <- merge(best_placements, commutes, by = "acm_id")
+  names(best_placements)[names(best_placements)=="dist"] <- "Commute.Time"
 
-names(best_placements)[names(best_placements)=="dist"] <- "Commute.Time"
-
-best_placements$Commute.Time <- best_placements$Commute.Time/60
+  best_placements$Commute.Time <- best_placements$Commute.Time/60
+}
 
 trace <- output$trace
 
+best_placements$acm_id[best_placements$acm_id > nrow(acm_enc)] <- NA
+
+best_placements
 ```
 
 
