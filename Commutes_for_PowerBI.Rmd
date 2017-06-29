@@ -1,67 +1,109 @@
 ```{r}
+rm(list=ls(all=TRUE))
+
 dataset <- data.frame(FP = 1)
 dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 dataset$calc_commutes[1] <-"Yes"
-dataset$API_Key[1] <- "AIzaSyC7lEAL5Tk1x7TJyOUuornA4lcjkJ-PxFM"
+dataset$API_Key[1] <- ""
+dataset$used_surveygizmo[1] <- "No"
+
 ```
 
 
-```{r setup, include=FALSE}
+```{r}
+start.time <- Sys.time()
+
+
 if(dataset$calc_commutes[1] == "Yes"){
   library(dplyr)
   library(tidyr)
   library(readxl)
   library(gmapsdistance)
-  
+
   root_dir <- dataset$FP[1]
   api <- dataset$API_Key[1]
-  
+  used_surveygizmo <- dataset$used_surveygizmo[1]
+
   # acm_df <- dataset
-  acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""))
+  acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE)
+  school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xls", sep = ""))
   
-  school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
+  if(used_surveygizmo == "Yes"){
+    vars_df <- read_excel(path = paste(root_dir, "Survey Items to Variable Names.xls", sep = ""))
+    
+    # Rename Headers
+    for (x in names(acm_df)){
+      if(x %in% vars_df$Survey.Item){
+        names(acm_df)[names(acm_df) == x] <- as.character(vars_df$Variable.Name[vars_df$Survey.Item == x])
+      }
+    }
+  }
+  
+  school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, "%I:%M%p" ),12,19)
+  school_df$`ACM Start Time` <- as.POSIXct(paste("2020-09-07", school_df$`ACM Start Time`))
+  school_df$`ACM End Time` <- substr(strptime(school_df$`ACM End Time`, "%I:%M%p" ),12,19)
+  school_df$`ACM End Time` <- as.POSIXct(paste("2020-09-07", school_df$`ACM End Time`))
+  
+  attributes(school_df$`ACM Start Time`)$tzone <- "GMT"
+  attributes(school_df$`ACM End Time`)$tzone <- "GMT" 
+  
+  school_df$`ACM Start Time` <- as.integer(school_df$`ACM Start Time`)
+  school_df$`ACM End Time` <- as.integer(school_df$`ACM Start Time`)
+  
   
   # Convert 'Walking', 'Bicycling', 'Public Transportation' to 'transit'
   acm_df$Travel.Method <- as.character(acm_df$Travel.Method)
-  acm_df$Travel.Method[acm_df$Travel.Method %in%  c('Walking', 'Bicycling', 'Public Transportation')] <- "transit"
-  acm_df$Travel.Method[acm_df$Travel.Method %in% "Driving"] <- "driving"
-  acm_df$Travel.Method <- as.factor(acm_df$Travel.Method)
-  
+  acm_df$Travel.Method[!(acm_df$Travel.Method %in%  'Driving')] <- "transit"
+  acm_df$Travel.Method[acm_df$Travel.Method %in% 'Driving'] <- "driving"
+
   # Combine address data into one text string:
-  acm_df$Full.Address = paste(as.character(acm_df$"Res.Address.Line.1"), as.character(acm_df$"Res.City"), as.character(acm_df$"Res.State"), as.character(acm_df$"Res.Postal Cde"))
+  acm_df$Full.Address <- paste(as.character(acm_df$"Res.Address.Line.1"), as.character(acm_df$"Res.City"), as.character(acm_df$"Res.State"), as.character(acm_df$"Res.Postal.Code"))
   
   # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
-  acm_df$Full.Address = gsub(" ", "+", acm_df$Full.Address)
-  school_df$Address = gsub(" ", "+", school_df$Address)
-  school_df$Address = gsub(",", "", school_df$Address)
+  acm_df$Full.Address <- gsub(" ", "+", acm_df$Full.Address)
+  school_df$Address.Clean <- gsub(" ", "+", school_df$Address)
+  school_df$Address.Clean <- gsub(",", "", school_df$Address.Clean)
   
   # Set api key
   set.api.key(api)
   
   # Create an empty dataframe that we will fill with commute times
   acm_commutes <- data.frame()
-  
-  # Create a for loop that will read through each row of ACM data, feed it into the main function of our gmapsdistance pckage, and build a new data frame of commute info.
+
   for (x in acm_df$acm_id[acm_df$Res.Address.Line.1 != ""]){
-    # select one row from acm_df, and assign it to a new object, acm_row
-    
-    # feed that ACM's address and mode into the function 'gmapsdistance'. This will return a new object that is a sngle row of ACM commute times to each school. That row is assigned to a new object, 'commute'
-    commute = gmapsdistance(origin = subset(acm_df, acm_id == x)$Full.Address, 
-                            destination = school_df$Address, 
-                            mode = subset(acm_df, acm_id == x)$Travel.Method, 
-                            combinations = "all", 
-                            shape = "wide")
-    
-    # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
-    commute$Time[["acm_id"]] = x
-    
-    # as the for-loop runs, progressively add each single row of commute data into a new data frame called am_commutes. As this for-loop runs, this dataframe grows to include all ACM's.
-    acm_commutes <- rbind(acm_commutes, commute$Time)
+    for(y in school_df$Address.Clean){
+      
+      commute = gmapsdistance(origin = subset(acm_df, acm_id == x)$Full.Address, 
+                              destination = y, 
+                              mode = subset(acm_df, acm_id == x)$Travel.Method,
+                              arrival = school_df$`ACM Start Time`[school_df$Address.Clean == y],
+                              combinations = "all", 
+                              shape = "wide")
+      
+      # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
+      commute$Time[["acm_id"]] = x
+      commute$Time[["Full.Name"]] = acm_df$Full.Name[acm_df$acm_id == x]
+      commute$Time[["dest"]] = y
+      commute$Time[["School"]] = school_df$School[school_df$Address.Clean == y]
+      names(commute$Time)[1] <- "dist"
+      commute = (t(as.data.frame(commute$Time)[1]))
+      rownames(commute) <- c()
+      
+      acm_commutes <- rbind(acm_commutes, commute)
+    }
   }
   
+  acm_commutes$id_dest <- paste(acm_commutes$acm_id, acm_commutes$School, sep = "_")
+    
   # Write to .csv, which will be referenced by main algorithm
   
-  write.table(acm_commutes, file = paste(root_dir, "ACM_Commutes.csv", sep = ""), sep=",", row.names=FALSE)
+  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
 }
+
+end.time <- Sys.time()
+
+time.taken <- end.time - start.time
+
+
 
 ```
