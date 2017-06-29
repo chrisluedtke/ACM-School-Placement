@@ -5,8 +5,8 @@ dataset <- data.frame(FP = 1)
 dataset$FP[1] <-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 dataset$prevent_roommates[1] <-"Yes"
 dataset$number_iterations[1] <- 100
-dataset$consider_commutes[1] <- "No"
-dataset$used_surveygizmo[1] <- "Yes"
+dataset$consider_commutes[1] <- "Yes"
+dataset$used_surveygizmo[1] <- "No"
 
 # To Do:
 #     clean headers
@@ -29,10 +29,10 @@ used_surveygizmo <- dataset$used_surveygizmo[1]
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE)
 
 if(consider_commutes == "Yes"){
-  acm_commutes <- read_excel(path = paste(root_dir, "Input 2 - ACM Commutes.xlsx", sep = ""))
+  acm_commutes <- read.csv(file = paste(root_dir, "ACM Commutes.csv", sep = ""), check.names=FALSE)
 }
 
-school_df <- read_excel(path = paste(root_dir, "Input 3 - School Data.xls", sep = ""))
+school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xls", sep = ""))
 
 rename_headers <- function(acm_df){
   vars_df <- read_excel(path = paste(root_dir, "Survey Items to Variable Names.xls", sep = ""))
