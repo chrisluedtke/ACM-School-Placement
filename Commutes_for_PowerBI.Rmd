@@ -11,7 +11,7 @@ dataset$used_surveygizmo[1] <- "No"
 
 
 ```{r}
-start.time <- Sys.time()
+#start.time <- Sys.time()
 
 
 if(dataset$calc_commutes[1] == "Yes"){
@@ -41,6 +41,7 @@ if(dataset$calc_commutes[1] == "Yes"){
   
   school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, "%I:%M%p" ),12,19)
   school_df$`ACM Start Time` <- as.POSIXct(paste("2020-09-07", school_df$`ACM Start Time`))
+  
   school_df$`ACM End Time` <- substr(strptime(school_df$`ACM End Time`, "%I:%M%p" ),12,19)
   school_df$`ACM End Time` <- as.POSIXct(paste("2020-09-07", school_df$`ACM End Time`))
   
@@ -71,6 +72,7 @@ if(dataset$calc_commutes[1] == "Yes"){
   acm_commutes <- data.frame()
 
   for (x in acm_df$acm_id[acm_df$Res.Address.Line.1 != ""]){
+    browser()
     for(y in school_df$Address.Clean){
       
       commute = gmapsdistance(origin = subset(acm_df, acm_id == x)$Full.Address, 
@@ -81,29 +83,37 @@ if(dataset$calc_commutes[1] == "Yes"){
                               shape = "wide")
       
       # create an 'id' column in our new 'commute' row that is the same as x. We will use this to join our data frames.
-      commute$Time[["acm_id"]] = x
-      commute$Time[["Full.Name"]] = acm_df$Full.Name[acm_df$acm_id == x]
-      commute$Time[["dest"]] = y
-      commute$Time[["School"]] = school_df$School[school_df$Address.Clean == y]
-      names(commute$Time)[1] <- "dist"
-      commute = (t(as.data.frame(commute$Time)[1]))
+      commute$Time[["acm_id"]] <- x
+      commute$Time[["Full.Name"]] <- as.character(acm_df$Full.Name[acm_df$acm_id == x])
+      commute$Time[["Home.Address"]] <- as.character(acm_df$Full.Address[acm_df$acm_id == x])
+      commute$Time[["School.Address"]] <- as.character(school_df$Address[school_df$Address.Clean == y])
+      commute$Time[["School"]] <- school_df$School[school_df$Address.Clean == y]
+      names(commute$Time)[1] <- "Commute.Time"
+      commute <- (t(as.data.frame(commute$Time)[1]))
       rownames(commute) <- c()
       
       acm_commutes <- rbind(acm_commutes, commute)
+      
     }
   }
   
-  acm_commutes$id_dest <- paste(acm_commutes$acm_id, acm_commutes$School, sep = "_")
-    
-  # Write to .csv, which will be referenced by main algorithm
+  acm_commutes <- acm_commutes[,c("acm_id", "Full.Name", "Home.Address", "School", "School.Address", "Commute.Time")]
   
+  acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
+
+  acm_commutes <- acm_commutes %>% 
+    arrange(Commute.Time) %>%
+    group_by(acm_id) %>%
+    mutate(Commute.Rank = rank(Commute.Time, ties.method = "min")) %>%
+    ungroup() %>%
+    arrange(acm_id)
+  
+  # Write to .csv, which will be referenced by main algorithm
   write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
 }
 
-end.time <- Sys.time()
-
-time.taken <- end.time - start.time
-
-
+# end.time <- Sys.time()
+# 
+# time.taken <- end.time - start.time
 
 ```
