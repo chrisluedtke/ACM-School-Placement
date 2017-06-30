@@ -602,7 +602,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
      
     candidate_score = calculate_score(candidate_placements_df, school_df)
     trace[i+1, 2] <- candidate_score$aggr_score
-    
+
     if (temp > 0) {
       ratio = exp((placement_score - candidate_score$aggr_score) / temp)
     } else {
@@ -639,7 +639,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     best_placements$Commute.Time <- best_placements$Commute.Time/60
   }
   
-  best_placements$acm_id[best_placements$acm_id > nrow(acm_enc)] <- 800:(800 + sum(school_df$`Team Size`) - nrow(acm_enc))
+  best_placements$acm_id[best_placements$acm_id > nrow(acm_enc)] <- 800:(800 + sum(school_df$size) - nrow(acm_enc))
   
   return(list(best_placements=best_placements, 
               best_score=best_score,
