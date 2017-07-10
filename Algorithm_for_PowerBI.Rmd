@@ -453,7 +453,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
     team_placements_df$id_dest <- paste(team_placements_df$acm_id, team_placements_df$School, sep = "_")
     
     # Take the sqrt to scale the value closer to the other features
-    scores$commute_score <- sqrt( dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(Commute.Time, na.rm = TRUE)] )
+    scores$commute_score <- sqrt( dt_commutes[id_dest %in% team_placements_df$id_dest,  sum(Commute.Time)] )
     
   } else {
     scores$commute_score <- 0
@@ -531,8 +531,6 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   
   if(is.na(scores$aggr_score)){
     scores$error_commute_scores <- as.data.frame(dt_commutes[id_dest %in% team_placements_df$id_dest])
-  } else {
-    scores$error_commute_scores <- NA
   }
   
   return(scores)
@@ -666,21 +664,18 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
 
 # Visualize Error Over Time
 
-traceplot <- function(trace){
-  library(ggplot2)
-
-  ggplot(data = trace, aes(x = iter, y = score)) +
-    geom_point() +
-    coord_cartesian(ylim = c(1e3, 1e4))
-}
+# traceplot <- function(trace){
+#   library(ggplot2)
+# 
+#   ggplot(data = trace, aes(x = iter, y = score)) +
+#     geom_point() +
+#     coord_cartesian(ylim = c(1e3, 1e4))
+# }
 
 # Full Application
 
 acm_enc <- encode_acm_df(acm_df)
-
-# Precalculate school targets
 school_targets <- school_config(school_df, acm_enc)
-
 team_placements_df <- initial_placement(acm_enc, school_targets, prevent_roommates)
 
 output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, best_score = 1e12, starting_iteration = 1, number_of_iterations = number_iterations, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
@@ -689,7 +684,9 @@ best_placements <- output$best_placements
 
 trace <- output$trace
 
-error_in_scores <- as.data.frame(output$candidate_score)
+scores_if_error <- as.data.frame(output$candidate_score)
+
+scores <- as.data.frame(output$diff_scores)
 
 
 ```
