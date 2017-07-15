@@ -183,6 +183,8 @@ if(dataset$calc_commutes[1] == "Yes"){
   
   # Write to .csv, which will be referenced by main algorithm
   write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
+} else {
+  acm_commutes <- data.frame()
 }
 
 ```

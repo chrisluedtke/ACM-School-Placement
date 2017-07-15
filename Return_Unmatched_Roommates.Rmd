@@ -1,0 +1,92 @@
+```{r}
+rm(list=ls(all=TRUE))
+
+dataset <- data.frame(FP = 1)
+dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+dataset$prevent_roommates[1] <-"Yes"
+dataset$used_surveygizmo[1] <- "No"
+
+```
+
+``` {r}
+library(dplyr)
+library(tidyr)
+
+root_dir <- dataset$FP[1]
+prevent_roommates <- dataset$prevent_roommates[1]
+used_surveygizmo <- dataset$used_surveygizmo[1]
+
+acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE)
+
+rename_headers <- function(acm_df){
+  vars_df <- read_excel(path = paste(root_dir, "Survey Items to Variable Names.xls", sep = ""))
+  
+  # Rename Headers
+  for (x in names(acm_df)){
+    if(x %in% vars_df$Survey.Item){
+      names(acm_df)[names(acm_df) == x] <- as.character(vars_df$Variable.Name[vars_df$Survey.Item == x])
+    }
+  }
+  
+  acm_df
+}
+
+if(used_surveygizmo == "Yes"){
+  acm_df <- rename_headers(acm_df)
+}
+
+clean_roommates <- function(acm_df){
+  roommates_df <- acm_df[acm_df$Roommates == 'Yes'
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names1
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names2
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names3
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names4
+                         | acm_df$Full.Name %in% acm_df$Roommate.Names5, ]
+  
+  roommates_df[] <- lapply(roommates_df, as.character)
+  
+  acm_df$Roommate.Names1 <- as.character(acm_df$Roommate.Names1)
+  acm_df$Roommate.Names2 <- as.character(acm_df$Roommate.Names2)
+  acm_df$Roommate.Names3 <- as.character(acm_df$Roommate.Names3)
+  acm_df$Roommate.Names4 <- as.character(acm_df$Roommate.Names4)
+  acm_df$Roommate.Names5 <- as.character(acm_df$Roommate.Names5)
+  
+  acm_df$Roommate.Names <- NA
+  
+  for (x in roommates_df$Full.Name){
+    # Select any rows containing ACM name
+    other_roommates <- subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
+    
+    # Select unique roommate names
+    roommates_list <- unique(c(other_roommates$Full.Name,
+                               other_roommates$Roommate.Names1,
+                               other_roommates$Roommate.Names2,
+                               other_roommates$Roommate.Names3,
+                               other_roommates$Roommate.Names4))
+    #Sort alphabetically, remove NAs, remove blanks
+    roommates_list <- roommates_list[!is.na(roommates_list)]
+    roommates_list <- roommates_list[roommates_list != ""]
+    roommates_list <- sort(roommates_list)
+    
+    
+    acm_df$Roommate.Names1[acm_df$Full.Name == x] <- roommates_list[1]
+    acm_df$Roommate.Names2[acm_df$Full.Name == x] <- roommates_list[2]
+    acm_df$Roommate.Names3[acm_df$Full.Name == x] <- roommates_list[3]
+    acm_df$Roommate.Names4[acm_df$Full.Name == x] <- roommates_list[4]
+    
+    acm_df$Roommate.Names[acm_df$Full.Name == x] = paste(roommates_list, collapse=", ")
+  }
+  acm_df
+}
+
+acm_df <- clean_roommates(acm_df)
+
+roommates_df <- subset(acm_df, select=Roommate.Names1:Roommate.Names5)
+unlist(roommates_df)
+# return list of roommates who did not match to full.name
+roommates_no_match <- unname(unlist(roommates_df)[!(unlist(roommates_df) %in% acm_df$Full.Name)])
+roommates_no_match <- roommates_no_match[!is.na(roommates_no_match) & roommates_no_match != ""]
+
+write.table(roommates_no_match, file = paste(root_dir, "Roommates not Matched to ACM Full Name.csv", sep = ""), sep=",", row.names=FALSE)
+
+```

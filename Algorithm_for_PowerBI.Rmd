@@ -3,10 +3,18 @@ rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
 dataset$FP[1] <-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
-dataset$prevent_roommates[1] <-"No"
-dataset$number_iterations[1] <- 1000
+dataset$prevent_roommates[1] <-"Yes"
+dataset$number_iterations[1] <- 2000
 dataset$consider_commutes[1] <- "Yes"
 dataset$used_surveygizmo[1] <- "No"
+dataset$create_ij[1] <- "Yes"
+
+# TO DO
+# - scores that make sense and can be manually balanced
+# - squash ALL the bugs
+# - play with temperature schedule
+# - IJ placements
+# - add roommate 5
 
 ```
 
@@ -95,10 +103,6 @@ clean_roommates <- function(acm_df){
 
 acm_df <- clean_roommates(acm_df)
 
-# Add id columns
-if(consider_commutes == "Yes"){
-  acm_commutes$acm_id <- 1:nrow(acm_commutes)
-}
 school_df$sch_id <- 1:nrow(school_df)
 
 #  Encode Variables & Clean Up Input Dataframes
@@ -464,10 +468,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   #############
   
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
-  
-  # Moved computation of age for each acm to acm_enc so that we only do it once.
-  #team_placements_df$days_old <- as.integer(Sys.Date() - as.Date(as.character(team_placements_df$Birth.Date), format="%Y-%m-%d"))
-
+ 
   age_var <-
     group_by(team_placements_df, placement) %>%
     summarize(age_var = var(days_old)) %>%
@@ -529,9 +530,9 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
   
   scores$aggr_score <- sum(unlist(scores))
   
-  if(is.na(scores$aggr_score)){
-    scores$error_commute_scores <- as.data.frame(dt_commutes[id_dest %in% team_placements_df$id_dest])
-  }
+  #if(is.na(scores$aggr_score)){
+  #  scores$error_commute_scores <- as.data.frame(dt_commutes[id_dest %in% team_placements_df$id_dest])
+  #}
   
   return(scores)
 }
@@ -616,17 +617,18 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     }
     
     # Used for bug testing
-    if (is.na(ratio)){
-      return(list(placement_score=as.data.frame(placement_score),
-                  candidate_score=as.data.frame(candidate_score),
-                  best_placements=best_placements,
-                  trace=trace))
-    }
-        if (runif(1) < ratio) {
+    # if (is.na(ratio)){
+    #   return(list(placement_score=as.data.frame(placement_score),
+    #               candidate_score=as.data.frame(candidate_score),
+    #               best_placements=best_placements,
+    #               trace=trace))
+    # }
+    
+    if (runif(1) < ratio) {
       team_placements_df = candidate_placements_df
       placement_score = candidate_score$aggr_score
       all_scores = candidate_score
-      
+    
       if (placement_score < best_score) {
         best_placements = team_placements_df
         best_score = placement_score
@@ -687,7 +689,6 @@ trace <- output$trace
 scores_if_error <- as.data.frame(output$candidate_score)
 
 scores <- as.data.frame(output$diff_scores)
-
 
 ```
 
