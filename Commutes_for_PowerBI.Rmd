@@ -2,7 +2,7 @@
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
+dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\"
 dataset$calc_commutes[1] <-"Yes"
 dataset$API_Key[1] <- ""
 dataset$used_surveygizmo[1] <- "No"
@@ -24,7 +24,7 @@ if(dataset$calc_commutes[1] == "Yes"){
   arrival_date <- dataset$arrival_date[1]
   
   # acm_df <- dataset
-  acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE)
+  acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
   school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xls", sep = ""))
   
   if(used_surveygizmo == "Yes"){
@@ -54,18 +54,16 @@ if(dataset$calc_commutes[1] == "Yes"){
   acm_df$Travel.Method[acm_df$Travel.Method %in% 'Driving'] <- "driving"
   
   # Combine address data into one text string:
-  acm_df$Full.Address <- paste(as.character(acm_df$"Res.Address.Line.1"), as.character(acm_df$"Res.City"), as.character(acm_df$"Res.State"), as.character(acm_df$"Res.Postal.Code"))
+  acm_df$Full.Address <- paste(acm_df$"Res.Address.Line.1", acm_df$"Res.City", acm_df$"Res.State", acm_df$"Res.Postal.Code")
+  acm_df$Full.Address[acm_df$Full.Address == "   "] <- NA
   
   # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
   acm_df$Full.Address <- gsub(" ", "+", acm_df$Full.Address)
   acm_df$Full.Address <- gsub(",", "", acm_df$Full.Address)
+  acm_df$Full.Address <- gsub("\\.", "", acm_df$Full.Address)
+  
   school_df$Address.Clean <- gsub(" ", "+", school_df$Address)
   school_df$Address.Clean <- gsub(",", "", school_df$Address.Clean)
-  
-  # origin = "424+W+Diversey+Pwky+Chicago++IL+60614"
-  # destination = "7424+S+Morgan+St+Chicago+IL+60621"
-  # most = "transit"
-  # arrival_time = 1503491400
   
   gmapsdistance = function(origin, destination, mode, arrival_time, key, api) {
   
@@ -74,7 +72,8 @@ if(dataset$calc_commutes[1] == "Yes"){
     data$Distance = NA
     data$status = "OK"
     
-    url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?origins=", origin,
+    url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?",
+                 "origins=", origin,
                  "&destinations=", destination,
                  "&mode=", mode,
                  "&units=metric",
@@ -82,7 +81,7 @@ if(dataset$calc_commutes[1] == "Yes"){
                  "&key=", api)
     
     # Call the Google Maps Webservice and store the XML output in webpageXML
-    webpageXML = xmlParse(getURL(url));
+    webpageXML = xmlParse(getURL(url))
           
     # Extract the results from webpageXML
     results = xmlChildren(xmlRoot(webpageXML))
@@ -105,13 +104,15 @@ if(dataset$calc_commutes[1] == "Yes"){
     Status = as(rowXML$status[1]$text, "character")
     
     if (Status == "ZERO_RESULTS") {
-      # stop(paste0("Google Maps is not able to find a route between ", data$or[i]," and ", data$de[i]))
       data$status = "ROUTE_NOT_FOUND"
     }
     
     if (Status == "NOT_FOUND") {
-      # stop("Google Maps is not able to find the origin (", data$or[i],") or destination (", data$de[i], ")")
       data$status = "PLACE_NOT_FOUND"
+    }
+    
+    if (Status == "INVALID_REQUEST") {
+      data$status = "INVALID_REQUEST"
     }
     
     # Check whether the user is over their query limit
@@ -143,8 +144,11 @@ if(dataset$calc_commutes[1] == "Yes"){
   # Create an empty dataframe that we will fill with commute times
   acm_commutes <- data.frame()
   
+  count = 1
+  
   for (x in acm_df$acm_id[(acm_df$Res.Address.Line.1 != "") & 
                           !(is.na(acm_df$Res.Address.Line.1))]){
+    count = count + 1
     
     for(y in school_df$Address.Clean){
       
@@ -181,8 +185,11 @@ if(dataset$calc_commutes[1] == "Yes"){
     ungroup() %>%
     arrange(acm_id)
   
+  acm_commutes$Commute.Rank[is.na(acm_commutes$Commute.Time)] <- NA
+  
   # Write to .csv, which will be referenced by main algorithm
   write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
+  
 } else {
   acm_commutes <- data.frame()
 }
