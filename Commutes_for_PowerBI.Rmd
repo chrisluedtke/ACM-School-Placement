@@ -133,7 +133,7 @@ if(dataset$calc_commutes[1] == "Yes"){
     Time = data$Time[1]
     Stat = data$status[1]
     
-    output = list(Time = Time,
+    output = list(Time = Time/60,
                   Distance = Distance,
                   Status = Stat)
     
