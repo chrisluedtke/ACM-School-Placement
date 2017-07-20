@@ -3,7 +3,7 @@ rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
 dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\"
-dataset$calc_commutes[1] <-"Yes"
+dataset$calc_commutes[1] <-"No"
 dataset$API_Key[1] <- ""
 dataset$used_surveygizmo[1] <- "No"
 dataset$arrival_date[1] <- "2017-08-21"
@@ -191,7 +191,39 @@ if(dataset$calc_commutes[1] == "Yes"){
   write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
   
 } else {
-  acm_commutes <- data.frame()
+  acm_commutes <- data.frame(acm_id	= NA,
+                               Full.Name	= NA,
+                               Home.Address	= NA,
+                               School.Address	= NA,
+                               School	= NA,
+                               Commute.Time	= NA,
+                               Mode	= NA,
+                               Stutus	= NA,
+                               Commute.Rank= NA)
 }
 
+```
+
+```{r}
+# library(dplyr)
+# library(tidyr)
+# library(readxl)
+# library(XML)
+# library(RCurl)
+# 
+# acm_commutes <- read.csv(file = paste(root_dir, "ACM Commutes.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
+# 
+# acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
+#   
+# acm_commutes <- acm_commutes %>% 
+#   arrange(Commute.Time) %>%
+#   group_by(acm_id) %>%
+#   mutate(Commute.Rank = rank(Commute.Time, ties.method = "min")) %>%
+#   ungroup() %>%
+#   arrange(acm_id)
+# 
+# acm_commutes
+# 
+# write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
+  
 ```

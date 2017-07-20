@@ -2,46 +2,47 @@
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1] <-"C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\"
+dataset$FP[1] <-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 dataset$prevent_roommates[1] <-"NO"
-dataset$number_iterations[1] <- 10000
-dataset$consider_commutes[1] <- "Yes"
+dataset$number_iterations[1] <- 500
+dataset$consider_commutes[1] <- "No"
 dataset$used_surveygizmo[1] <- "No"
 dataset$create_ij[1] <- "Yes"
+
+dataset$commute_factor = 1
+dataset$age_factor = 1
+dataset$ethnicity_factor= 1
+dataset$Edscore_factor = 1
+dataset$Tutoring_factor = 1
+dataset$Spanish_factor = 1
+dataset$Math_factor = 1
+dataset$Gender_factor = 1
 
 # TO DO
 # - scores that can be manually balanced
 # - squash ALL the bugs
-# - play with temperature schedule
+# - play with temperature schedule?
 # - IJ placements
-# - check run times of iterated components
+# - survey senior IMs for a balance of scores on 100 point scale
+# - Calculate % score improved from random placement, and display that to user to inform weight setting
 
-# Score Manual Balance Brainstorming
-
-# How to signify that item doesn't matter at all?
+# Manual Balance of Scores Brainstorming
 
 # Commutes
 #   Average commute time of __ minutes
-
 # Age Diversity
 #   Average team age diversity (variance) is __ percent different from corps-wide age diversity
-
 # Ethnic Diversity
 #   Average ACM experiences that __ percent of their team shares their ethnicity
-
 # scores$Edscore <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) + sum((placed$SomeCol_tgt - placed$SomeCol)^2)
-
 # Tutoring Experience Diversity
 #   Average team tutoring experience diversity is __ percent of corps-wide age diversity
 # scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2)
-
 # Spanish Slots Filled
 #   __ percent of Spanish speaker slots filled
 # scores$Spanish <- (reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = 1) + sum((placed$OtherLang_tgt - placed$OtherLang)^2))
-
 # Math Ability Diversity
 # scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2)
-
 # Gender Diversity
 # scores$Gender <- reqd_males(placed$Male_tgt, placed$Males, 1)
 
@@ -60,6 +61,18 @@ number_iterations <- dataset$number_iterations[1]
 consider_commutes <- dataset$consider_commutes[1]
 used_surveygizmo <- dataset$used_surveygizmo[1]
 
+# Adjusted Factors
+#sum_factors <- sum(c(dataset$commute_factor, dataset$age_factor, dataset$ethnicity_factor, #dataset$Edscore_factor,dataset$Tutoring_factor,dataset$Spanish_factor,dataset$Math_factor,dataset$Gender_factor))
+#
+#dataset$commute_factor = dataset$commute_factor/sum_factors
+#dataset$age_factor = dataset$age_factor/sum_factors
+#dataset$ethnicity_factor = dataset$ethnicity_factor/sum_factors
+#dataset$Edscore_factor = dataset$Edscore_factor/sum_factors
+#dataset$Tutoring_factor = dataset$Tutoring_factor/sum_factors
+#dataset$Spanish_factor = dataset$Spanish_factor/sum_factors
+#dataset$Math_factor = dataset$Math_factor/sum_factors
+#dataset$Gender_factor = dataset$Gender_factor/sum_factors
+
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
 
 if(consider_commutes == "Yes"){
@@ -67,7 +80,6 @@ if(consider_commutes == "Yes"){
   acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
   acm_commutes$id_dest <- paste(acm_commutes$acm_id, acm_commutes$School, sep = "_")
   dt_commutes <- data.table(acm_commutes)
-  dt_commutes$Commute.Time_adj <- dt_commutes$Commute.Time ^ 1.1
 }
 
 school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xls", sep = ""))
@@ -493,7 +505,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
     team_placements_df$id_dest <- paste(team_placements_df$acm_id, team_placements_df$School, sep = "_")
     
     # Take the sqrt to scale the value closer to the other features
-    scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, sum(Commute.Time_adj, na.rm = TRUE)] / 200
+    scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, sum((Commute.Time^1.2), na.rm = TRUE)] * dataset$commute_factor
     
   } else {
     scores$commute_score <- 0
@@ -511,7 +523,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
     ungroup() %>%
     summarize(avg_age_var = mean(age_var))
 
-  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) /10
+  scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) /10 * dataset$age_factor
 
   ###################
   # ETHNICITY SCORE #
@@ -530,7 +542,7 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
     summarize(avg_eths_rep = mean(avg_eths_rep)) %>%
     summarize(avg_eths_rep = mean(avg_eths_rep))
 
-  scores$ethnicity_score <- ethnicity_eths$avg_eths_rep * 1000
+  scores$ethnicity_score <- ethnicity_eths$avg_eths_rep * 1000 * dataset$ethnicity_factor
 
   #################
   #    Scoring    #
@@ -547,21 +559,11 @@ calculate_score = function(team_placements_df, school_targets, gender_target=gen
                           Males = sum(Male)) %>%
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
-  scores$Edscore <- hs_loss(placed$HSGrad_tgt, placed$HS_Grads) + sum((placed$SomeCol_tgt - placed$SomeCol)^2)
-  scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2)
-  scores$Spanish <- (reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = 1) + sum((placed$OtherLang_tgt - placed$OtherLang)^2))
-  scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2)
-  scores$Gender <- reqd_males(placed$Male_tgt, placed$Males, 1)
-  
-  # Used for Isolating Scores
-  #scores$commute_score <- 0
-  #scores$age_score <- 0
-  #scores$ethnicity_score <-0
-  #scores$Edscore <- 0
-  #scores$Tutoring <-0
-  #scores$Spanish <- 0
-  #scores$Math <- 0
-  #scores$Gender <- 0
+  scores$Edscore <- (hs_loss(placed$HSGrad_tgt, placed$HS_Grads) + sum((placed$SomeCol_tgt - placed$SomeCol)^2)) * dataset$Edscore_factor
+  scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2) * dataset$Tutoring_factor
+  scores$Spanish <- (reqd_spanish_loss(placed$SpanishNeed, placed$Spanish, min_reqd = 1) + sum((placed$OtherLang_tgt - placed$OtherLang)^2)) * dataset$Spanish_factor
+  scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * dataset$Math_factor
+  scores$Gender <- reqd_males(placed$Male_tgt, placed$Males, 1) * dataset$Gender_factor
 
   #################
   # OVERALL SCORE #
@@ -594,8 +596,18 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   rownames(team_placements_df) <- 1:nrow(team_placements_df)
   
   placement_score <- calculate_score(starting_placements, school_df)$aggr_score
-  trace <- data.frame(iter=c(1:number_of_iterations), score=0)
-  trace[1, 2] <- placement_score
+  trace <- data.frame(iter=c(1:(number_of_iterations+2)), 
+                      commute_score = 0,
+                      age_score = 0,
+                      ethnicity_score= 0,
+                      Edscore = 0,
+                      Tutoring= 0,
+                      Spanish = 0,
+                      Math = 0,
+                      Gender = 0,
+                      score=0)
+  
+  trace[1, 2:10] <- calculate_score(starting_placements, school_df)
 
   for(i in 1:number_of_iterations) {
     iter = starting_iteration + i
@@ -640,10 +652,10 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     }
      
     # Swap the team assignment of those 2 ACMs - NOTE this is done by index, and we use acm_id as index
-    candidate_placements_df$placement = replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
+    candidate_placements_df$placement <- replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
      
-    candidate_score = calculate_score(candidate_placements_df, school_df)
-    trace[i+1, 2] <- candidate_score$aggr_score
+    candidate_score <- calculate_score(candidate_placements_df, school_df)
+    trace[i+1, 2:10] <- candidate_score
 
     if (temp > 0) {
       ratio = exp((placement_score - candidate_score$aggr_score) / temp)
@@ -672,57 +684,73 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     }
     
   }
+  # Add best scores to the last row of trace
+  trace[(number_of_iterations+2), 2:10] <- best_score_diff
   
-  # Merge in School Name
+  # Merge in School Name and all survey info
   cols.x <- c("acm_id", "placement")
   cols.y <- c("School", "sch_id")
   best_placements <- merge(best_placements[, cols.x], school_df[, cols.y], by.x = "placement", by.y = "sch_id", all.x = TRUE)
-  
   best_placements <- merge(best_placements, acm_df, by = "acm_id", all.x = TRUE)
-
+  
+  # Merge in commute info
   if(consider_commutes == "Yes"){
     best_placements <- within(best_placements, id_dest <- paste(acm_id, School, sep = "_"))
-    
     commutes <- dt_commutes[id_dest %in% best_placements$id_dest, ]
-  
     commutes <- commutes[,c("acm_id", "Commute.Time", "Commute.Rank", "Home.Address")]
-  
     best_placements <- merge(best_placements, commutes, by = "acm_id", all.x = TRUE)
-  
     best_placements$Commute.Time <- best_placements$Commute.Time
+  } else {
+    best_placements$Commute.Time <- NA
+    best_placements$Commute.Rank <- NA
+    best_placements$Home.Address <- NA
   }
+
+  # Create one Tutoring Experience Grades Column
+  tut_exp_cols = c("Tutoring.Experience.ES",                      
+                   "Tutoring.Experience.MS",
+                   "Tutoring.Experience.HS")
+  best_placements[, tut_exp_cols][best_placements[, tut_exp_cols] == ""] <- NA
+  best_placements$Tutoring.Experience.Grades <- apply(best_placements[, tut_exp_cols], 1, function(x) toString(na.omit(x)))
+  
+  # Create one Grade Level Preference Column
+  grd_lvl_pref_cols = c("Grade.Lvl.Pref.ES",
+                        "Grade.Lvl.Pref.MS",
+                        "Grade.Lvl.Pref.HS")
+  best_placements[, grd_lvl_pref_cols][best_placements[, grd_lvl_pref_cols] == ""] <- NA
+  best_placements$Grade.Lvl.Pref <- apply(best_placements[, grd_lvl_pref_cols ], 1, function(x) toString(na.omit(x)))
   
   cols <- c("acm_id",
-          "Full.Name",
-          "Pref.Name",
-          "placement",
-          "School",
-          "Gender",
-          "Race.Ethnicity", 
-          "Attnd.CY.School",
-          "Language.Ability.Spanish",
-          "Tutoring.Experience.Months",
-          "Tutoring.Experience.Grades",
-          "Grade.Lvl.Pref",
-          "Teaching.Credential",
-          "Tutoring.Preference",
-          "Math.Confidence",
-          "Birth.Date",
-          "Educational.Attainment",
-          # "Did you work closely with a City Year member or were you part of the Young Heroes program?",
-          # "Do you have a pre-existing relationship with anyone at City Year Chicago (corps or staff)?",
-          # "Please list their names:",
-          # "You are presented with a project to plan. You would most likely work with your team in which of the following ways?",
-          # "When you are under pressure to get an assignment in on time, how do you normally react?",
-          # "If people were to describe you in one word, which of the following would it be?",
-          # "When given a new project, your first response is which of the following?",
-          # "Becoming a City Year corps member often comes with a number of uncertainties. Of the following, which is of biggest concern to you?", 
-          "Roommate.Names",
-          "Home.Address",
-          "Travel.Method",
-          "Commute.Time",
-          "Commute.Rank",
-          "Manual.Placement")
+            "Full.Name",
+            "Pref.Name",
+            "placement",
+            "School",
+            "Gender",
+            "Race.Ethnicity", 
+            "Attnd.CY.School",
+            "Language.Ability.Spanish",
+            "Tutoring.Experience.Months",
+            "Tutoring.Experience.Grades",
+            "Grade.Lvl.Pref",
+            "Teaching.Credential",
+            "Tutoring.Preference",
+            "Math.Confidence",
+            "Birth.Date",
+            "Educational.Attainment",
+            # "Did you work closely with a City Year member or were you part of the Young Heroes program?",
+            # "Do you have a pre-existing relationship with anyone at City Year Chicago (corps or staff)?",
+            # "Please list their names:",
+            # "You are presented with a project to plan. You would most likely work with your team in which of the following ways?",
+            # "When you are under pressure to get an assignment in on time, how do you normally react?",
+            # "If people were to describe you in one word, which of the following would it be?",
+            # "When given a new project, your first response is which of the following?",
+            # "Becoming a City Year corps member often comes with a number of uncertainties. Of the following, which is of biggest concern to you?", 
+            "Roommate.Names",
+            "Home.Address",
+            "Travel.Method",
+            "Commute.Time",
+            "Commute.Rank",
+            "Manual.Placement")
   
   best_placements <- best_placements[, cols]
   
@@ -757,15 +785,15 @@ output <- run_intermediate_annealing_process(starting_placements = team_placemen
 
 best_placements <- output$best_placements
 
-trace <- output$trace
+# Hide "blown up" scores for a smoother, more interpretable graph
+if(output$best_score < 1000000){
+  trace <- output$trace[output$trace$score < 1000000, ]
+} else {
+  trace <- output$trace
+}
 
-scores_if_error <- as.data.frame(output$candidate_score)
-
-scores <- as.data.frame(output$diff_scores)
-
-write.table(output$best_placements, file = paste(root_dir, "Output - Team Placements (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
-write.table(output$trace, file = paste(root_dir, "Output - Trace (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
-write.table(scores, file = paste(root_dir, "Output - Scores (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
+#write.table(output$best_placements, file = paste(root_dir, "Output - Team Placements (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
+#write.table(output$trace, file = paste(root_dir, "Output - Trace (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
 
 ```
 
@@ -790,6 +818,7 @@ ethnicity_eths <-
 hist(ethnicity_eths$avg_eths_rep, breaks = 7, main = "Number Teams at Various % Ethnic Representations", xlab = "% Ethnic Representation", freq = TRUE, col = "grey", plot = TRUE, labels = FALSE)
 
 hist(best_placements$Commute.Time, breaks = 10, main = "Number ACMs at Various # Minutes Commuting", xlab = "# Minutes Commuting", freq = TRUE, col = "grey", plot = TRUE, labels = FALSE)
+trace
 ```
 
 
