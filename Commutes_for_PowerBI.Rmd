@@ -2,11 +2,11 @@
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\"
-dataset$calc_commutes[1] <-"No"
+dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\BOS\\"
+dataset$calc_commutes[1] <-"Yes"
 dataset$API_Key[1] <- ""
 dataset$used_surveygizmo[1] <- "No"
-dataset$arrival_date[1] <- "2017-08-21"
+dataset$arrival_date[1] <- "2017-09-18"
 
 ```
 
@@ -25,7 +25,8 @@ if(dataset$calc_commutes[1] == "Yes"){
   
   # acm_df <- dataset
   acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
-  school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xls", sep = ""))
+  school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xlsx", sep = ""))
+  school_df <- school_df[!is.na(school_df$School),]
   
   if(used_surveygizmo == "Yes"){
     vars_df <- read_excel(path = paste(root_dir, "Survey Items to Variable Names.xls", sep = ""))
@@ -38,10 +39,13 @@ if(dataset$calc_commutes[1] == "Yes"){
     }
   }
   
+  acm_df <- acm_df[acm_df$acm_id>262,]
+  
   school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, "%I:%M%p" ),12,19)
   school_df$`ACM Start Time` <- as.POSIXct(paste(arrival_date, school_df$`ACM Start Time`))
   attributes(school_df$`ACM Start Time`)$tzone <- "GMT"
-  school_df$`ACM Start Time` <- as.integer(school_df$`ACM Start Time`)
+  # Subtract 5 mins so ACM has time to get to circle
+  school_df$`ACM Start Time` <- as.integer(school_df$`ACM Start Time`)-300
   
   #school_df$`ACM End Time` <- substr(strptime(school_df$`ACM End Time`, "%I:%M%p" ),12,19)
   #school_df$`ACM End Time` <- as.POSIXct(paste("2020-09-07", school_df$`ACM End Time`))
@@ -145,31 +149,54 @@ if(dataset$calc_commutes[1] == "Yes"){
   acm_commutes <- data.frame()
   
   count = 1
-  
+
   for (x in acm_df$acm_id[(acm_df$Res.Address.Line.1 != "") & 
                           !(is.na(acm_df$Res.Address.Line.1))]){
     count = count + 1
     
-    for(y in school_df$Address.Clean){
-      
+    for(y in school_df$School[school_df$Address.Clean != "" & !is.na(school_df$Address.Clean!="")]){
+
       acm_commute <- data.frame("acm_id" = x,
                                 "Full.Name" = as.character(acm_df$Full.Name[acm_df$acm_id == x]),
                                 "Home.Address" = as.character(acm_df$Full.Address[acm_df$acm_id == x]),
-                                "School.Address" = y,
-                                "School" = school_df$School[school_df$Address.Clean == y],
+                                "School.Address" = school_df$Address.Clean[school_df$School == y],
+                                "School" = y,
                                 "Commute.Time" = NA,
                                 "Mode" = acm_df$Travel.Method[acm_df$acm_id == x],
                                 "Status" = NA)
-      
-      commute = gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
-                              destination = y, 
-                              mode = acm_df$Travel.Method[acm_df$acm_id == x],
-                              arrival_time= school_df$`ACM Start Time`[school_df$Address.Clean == y],
-                              api = api)
-  
+
+      commute <- NA
+      commute <- gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
+                               destination = school_df$Address.Clean[school_df$School == y], 
+                               mode = acm_df$Travel.Method[acm_df$acm_id == x],
+                               arrival_time= as.character(school_df$`ACM Start Time`[school_df$School == y]),
+                               api = api)
+
       acm_commute$"Commute.Time" = commute$Time[1]
+      acm_commute$"Distance" = commute$Distance[1]
       acm_commute$"Status" = commute$Status[1]
-  
+      
+      if (commute$Status[1] == "ROUTE_NOT_FOUND"){
+        commute = gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
+                              destination = as.character(school_df$Address.Clean[school_df$School == y]), 
+                              mode = "driving",
+                              arrival_time= school_df$`ACM Start Time`[school_df$School == y],
+                              api = api)
+        acm_commute$"Commute.Time" = commute$Time[1]
+        acm_commute$"Distance" = commute$Distance[1]
+      }
+      
+      if (commute$Status[1] == "PLACE_NOT_FOUND"){
+        commute = gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
+                              destination = as.character(school_df$Address.Clean[school_df$School == y]), 
+                              mode = acm_df$Travel.Method[acm_df$acm_id == x],
+                              arrival_time= school_df$`ACM Start Time`[school_df$School == y],
+                              api = api)
+        acm_commute$"Commute.Time" = commute$Time[1]
+        acm_commute$"Distance" = commute$Distance[1]
+        acm_commute$"Status" = commute$Status[1]
+      }
+
       rownames(acm_commute) <- c()
       
       acm_commutes <- rbind(acm_commutes, acm_commute)
@@ -178,17 +205,55 @@ if(dataset$calc_commutes[1] == "Yes"){
 
   acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
   
-  acm_commutes <- acm_commutes %>% 
+  # If some (but not all) of an ACMs commutes were "ROUTE_NOT_FOUND" or "PLACE_NOT_FOUND", then convert commute.time to 999. If ALL were "ROUTE_NOT_FOUND", then driving commutes were calculated. They will be left in order to calc commute.rank, then converted to NA. User may then manually place "ROUTE_NOT_FOUND" ACMs based on commute.rank
+  ids_some_ROUTE_NOT_FOUND <- acm_commutes %>% 
+    group_by(acm_id) %>%
+    count(Status) %>%
+    filter(Status == "ROUTE_NOT_FOUND") %>%
+    filter(n != nrow(school_df)) %>%
+    select(acm_id)
+  
+  try((acm_commutes[(acm_commutes$acm_id %in% unlist(ids_some_ROUTE_NOT_FOUND)) & (acm_commutes$Status == "ROUTE_NOT_FOUND"),]$Commute.Time <- 999),
+      silent = TRUE)
+  
+  ids_some_PLACE_NOT_FOUND <- acm_commutes %>% 
+    group_by(acm_id) %>%
+    count(Status) %>%
+    filter(Status == "PLACE_NOT_FOUND") %>%
+    filter(n != nrow(school_df)) %>%
+    select(acm_id)
+  
+  try((acm_commutes[(acm_commutes$acm_id %in% unlist(ids_some_PLACE_NOT_FOUND)) & (acm_commutes$Status == "PLACE_NOT_FOUND"),]$Commute.Time <- 999),
+      silent = TRUE)
+  
+  # Convert NA commute times to 999
+  try((acm_commutes$Commute.Time[is.na(acm_commutes$Commute.Time)] <- 999), silent = TRUE)
+
+  # Commute Rank
+  acm_commutes <- acm_commutes %>%
     arrange(Commute.Time) %>%
     group_by(acm_id) %>%
     mutate(Commute.Rank = rank(Commute.Time, ties.method = "min")) %>%
     ungroup() %>%
     arrange(acm_id)
   
-  acm_commutes$Commute.Rank[is.na(acm_commutes$Commute.Time)] <- NA
-  
+  # merge in schools with no address
+  if(nrow( school_df[is.na(school_df$Address),])>0){
+    acm_commutes_no_sch <- acm_commutes[,!names(acm_commutes) %in% c("School")]
+    acm_commutes_no_sch <- acm_commutes_no_sch[!(duplicated(acm_commutes_no_sch$acm_id)),]
+    acm_commutes_sch_no_addr <- merge(acm_commutes_no_sch, school_df[,c("School")][is.na(school_df$Address),])
+    
+    acm_commutes_sch_no_addr[,c("Home.Address", "School.Address", "Status", "Distance")] <- NA
+    acm_commutes <- rbind(acm_commutes, acm_commutes_sch_no_addr)
+  }
+
+  try(acm_commutes$Commute.Time[(acm_commutes$Status != "OK" | is.na(acm_commutes$Status))] <- 999, silent=TRUE)
+  try(acm_commutes$Commute.Rank[is.na(acm_commutes$Status)] <- NA, silent=TRUE)
+
+  acm_commutes <- acm_commutes[order(acm_commutes$acm_id),]
+
   # Write to .csv, which will be referenced by main algorithm
-  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
+  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE, na = "")
   
 } else {
   acm_commutes <- data.frame(acm_id	= NA,
@@ -201,29 +266,5 @@ if(dataset$calc_commutes[1] == "Yes"){
                                Stutus	= NA,
                                Commute.Rank= NA)
 }
-
-```
-
-```{r}
-# library(dplyr)
-# library(tidyr)
-# library(readxl)
-# library(XML)
-# library(RCurl)
-# 
-# acm_commutes <- read.csv(file = paste(root_dir, "ACM Commutes.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
-# 
-# acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
-#   
-# acm_commutes <- acm_commutes %>% 
-#   arrange(Commute.Time) %>%
-#   group_by(acm_id) %>%
-#   mutate(Commute.Rank = rank(Commute.Time, ties.method = "min")) %>%
-#   ungroup() %>%
-#   arrange(acm_id)
-# 
-# acm_commutes
-# 
-# write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE)
-  
+View(acm_commutes)
 ```
