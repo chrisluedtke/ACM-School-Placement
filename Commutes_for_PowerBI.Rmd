@@ -1,8 +1,10 @@
 ```{r}
+# This portion is for setting parameters in a way that mimics PowerBI. In PowerBI, input parameters are contained in an object called dataset.
+
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\BOS\\"
+dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\FY18 Placements\\"
 dataset$calc_commutes[1] <-"Yes"
 dataset$API_Key[1] <- ""
 dataset$used_surveygizmo[1] <- "No"
@@ -11,6 +13,8 @@ dataset$arrival_date[1] <- "2017-09-18"
 ```
 
 ```{r}
+# This is the only necessary code block for running in PowerBI.
+
 if(dataset$calc_commutes[1] == "Yes"){
   library(dplyr)
   library(tidyr)
@@ -39,18 +43,11 @@ if(dataset$calc_commutes[1] == "Yes"){
     }
   }
   
-  acm_df <- acm_df[acm_df$acm_id>262,]
-  
   school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, "%I:%M%p" ),12,19)
   school_df$`ACM Start Time` <- as.POSIXct(paste(arrival_date, school_df$`ACM Start Time`))
   attributes(school_df$`ACM Start Time`)$tzone <- "GMT"
   # Subtract 5 mins so ACM has time to get to circle
   school_df$`ACM Start Time` <- as.integer(school_df$`ACM Start Time`)-300
-  
-  #school_df$`ACM End Time` <- substr(strptime(school_df$`ACM End Time`, "%I:%M%p" ),12,19)
-  #school_df$`ACM End Time` <- as.POSIXct(paste("2020-09-07", school_df$`ACM End Time`))
-  #attributes(school_df$`ACM End Time`)$tzone <- "GMT" 
-  #school_df$`ACM End Time` <- as.integer(school_df$`ACM Start Time`)
   
   # Convert 'Walking', 'Bicycling', 'Public Transportation' to 'transit'
   acm_df$Travel.Method <- as.character(acm_df$Travel.Method)
@@ -82,6 +79,7 @@ if(dataset$calc_commutes[1] == "Yes"){
                  "&mode=", mode,
                  "&units=metric",
                  "&arrival_time=", arrival_time,
+                 "&avoid=tolls",
                  "&key=", api)
     
     # Call the Google Maps Webservice and store the XML output in webpageXML
@@ -155,7 +153,6 @@ if(dataset$calc_commutes[1] == "Yes"){
     count = count + 1
     
     for(y in school_df$School[school_df$Address.Clean != "" & !is.na(school_df$Address.Clean!="")]){
-
       acm_commute <- data.frame("acm_id" = x,
                                 "Full.Name" = as.character(acm_df$Full.Name[acm_df$acm_id == x]),
                                 "Home.Address" = as.character(acm_df$Full.Address[acm_df$acm_id == x]),
@@ -253,7 +250,7 @@ if(dataset$calc_commutes[1] == "Yes"){
   acm_commutes <- acm_commutes[order(acm_commutes$acm_id),]
 
   # Write to .csv, which will be referenced by main algorithm
-  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE, na = "")
+  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes11.csv", sep = ""), sep=",", row.names=FALSE, na = "")
   
 } else {
   acm_commutes <- data.frame(acm_id	= NA,
@@ -266,5 +263,4 @@ if(dataset$calc_commutes[1] == "Yes"){
                                Stutus	= NA,
                                Commute.Rank= NA)
 }
-View(acm_commutes)
 ```
