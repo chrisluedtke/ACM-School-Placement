@@ -495,7 +495,7 @@ calculate_score <- function(team_placements_df, school_targets, gender_target=ge
   # AGE SCORE #
   #############
   # This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
-  if(age_factor > 0){
+  if(age_factor != 0){
     age_var <-team_placements_df %>%
       filter(!is.na(days_old)) %>%
       group_by(placement) %>%
