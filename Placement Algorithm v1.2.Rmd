@@ -252,7 +252,7 @@ school_config <- function(school_df, acm_enc){
   school_df$HSGrad_tgt <- ifelse(school_df$span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(school_df$size))
   school_df$SomeCol_tgt <- education[education$level %in% 'SomeCol',]$ratio * as.numeric(school_df$size)
   school_df$TutExp = as.numeric(school_df$size) * tut_exp[tut_exp$HasTutored == 1,]$ratio
-  #schoo-_df$SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1),# This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other placeschoo-_df$s.
+  #schoo-_df$SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1),# This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other places.
   school_df$OtherLang_tgt <- lang[lang$ability %in% 'other',]$ratio * as.numeric(school_df$size)
   school_df$Math_tgt <- ifelse(school_df$span=="Elementary", as.numeric(school_df$size)*.5*math, ifelse(school_df$span=="Middle", .75*as.numeric(school_df$size)*math, as.numeric(school_df$size)*math))
   school_df$Male_tgt <- as.numeric(school_df$size)*gender
@@ -261,7 +261,7 @@ school_config <- function(school_df, acm_enc){
 }
 
 elig_plcmnts_static <- function(team_placements_df, school_df){
-  
+
   perm <- merge(team_placements_df, school_df, all.x=TRUE) %>%
      mutate(elig = 1, 
             HS_conf = 0, 
@@ -285,11 +285,14 @@ elig_plcmnts_static <- function(team_placements_df, school_df){
   perm$pre_IM_conf <- as.numeric(mapply(grepl, pattern=perm$`Manager`, perm$Prior.Rship.Name))
   perm$pre_IM_conf[is.na(perm$pre_IM_conf)] <- 0
 
-  # Set elig col, overwrite for manual placements
+  # Manual Placements
+  perm$MP_conf[!is.na(perm$Manual.Placement) & (perm$School != perm$Manual.Placement)] <- 1
+  
+  # Set elig col
   perm$conf_sum <- rowSums(perm[,c("HS_conf", "tl_conf", "pre_TL_conf", "pre_IM_conf", "MP_conf", "spanish_conf")])
   perm$elig[perm$conf_sum >= 1] <- 0
   
-  # 1-29-18 Chris: can't quite remember why I added these 2 lines
+  # 1-29-18 Chris: can't quite remember why I added these 2 lines, probably just to be certain that manual placements trump all
   perm$elig[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 1
   perm$elig[!is.na(perm$Manual.Placement) & (perm$School != perm$Manual.Placement)] <- 0
   
@@ -300,43 +303,44 @@ elig_plcmnts_static <- function(team_placements_df, school_df){
 }
 
 # Update school eligilibity based on roommates and previous relationships
-elig_plcmnt_iter <- function(team_placements_df, elig_placements, ij){
-  browser()
+# Some way to store these calcs as a reference? For each ACM, colums 'AMC1_id_AMC2_id' and 'elig' (1 or 0)
+elig_plcmnts_iter <- function(team_placements_df, elig_placements, ij){
+
   # updates "elig" column with a 0 where roommate conflicts WOULD exist if the ACM were to be placed at each school
   inter_counts_df <- team_placements_df %>%
     group_by(placement) %>%
     summarise(team.roommates = paste0(unique(Roommate.Names), collapse=""), team.names = paste0(Full.Name, collapse=""))
   #, IJ.Teams = if(ij == "IJ teams already exist. Prevent IJ teammates from serving on school teams.") paste0(unique(IJ.Placement), collapse="") else 0
 
-  elig_placements_iter <- merge(elig_placements, inter_counts_df, by.x="sch_id", by.y="placement", all.x=TRUE)
+  elig_iter_df <- merge(elig_placements, inter_counts_df, by.x="sch_id", by.y="placement", all.x=TRUE)
 
   # rm_conf = 1 where there is a roommate conflict
-  elig_placements_iter$rm_conf[!is.na(elig_placements_iter$Roommate.Names)] <- as.numeric(mapply(grepl, pattern=elig_placements_iter$Roommate.Names[!is.na(elig_placements_iter$Roommate.Names)], elig_placements_iter$team.roommates[!is.na(elig_placements_iter$Roommate.Names)]))
+  elig_iter_df$rm_conf[!is.na(elig_iter_df$Roommate.Names)] <- as.numeric(mapply(grepl, pattern=elig_iter_df$Roommate.Names[!is.na(elig_iter_df$Roommate.Names)], elig_iter_df$team.roommates[!is.na(elig_iter_df$Roommate.Names)]))
   
-  elig_placements_iter$rm_conf[is.na(elig_placements_iter$rm_conf)] <- 0
+  elig_iter_df$rm_conf[is.na(elig_iter_df$rm_conf)] <- 0
   
-  # rm_conf = 1 where there is a prev_rel_conf
-  elig_placements_iter$prev_rel_conf[!is.na(elig_placements_iter$Prior.Rship.Name1)] <- as.numeric(mapply(grepl, pattern=elig_placements_iter$Prior.Rship.Name1[!is.na(elig_placements_iter$Prior.Rship.Name1)], elig_placements_iter$team.names[!is.na(elig_placements_iter$Prior.Rship.Name1)]))
+  # rm_conf = 1 where there is a prev_rel_conf, for each 'Prior.Rship.Name#' column
+  elig_iter_df$prev_rel_conf[!is.na(elig_iter_df$Prior.Rship.Name1)] <- as.numeric(mapply(grepl, pattern=elig_iter_df$Prior.Rship.Name1[!is.na(elig_iter_df$Prior.Rship.Name1)], elig_iter_df$team.names[!is.na(elig_iter_df$Prior.Rship.Name1)]))
   
-  elig_placements_iter$prev_rel_conf[!is.na(elig_placements_iter$Prior.Rship.Name2) & elig_placements_iter$prev_rel_conf != 1] <- as.numeric(mapply(grepl, pattern=elig_placements_iter$Prior.Rship.Name2[!is.na(elig_placements_iter$Prior.Rship.Name2) & elig_placements_iter$prev_rel_conf != 1], elig_placements_iter$team.names[!is.na(elig_placements_iter$Prior.Rship.Name2) & elig_placements_iter$prev_rel_conf != 1]))
+  elig_iter_df$prev_rel_conf[!is.na(elig_iter_df$Prior.Rship.Name2) & elig_iter_df$prev_rel_conf != 1] <- as.numeric(mapply(grepl, pattern=elig_iter_df$Prior.Rship.Name2[!is.na(elig_iter_df$Prior.Rship.Name2) & elig_iter_df$prev_rel_conf != 1], elig_iter_df$team.names[!is.na(elig_iter_df$Prior.Rship.Name2) & elig_iter_df$prev_rel_conf != 1]))
   
-  elig_placements_iter$prev_rel_conf[is.na(elig_placements_iter$prev_rel_conf)] <- 0
+  elig_iter_df$prev_rel_conf[is.na(elig_iter_df$prev_rel_conf)] <- 0
   
   #if (ij == "IJ teams already exist. Prevent IJ teammates from serving on school teams.") {
-  #  elig_placements_iter$ij_conf[!is.na(elig_placements_iter$IJ.Placement)] <- mapply(grepl, pa#ttern=elig_placements_iter$IJ.Placement[!is.na(elig_placements_iter$IJ.Placement)], elig_placements_iter$IJ.Teams[!is.na(elig_placements_iter$IJ.Placement)])
+  #  elig_iter_df$ij_conf[!is.na(elig_iter_df$IJ.Placement)] <- mapply(grepl, pa#ttern=elig_iter_df$IJ.Placement[!is.na(elig_iter_df$IJ.Placement)], elig_iter_df$IJ.Teams[!is.na(elig_iter_df$IJ.Placement)])
   #  
-  #  elig_placements_iter$ij_conf[elig_placements_iter$IJ.Placement == elig_placements_iter$`Team Leader`] <- 1
+  #  elig_iter_df$ij_conf[elig_iter_df$IJ.Placement == elig_iter_df$`Team Leader`] <- 1
   #  
-  #  elig_placements_iter$ij_conf[is.na(elig_placements_iter$ij_conf)] <- 0
+  #  elig_iter_df$ij_conf[is.na(elig_iter_df$ij_conf)] <- 0
   #  
-  #  elig_placements_iter$elig[elig_placements_iter$ij_conf == 1] <- 0
+  #  elig_iter_df$elig[elig_iter_df$ij_conf == 1] <- 0
   #}
-  
-  # Only need to convert to zero rather than 1 because all items in this col were defaulted to 1. 1 means eligible. 0 means not.
-  elig_placements_iter$elig[elig_placements_iter$prev_rel_conf == 1 & is.na(elig_placements_iter$Manual.Placement)] <- 0
-  elig_placements_iter$elig[elig_placements_iter$rm_conf == 1 & is.na(elig_placements_iter$Manual.Placement)] <- 0
 
-  return(elig_placements_iter)
+  # Only need to convert to zero rather than 1 because all items in elig col were defaulted to 1
+  elig_iter_df$iter_conf_sum <- rowSums(elig_iter_df[,c("prev_rel_conf", "rm_conf")])
+  elig_iter_df$elig[(elig_iter_df$iter_conf_sum >= 1) & is.na(elig_iter_df$Manual.Placement)] <- 0
+
+  return(elig_iter_df)
 }
 
 initial_placement <- function(acm_enc, school_targets){
@@ -363,7 +367,6 @@ initial_placement <- function(acm_enc, school_targets){
     team_placements <- c(team_placements, team_slots)
   }
   
-
   # random placements of CMs 
   team_placements <- data.frame(placement=unlist(team_placements))
 
@@ -401,7 +404,7 @@ initial_valid_placement <- function(team_placements_df, school_df, prevent_roomm
     team_placements_df$acm_id_sch_id <- paste(team_placements_df$acm_id, team_placements_df$placement, sep="_")
 
     if(prevent_roommates == "Yes"){
-      elig_placements_iter <- elig_plcmnt_iter(team_placements_df, elig_placements, ij)
+      elig_placements_iter <- elig_plcmnts_iter(team_placements_df, elig_placements, ij)
 
       # determine if current roommate conflicts exist
       teams_no_rm_confs <- team_placements_df[!is.na(team_placements_df$Roommate.Names),] %>%
@@ -611,20 +614,28 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     
     # 1-29-18 Chris: this should not be 'if', since it also includes prior relationships, not just roommates
     if(prevent_roommates == "Yes"){
-      elig_placements_iter <- elig_plcmnt_iter(candidate_placements_df, elig_placements, ij)
+      elig_placements_iter <- elig_plcmnts_iter(candidate_placements_df, elig_placements, ij)
     } else {
       elig_placements_iter <- elig_placements
     }
     
     candidate_placements_df <- merge(candidate_placements_df, elig_placements_iter[,c("acm_id_sch_id", "elig")], by="acm_id_sch_id", all.x = TRUE)
     
+    # 1-29-18 Chris Spanish speaker update to be done: 
+    # Set requirement target manually with column in school config file
+    # Randomly place Spanish speakers such that targets are met (throw error if not possible)
+    # When Spanish speaker randomly chosen for placement, only consider swaps with other Spanish speakers, unless the chosen ACM is already at a school with surplus of Spanish speakers, in which case they could be placed anywhere
+    
     swap1 <- sample( candidate_placements_df$acm_id[is.na(candidate_placements_df$Manual.Placement)], 1)
     
     schools_to_swap[1] <- candidate_placements_df$placement[candidate_placements_df$acm_id==swap1]
 
     school2_set <- elig_placements_iter$sch_id[(elig_placements_iter$elig==1) &
-                                                                       (elig_placements_iter$acm_id == swap1) &
-                                                                       (elig_placements_iter$sch_id != schools_to_swap[1])]
+                                                 (elig_placements_iter$acm_id == swap1) &
+                                                 (elig_placements_iter$sch_id != schools_to_swap[1])]
+    # & school contains at least one valid ACM to choose who is not roommate/prior relationship of ACM1
+    # to find valid placement, subtract the schools your roommates are in
+    
     if(length(school2_set)==0){
       candidate_placements_df <- candidate_placements_df[, !names(candidate_placements_df) %in% c("elig", "elig_rms", "acm_id_sch_id")]
       next}
@@ -633,7 +644,9 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
 
     swap2_set <- elig_placements_iter$acm_id[elig_placements_iter$elig==1 & 
                                                elig_placements_iter$sch_id == schools_to_swap[1] & 
-                                               elig_placements_iter$acm_id %in% candidate_placements_df$acm_id[candidate_placements_df$placement == schools_to_swap[2]]]
+                                               elig_placements_iter$acm_id %in%
+                                               candidate_placements_df$acm_id[candidate_placements_df$placement == schools_to_swap[2]]]
+    
     if(length(swap2_set)==0){
       candidate_placements_df <- candidate_placements_df[, !names(candidate_placements_df) %in% c("elig", "elig_rms", "acm_id_sch_id")]
       next}
