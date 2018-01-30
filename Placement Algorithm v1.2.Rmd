@@ -1,23 +1,14 @@
----
-title: "Placement Algorithm v1.2"
-output: html_document
----
+```{r Power BI Inputs}
+#rm(list=ls(all=TRUE))
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-require(readxl)
-require(dplyr)
-require(tidyr)
-require(data.table)
-```
-
-```{r "Set Parameters""}
 # Initialize
 dataset <- data.frame(FP = 1)
+
 # Data Source Parameters
-dataset$FP[1] <-"C:\\Users\\Alexander\\GitHub\\ACM-School-Placement\\"
+dataset$FP[1] <-"C:\\Users\\CLuedtke\\ACM-School-Placement\\"
 dataset$used_surveygizmo[1] <- "No"
+acm_df_file <- "Input 1 - ACM Data - CHI SY18.csv"
+school_df_file <- "Input 2 - School Data - CHI SY18.xlsx"
 
 # Algorithm Settings
 dataset$number_iterations[1] <- 2000
@@ -27,19 +18,26 @@ dataset$ij[1] <- "Do nothing with IJ Teams."
 dataset$prevent_roommates[1] <-"Yes"
 dataset$consider_HS_elig[1] <- "No"
 
-# Set Soft Constraints
+# Set Soft  Constraints
+dataset$consider_commutes[1] <- "No"
 dataset$commute_factor = 0
 dataset$age_factor = 0
-dataset$ethnicity_factor= 1
+dataset$ethnicity_factor = 1
 dataset$Edscore_factor = 0
 dataset$Tutoring_factor = 0
 dataset$Spanish_factor = 0
 dataset$Math_factor = 0
 dataset$Gender_factor = 1
-dataset$preserve_ij_factor = 1
+dataset$preserve_ij_factor = 0
 ```
 
-```{r "Load Parameters & Data""}
+```{r Define Functions}
+# 'dataset' holds the input data for this script
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(data.table)
+
 root_dir <- dataset$FP[1]
 prevent_roommates <- dataset$prevent_roommates[1]
 number_iterations <- dataset$number_iterations[1]
@@ -49,14 +47,108 @@ consider_HS_elig <- dataset$consider_HS_elig[1]
 ij <- dataset$ij[1]
 preserve_ij_factor <- dataset$preserve_ij_factor[1]
 
-raw_acm <- read.csv('Input 1 - ACM Data.csv')
-raw_school <- read_excel('Input 2 - School Data.xls')
-```
+# Adjusted Factors
+#sum_factors <- sum(c(dataset$commute_factor, dataset$age_factor, dataset$ethnicity_factor, #dataset$Edscore_factor,dataset$Tutoring_factor,dataset$Spanish_factor,dataset$Math_factor,dataset$Gender_factor))
+#
+#dataset$commute_factor = dataset$commute_factor/sum_factors
+#dataset$age_factor = dataset$age_factor/sum_factors
+#dataset$ethnicity_factor = dataset$ethnicity_factor/sum_factors
+#dataset$Edscore_factor = dataset$Edscore_factor/sum_factors
+#dataset$Tutoring_factor = dataset$Tutoring_factor/sum_factors
+#dataset$Spanish_factor = dataset$Spanish_factor/sum_factors
+#dataset$Math_factor = dataset$Math_factor/sum_factors
+#dataset$Gender_factor = dataset$Gender_factor/sum_factors
 
-```{r}
+# FUNCTIONS BELOW
+
+rename_headers <- function(acm_df){
+  vars_df <- read_excel(path = paste(root_dir, "Survey Items to Variable Names.xls", sep = ""))
+  
+  # Rename Headers
+  for (x in names(acm_df)){
+    if(x %in% vars_df$Survey.Item){
+      names(acm_df)[names(acm_df) == x] <- as.character(vars_df$Variable.Name[vars_df$Survey.Item == x])
+    }
+  }
+  acm_df
+}
+
+clean_roommates <- function(acm_df){
+  cols <- c("Roommate.Names1",
+            "Roommate.Names2",
+            "Roommate.Names3",
+            "Roommate.Names4",
+            "Roommate.Names5")
+  
+  roommates_df <- acm_df[,names(acm_df) %in% c("Full.Name", "Roommates", cols)]
+  
+  roommates_df <- roommates_df[roommates_df$Roommates == 'Yes' | roommates_df$Full.Name %in% unlist(roommates_df[, cols], use.names = FALSE), ]
+
+  acm_df$Roommate.Names <- NA
+  
+  for (x in roommates_df$Full.Name){
+    # Select any rows containing ACM name
+    other_roommates <- subset(roommates_df, apply(roommates_df, 1, function(y){any(y == x)}))
+    
+    cols <- c("Full.Name", cols)
+    
+    # Select unique roommate names
+    roommates_list <- unique(unlist(other_roommates[, cols], use.names = FALSE))
+    roommates_list <- sort(roommates_list[!is.na(roommates_list) & (roommates_list != "")])
+    
+    acm_df$Roommate.Names[acm_df$Full.Name == x] <- paste(roommates_list, collapse=", ")
+  }
+  
+  acm_df
+}
+
+clean_pre_rel <- function(acm_df){
+  pre_rel_cols <- c("Prior.Rship.Name1",
+                    "Prior.Rship.Name2",
+                    "Prior.Rship.Name3",
+                    "Prior.Rship.Name4",
+                    "Prior.Rship.Name5")
+  
+  acm_df[, pre_rel_cols] <- NA
+  
+  acm_df$Prior.Rship.Name[acm_df$Prior.Rship.Name == ""] <- NA
+  
+  for (x in acm_df$Prior.Rship.Name[!is.na(acm_df$Prior.Rship.Name)]){
+    elems <- unlist(strsplit(x , ", "))
+    acm_df$Prior.Rship.Name1[acm_df$Prior.Rship.Name==x] <- elems[1]
+    if(length(elems) > 1) acm_df$Prior.Rship.Name2[acm_df$Prior.Rship.Name==x] <- elems[2]
+    if(length(elems) > 2) acm_df$Prior.Rship.Name3[acm_df$Prior.Rship.Name==x] <- elems[3]
+    if(length(elems) > 3) acm_df$Prior.Rship.Name4[acm_df$Prior.Rship.Name==x] <- elems[4]
+    if(length(elems) > 4) acm_df$Prior.Rship.Name5[acm_df$Prior.Rship.Name==x] <- elems[5]
+  }
+  
+  # pre_rel_df <- acm_df[!is.na(acm_df$Prior.Rship.Name) | acm_df$Full.Name %in% unlist(acm_df[, pre_rel_cols], use.names = FALSE), ]
+  
+  # for (x in pre_rel_df$Full.Name){
+  #   # Select any rows containing ACM name
+  #   other_pre_rels <- subset(pre_rel_df, apply(pre_rel_df, 1, function(y){any(y == x)}))
+  #   
+  #   pre_rel_cols <- c("Full.Name", pre_rel_cols)
+  #   
+  #   # Select unique roommate names
+  #   pre_rels_list <- unique(unlist(other_pre_rels[, pre_rel_cols], use.names = FALSE))
+  #   pre_rels_list <- sort(pre_rels_list[!is.na(pre_rels_list) & (pre_rels_list != "")])
+  #   
+  #   acm_df$Prior.Rship.Name[acm_df$Full.Name == x] <- paste(pre_rels_list, collapse=", ")
+  # }
+
+  return(acm_df)
+}
+
+#  Encode Variables & Clean Up Input Dataframes
+
+#Before being able to calculate a score, we'll need to encode all of our variables numerically.  For categorical ## variables, we can create a dummy variable for all except one of the categories (this is because the last category can be inferred).
+
+# This function takes the input acm_df and encodes the variables in a way that makes the mathematically tractable.
+
 encode_acm_df <- function(df){
 
-  acm_enc <- select(df, acm_id, Math.Confidence)
+  acm_enc <- select(acm_df, acm_id, Math.Confidence)
   
   # Ed Attainment
   acm_enc$Ed_HS <- as.numeric(grepl("High School/GED", df$Educational.Attainment))
@@ -100,5 +192,858 @@ encode_acm_df <- function(df){
 
   return(acm_enc)
 }
+
+# This function calculates some import counts which I'm going to use a lot when trying to figure out the expected number of ACMs per team per metric.  This function will just be used internally by the school_config function.
+
+corps_demographic_targets <- function(school_df, acm_enc){
+  # Calculate some totals used later in the function
+  N <- nrow(acm_enc)
+  S <- nrow(school_df)
+  
+  # Counts of schools by level
+  school_counts <- group_by(school_df, GradeLevel) %>% summarise(count=n())
+  
+  # Approximation of densly spanish speaking schools
+  # dense_hispanic <- nrow(school_df[school_df$`% Hispanic` > 10, ])
+  
+  # We'll store our results in a list so we can return multiple tables
+  distros <- list()
+  
+  # Produce ratio of folks who have completed at least an associates, and those who haven't
+  # HS ratio is ( Number HS-educated ACMs / (N - n_HS_slots) ), since High Schools will have 0 HS-only educated ACMs
+  n_HS_slots <- sum(school_df$`Team Size`[school_df$GradeLevel == "High"])
+  distros$education <- data.frame(level = c("HS", "SomeCol"), ratio = c(nrow(acm_enc[acm_enc$Ed_HS == 1,]) / (N - n_HS_slots), nrow(acm_enc[acm_enc$Ed_SomeCol == 1,]) / N))
+  
+  # Identify rates of Tutoring Experience
+  distros$tut_exp <- group_by(acm_enc, HasTutored) %>% 
+    summarise(count=n()) %>% 
+    mutate(ratio = count/N)
+  
+  # Spanish and other spoken language distribution
+  distros$lang <- data.frame(ability = c("spanish","other"), ratio = c(nrow(acm_enc[acm_enc$SpanishAble == 1, ]) / N, nrow(acm_enc[acm_enc$Lang_Other == 1, ]) / N))
+  
+  # Math Ability
+  distros$math <- nrow(acm_enc[acm_enc$Math.Confidence == 1,]) / N
+  
+  # Gender
+  distros$gender <- nrow(acm_enc[(acm_enc$Male == 1) | (acm_enc$Other.Gender == 1), ]) / N
+  
+  distros
+}
+
+# Directly calculates the expected number of ACMs per team for each of the markers.
+# My methodology is to aim for a uniform distribution when it makes sense.
+
+school_config <- function(school_df, acm_enc){
+  # Precalculate some helpful counts
+  corps_demos <- corps_demographic_targets(school_df, acm_enc)
+  # Unravel list into some variables.  Mostly so that the code is a little cleaner later.
+  education <- corps_demos$education
+  lang <- corps_demos$lang
+  tut_exp <- corps_demos$tut_exp
+  math <- corps_demos$math
+  gender <- corps_demos$gender
+
+  school_df <- school_df %>%
+    rename(size = `Team Size`,
+           span = `GradeLevel`,
+           SpanishNeed = `N Spanish Speakers Reqd`)
+  
+  school_df$HSGrad_tgt <- ifelse(school_df$span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(school_df$size))
+  school_df$SomeCol_tgt <- education[education$level %in% 'SomeCol',]$ratio * as.numeric(school_df$size)
+  school_df$TutExp = as.numeric(school_df$size) * tut_exp[tut_exp$HasTutored == 1,]$ratio
+  #schoo-_df$SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1),# This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other places.
+  school_df$OtherLang_tgt <- lang[lang$ability %in% 'other',]$ratio * as.numeric(school_df$size)
+  school_df$Math_tgt <- ifelse(school_df$span=="Elementary", as.numeric(school_df$size)*.5*math, ifelse(school_df$span=="Middle", .75*as.numeric(school_df$size)*math, as.numeric(school_df$size)*math))
+  school_df$Male_tgt <- as.numeric(school_df$size)*gender
+  
+  return(school_df)
+}
+
+elig_plcmnts_static <- function(team_placements_df, school_df){
+
+  perm <- merge(team_placements_df, school_df, all.x=TRUE) %>%
+     mutate(elig = 1, 
+            HS_conf = 0, 
+            tl_conf = 0, 
+            pre_TL_conf = 0, 
+            pre_IM_conf = 0, 
+            spanish_conf = 0, 
+            MP_conf = 0,
+            acm_id_sch_id = paste(acm_id, sch_id, sep="_"))
+  
+  # High School service Eligibility
+  if(consider_HS_elig == "Yes"){
+    perm$HS_conf[(perm$Ed_SomeCol != 1) & (perm$Ed_Col != 1) & (perm$days_old < 365*21) & (perm$GradeLevel == "High")] <- 1
+  }
+  
+  # TL and Previous Relationship conflict (TLs, IMs check)
+  perm$tl_conf <- mapply(grepl, pattern=perm$`Team Leader`, perm$Roommate.Names)
+  perm$tl_conf[is.na(perm$tl_conf)] <- 0
+  perm$pre_TL_conf <- as.numeric(mapply(grepl, pattern=perm$`Team Leader`, perm$Prior.Rship.Name))
+  perm$pre_TL_conf[is.na(perm$tl_conf)] <- 0
+  perm$pre_IM_conf <- as.numeric(mapply(grepl, pattern=perm$`Manager`, perm$Prior.Rship.Name))
+  perm$pre_IM_conf[is.na(perm$pre_IM_conf)] <- 0
+
+  # Manual Placements
+  perm$MP_conf[!is.na(perm$Manual.Placement) & (perm$School != perm$Manual.Placement)] <- 1
+  
+  # Set elig col
+  perm$conf_sum <- rowSums(perm[,c("HS_conf", "tl_conf", "pre_TL_conf", "pre_IM_conf", "MP_conf", "spanish_conf")])
+  perm$elig[perm$conf_sum >= 1] <- 0
+  
+  # 1-29-18 Chris: can't quite remember why I added these 2 lines, probably just to be certain that manual placements trump all
+  perm$elig[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 1
+  perm$elig[!is.na(perm$Manual.Placement) & (perm$School != perm$Manual.Placement)] <- 0
+  
+  # Remove placement column because placement will change with each iteration
+  perm <- perm[, !names(perm) %in% c("placement")]
+  
+  return(perm)
+}
+
+# Update school eligilibity based on roommates and previous relationships
+# Some way to store these calcs as a reference? For each ACM, colums 'AMC1_id_AMC2_id' and 'elig' (1 or 0)
+elig_plcmnts_iter <- function(team_placements_df, elig_placements, ij){
+
+  # updates "elig" column with a 0 where roommate conflicts WOULD exist if the ACM were to be placed at each school
+  inter_counts_df <- team_placements_df %>%
+    group_by(placement) %>%
+    summarise(team.roommates = paste0(unique(Roommate.Names), collapse=""), team.names = paste0(Full.Name, collapse=""))
+  #, IJ.Teams = if(ij == "IJ teams already exist. Prevent IJ teammates from serving on school teams.") paste0(unique(IJ.Placement), collapse="") else 0
+
+  elig_iter_df <- merge(elig_placements, inter_counts_df, by.x="sch_id", by.y="placement", all.x=TRUE)
+
+  # rm_conf = 1 where there is a roommate conflict
+  elig_iter_df$rm_conf[!is.na(elig_iter_df$Roommate.Names)] <- as.numeric(mapply(grepl, pattern=elig_iter_df$Roommate.Names[!is.na(elig_iter_df$Roommate.Names)], elig_iter_df$team.roommates[!is.na(elig_iter_df$Roommate.Names)]))
+  
+  elig_iter_df$rm_conf[is.na(elig_iter_df$rm_conf)] <- 0
+  
+  # rm_conf = 1 where there is a prev_rel_conf, for each 'Prior.Rship.Name#' column
+  elig_iter_df$prev_rel_conf[!is.na(elig_iter_df$Prior.Rship.Name1)] <- as.numeric(mapply(grepl, pattern=elig_iter_df$Prior.Rship.Name1[!is.na(elig_iter_df$Prior.Rship.Name1)], elig_iter_df$team.names[!is.na(elig_iter_df$Prior.Rship.Name1)]))
+  
+  elig_iter_df$prev_rel_conf[!is.na(elig_iter_df$Prior.Rship.Name2) & elig_iter_df$prev_rel_conf != 1] <- as.numeric(mapply(grepl, pattern=elig_iter_df$Prior.Rship.Name2[!is.na(elig_iter_df$Prior.Rship.Name2) & elig_iter_df$prev_rel_conf != 1], elig_iter_df$team.names[!is.na(elig_iter_df$Prior.Rship.Name2) & elig_iter_df$prev_rel_conf != 1]))
+  
+  elig_iter_df$prev_rel_conf[is.na(elig_iter_df$prev_rel_conf)] <- 0
+  
+  #if (ij == "IJ teams already exist. Prevent IJ teammates from serving on school teams.") {
+  #  elig_iter_df$ij_conf[!is.na(elig_iter_df$IJ.Placement)] <- mapply(grepl, pa#ttern=elig_iter_df$IJ.Placement[!is.na(elig_iter_df$IJ.Placement)], elig_iter_df$IJ.Teams[!is.na(elig_iter_df$IJ.Placement)])
+  #  
+  #  elig_iter_df$ij_conf[elig_iter_df$IJ.Placement == elig_iter_df$`Team Leader`] <- 1
+  #  
+  #  elig_iter_df$ij_conf[is.na(elig_iter_df$ij_conf)] <- 0
+  #  
+  #  elig_iter_df$elig[elig_iter_df$ij_conf == 1] <- 0
+  #}
+
+  # Only need to convert to zero rather than 1 because all items in elig col were defaulted to 1
+  elig_iter_df$iter_conf_sum <- rowSums(elig_iter_df[,c("prev_rel_conf", "rm_conf")])
+  elig_iter_df$elig[(elig_iter_df$iter_conf_sum >= 1) & is.na(elig_iter_df$Manual.Placement)] <- 0
+
+  return(elig_iter_df)
+}
+
+initial_placement <- function(acm_enc, school_targets){
+  
+  team_placements = list()
+  
+  manual_plc_slots <- acm_enc[!is.na(acm_enc$Manual.Placement),] %>%
+                                  left_join(., select(school_targets, sch_id:School), 
+                                            by=c("Manual.Placement" = "School")) %>%
+                                  select(acm_id,sch_id)
+  
+  filled_slot_counts <- manual_plc_slots %>%
+                          group_by(sch_id) %>%
+                          summarise(filled = n())
+  
+  team_size_targets <- select(school_targets, sch_id:size) %>%
+                        left_join(., filled_slot_counts, by=("sch_id")) %>%
+                        replace_na(list(filled = 0)) %>%
+                        mutate(non_manual_size = as.numeric(size) - as.numeric(filled))
+  
+  for (x in team_size_targets$sch_id[team_size_targets$non_manual_size>0]){
+    # create a list that repeats each school 'id' for the size of each team
+    team_slots = list(rep(x, subset(team_size_targets$non_manual_size, team_size_targets$sch_id == x)))
+    team_placements <- c(team_placements, team_slots)
+  }
+  
+  # random placements of CMs 
+  team_placements <- data.frame(placement=unlist(team_placements))
+
+  # Adds dummy id's if more slots are available than survey respondants
+  team_placements_df <- data.frame(acm_id=1:sum(school_targets$size))
+  team_placements_df <- merge(team_placements_df, manual_plc_slots, by="acm_id", all.x = T)
+  team_placements_df$sch_id[is.na(team_placements_df$sch_id)] <- team_placements[sample(nrow(team_placements), replace=F), ]
+  team_placements_df <- team_placements_df %>% rename(placement = sch_id)
+
+  # Merge team_placements_df with acm_df on the 'id' column
+  team_placements_df <- left_join(team_placements_df, acm_enc, by = "acm_id") %>%
+                        replace_na(replace = list(Math.Confidence = 0, 
+                                                  Ed_HS = 0, 
+                                                  Ed_SomeCol = 0, 
+                                                  Ed_Col = 0,
+                                                  HasTutored = 0, 
+                                                  SpanishAble = 0, 
+                                                  Lang_Other = 0, 
+                                                  Male = 0, 
+                                                  Other.Gender =0, 
+                                                  days_old = 0))
+
+  return(team_placements_df)
+}
+
+initial_valid_placement <- function(team_placements_df, school_df, prevent_roommates, ij){
+  
+  elig_placements <- elig_plcmnts_static(team_placements_df, school_df)
+
+  schools_to_swap <- c(0, 0)
+  
+  for(x in 1:3000){
+    team_placements_df <- team_placements_df[, !names(team_placements_df) %in% c("elig")]
+    
+    team_placements_df$acm_id_sch_id <- paste(team_placements_df$acm_id, team_placements_df$placement, sep="_")
+
+    if(prevent_roommates == "Yes"){
+      elig_placements_iter <- elig_plcmnts_iter(team_placements_df, elig_placements, ij)
+
+      # determine if current roommate conflicts exist
+      teams_no_rm_confs <- team_placements_df[!is.na(team_placements_df$Roommate.Names),] %>%
+        group_by(placement) %>%
+        count(Roommate.Names) %>%
+        filter(n<2) %>%
+        mutate(placement_Roommate.Names = paste(placement, Roommate.Names, sep="_"))
+      
+      teams_rm_confs <- team_placements_df[!is.na(team_placements_df$Roommate.Names),] %>%
+        group_by(placement) %>%
+        count(Roommate.Names) %>%
+        filter(n>1)
+      
+      # Up to this point ACMs with roommates are labeled ineligible if they are the only roommate at their current school. Want to correct rm_conf to 0.
+      elig_placements_iter$sch_id_Roommate.Names <- paste(elig_placements_iter$sch_id, elig_placements_iter$Roommate.Names, sep="_")
+      elig_placements_iter$rm_conf[(elig_placements_iter$sch_id_Roommate.Names %in% teams_no_rm_confs$placement_Roommate.Names) & 
+                                     (elig_placements_iter$acm_id_sch_id %in% team_placements_df$acm_id_sch_id)] <- 0
+
+      elig_placements_iter$elig <- (elig_placements_iter$HS_conf + 
+                                      elig_placements_iter$tl_conf + 
+                                      elig_placements_iter$pre_TL_conf +
+                                      elig_placements_iter$pre_IM_conf +
+                                      elig_placements_iter$spanish_conf +
+                                      elig_placements_iter$MP_conf +
+                                      elig_placements_iter$prev_rel_conf +
+                                      elig_placements_iter$rm_conf)
+      # re-calculate elig
+      elig_placements_iter$elig <- ifelse(elig_placements_iter$elig > 0, 0, 1)
+      
+      elig_placements_iter$elig[!is.na(elig_placements_iter$Manual.Placement) & (elig_placements_iter$School == elig_placements_iter$Manual.Placement)] <- 1
+      elig_placements_iter$elig[!is.na(elig_placements_iter$Manual.Placement) & (elig_placements_iter$School != elig_placements_iter$Manual.Placement)] <- 0
+      
+    } else {
+      elig_placements_iter <- elig_placements
+    }
+    
+    team_placements_df <- merge(team_placements_df, elig_placements_iter[,c("acm_id_sch_id", "elig")], by = "acm_id_sch_id", all.x = TRUE)
+    # Useful for bug searching:
+    #if(nrow(teams_rm_confs[!is.na(teams_rm_confs$Roommate.Names),]) > 0){browser()}
+    #View(elig_placements_iter[(elig_placements_iter$acm_id_sch_id %in% team_placements_df$acm_id_sch_id),])
+    
+    if(nrow(team_placements_df[team_placements_df$elig == 0,]) == 0) {
+      team_placements_df <- team_placements_df[, !names(team_placements_df) %in% c("elig", "acm_id_sch_id")]
+      break
+    }
+    
+    acm_row <- team_placements_df[team_placements_df$elig == 0,][1,]
+    
+    schools_to_swap[1] <- acm_row[["placement"]]
+  
+    swap1 <- acm_row[["acm_id"]]
+    
+    school2_set <- elig_placements_iter$sch_id[(elig_placements_iter$elig==1) &
+                                               (elig_placements_iter$acm_id == swap1) &
+                                               (elig_placements_iter$sch_id != schools_to_swap[1])]
+    if(length(school2_set)==0){next}
+    
+    if(length(unique(school2_set)) != 1) {schools_to_swap[2] <- sample(x = unique(school2_set), 1)} else {schools_to_swap[2] <- unique(school2_set)}
+
+    swap2_set <- elig_placements_iter$acm_id[elig_placements_iter$elig==1 & 
+                                               elig_placements_iter$sch_id == schools_to_swap[1] & 
+                                               elig_placements_iter$acm_id %in% team_placements_df$acm_id[team_placements_df$placement == schools_to_swap[2]]]
+    
+    if(length(swap2_set)==0){next}
+    
+    if(length(unique(swap2_set)) != 1) {swap2 <- sample(x = unique(swap2_set), 1)} else {swap2 <- unique(swap2_set)}
+   
+    # Sort by acm_id and reset the index
+    team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
+    rownames(team_placements_df) <- 1:nrow(team_placements_df)
+    
+    team_placements_df$placement <- replace(team_placements_df$placement, c(swap1, swap2), team_placements_df$placement[c(swap2, swap1)])
+  }
+  return(team_placements_df)
+}
+
+calculate_score <- function(team_placements_df, school_targets, gender_target=gender_g, commute_factor=dataset$commute_factor, age_factor=dataset$age_factor, ethnicity_factor=dataset$ethnicity_factor, Edscore_factor=dataset$Edscore_factor, Tutoring_factor=dataset$Tutoring_factor, Spanish_factor=dataset$Spanish_factor, Math_factor=dataset$Math_factor, Gender_factor=dataset$Gender_factor) {
+  
+  # Merge  with school_df to pull in school characteristics
+  team_placements_df <- merge(team_placements_df, school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
+  
+  # Store each score in a list
+  scores = list()
+  
+  # COMMUTE SCORE: This score is simply the sum number of seconds each ACM travels to their assigned school
+  if(consider_commutes == "Yes"){
+    team_placements_df$id_dest <- paste(team_placements_df$Full.Name, team_placements_df$School, sep = "_")
+
+    scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, mean((Commute.Time^2), na.rm = TRUE)] * 3.5 * commute_factor
+    #scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, sum((Commute.Time), na.rm = TRUE)] * commute_factor
+  } else { scores$commute_score <- 0 }
+  
+  # AGE SCORE: This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
+  if(age_factor != 0){
+    age_var <-team_placements_df %>%
+      filter(!is.na(days_old)) %>%
+      group_by(placement) %>%
+      summarize(age_var = var(days_old)) %>%
+      ungroup() %>%
+      summarize(avg_age_var = mean(age_var))
+    scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$days_old)) /100 * age_factor
+  } else {scores$age_score <- 0}
+
+  # ETHNICITY SCORE: This score is the overall average of each team's average % representation that each teammate experiences. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
+  if(ethnicity_factor != 0){
+    ethnicity_eths <- 
+      team_placements_df[!is.na(team_placements_df$Race.Ethnicity),] %>%
+      group_by(placement, 
+               Race.Ethnicity) %>%
+      summarize(n_eths = n()) %>%
+      group_by(placement) %>%
+      mutate(lgst_eth_rep = max(n_eths/sum(n_eths))) %>%
+      distinct(lgst_eth_rep)
+    
+    scores$ethnicity_score <- sum((ethnicity_eths$lgst_eth_rep*100)^1.5) * ethnicity_factor
+  } else {scores$ethnicity_score <- 0}
+
+  # IJ CONFLICT SCORE
+  if(preserve_ij_factor != 0){
+    ij_conflict_score <- team_placements_df %>%
+      filter(!is.na(IJ.Placement)) %>%
+      group_by(placement) %>%
+      count(IJ.Placement) %>%
+      filter(n>1)
+    scores$ij_conflict_score <- sum(ij_conflict_score$n) * 100 * preserve_ij_factor
+  } else {scores$ij_conflict_score <- 0}
+  
+  # Scoring
+  placed <- team_placements_df %>%
+                group_by(placement) %>%
+                summarise(HS_Grads = sum(Ed_HS),
+                          SomeCol = sum(Ed_SomeCol),
+                          Tutoring = sum(HasTutored),
+                          Spanish = sum(SpanishAble),
+                          #OtherLang = sum(Lang_Other),
+                          MathAble = sum(Math.Confidence),
+                          Males = sum(Male)) %>%
+                left_join(., school_targets, by=c("placement" = "sch_id"))
+  
+  scores$Edscore <- mean((abs((placed$HSGrad_tgt - placed$HS_Grads)) + abs((placed$SomeCol_tgt - placed$SomeCol)))^2.2) * 200 * Edscore_factor
+  
+  scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2) * Tutoring_factor
+
+  placed$SpanDiff <- placed$SpanishNeed - placed$Spanish
+  scores$Spanish <- ifelse(nrow(placed[placed$SpanDiff>0,]) > 0, 1e10, 0) * Spanish_factor
+  
+  scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * Math_factor
+  
+  scores$Gender <- (sum(ifelse(placed$Males < 1, 1e10, 0)) + mean((placed$Male_tgt - placed$Males)^2) * 250) * Gender_factor
+
+  scores$aggr_score <- sum(unlist(scores))
+
+  return(scores)
+}
+
+# Temperature Function
+
+current_temperature = function(iter, s_curve_amplitude, s_curve_center, s_curve_width) {
+  s_curve_amplitude * s_curve(iter, s_curve_center, s_curve_width)
+}
+
+s_curve = function(x, center, width) {
+  1 / (1 + exp((x - center) / width))
+}
 ```
+
+```{r Define Anealing and Swap Functions}
+# Annealing and Swap Function
+run_intermediate_annealing_process = function(starting_placements, school_df, best_placements=starting_placements, number_of_iterations, center_scale, width_scale) {
+  
+  team_placements_df <- starting_placements
+  
+  # Sort by acm_id so that each row index will equal acm_id
+  team_placements_df <- team_placements_df[order(team_placements_df$acm_id), ]
+  rownames(team_placements_df) <- 1:nrow(team_placements_df)
+  
+  placement_score <- calculate_score(starting_placements, school_df)$aggr_score
+  best_score <- 1000000000000
+  
+  trace <- data.frame(iter=c(1:(number_of_iterations+2)), 
+                      commute_score = 0,
+                      age_score = 0,
+                      ethnicity_score= 0,
+                      ij_conflict_score = 0,
+                      Edscore = 0,
+                      Tutoring= 0,
+                      Spanish = 0,
+                      Math = 0,
+                      Gender = 0,
+                      score=0)
+  
+  trace[1, 2:11] <- calculate_score(starting_placements, school_df)
+
+  #Pre-calcucate eligibility of all ACMs to all schools
+  elig_placements <- elig_plcmnts_static(team_placements_df, school_df)
+  
+  schools_to_swap <- c(0, 0)
+  
+  for(i in 1:number_of_iterations) {
+    iter = 1 + i
+    temp = current_temperature(iter, 3000, number_of_iterations * center_scale, number_of_iterations * width_scale)
+    
+    # Create a copy of team_placements_df
+    candidate_placements_df <- team_placements_df
+    
+    candidate_placements_df$acm_id_sch_id <- paste(candidate_placements_df$acm_id, candidate_placements_df$placement, sep="_")
+    
+    # 1-29-18 Chris: this should not be 'if', since it also includes prior relationships, not just roommates
+    if(prevent_roommates == "Yes"){
+      elig_placements_iter <- elig_plcmnts_iter(candidate_placements_df, elig_placements, ij)
+    } else {
+      elig_placements_iter <- elig_placements
+    }
+    
+    candidate_placements_df <- merge(candidate_placements_df, elig_placements_iter[,c("acm_id_sch_id", "elig")], by="acm_id_sch_id", all.x = TRUE)
+    
+    # 1-29-18 Chris Spanish speaker update to be done: 
+    # Set requirement target manually with column in school config file
+    # Randomly place Spanish speakers such that targets are met (throw error if not possible)
+    # When Spanish speaker randomly chosen for placement, only consider swaps with other Spanish speakers, unless the chosen ACM is already at a school with surplus of Spanish speakers, in which case they could be placed anywhere
+    
+    swap1 <- sample( candidate_placements_df$acm_id[is.na(candidate_placements_df$Manual.Placement)], 1)
+    
+    schools_to_swap[1] <- candidate_placements_df$placement[candidate_placements_df$acm_id==swap1]
+
+    school2_set <- elig_placements_iter$sch_id[(elig_placements_iter$elig==1) &
+                                                 (elig_placements_iter$acm_id == swap1) &
+                                                 (elig_placements_iter$sch_id != schools_to_swap[1])]
+    # & school contains at least one valid ACM to choose who is not roommate/prior relationship of ACM1
+    # to find valid placement, subtract the schools your roommates are in
+    
+    if(length(school2_set)==0){
+      candidate_placements_df <- candidate_placements_df[, !names(candidate_placements_df) %in% c("elig", "elig_rms", "acm_id_sch_id")]
+      next}
+    
+    if(length(unique(school2_set)) != 1) {schools_to_swap[2] <- sample(x = unique(school2_set), 1)} else {schools_to_swap[2] <- unique(school2_set)}
+
+    swap2_set <- elig_placements_iter$acm_id[elig_placements_iter$elig==1 & 
+                                               elig_placements_iter$sch_id == schools_to_swap[1] & 
+                                               elig_placements_iter$acm_id %in%
+                                               candidate_placements_df$acm_id[candidate_placements_df$placement == schools_to_swap[2]]]
+    
+    if(length(swap2_set)==0){
+      candidate_placements_df <- candidate_placements_df[, !names(candidate_placements_df) %in% c("elig", "elig_rms", "acm_id_sch_id")]
+      next}
+    
+    if(length(unique(swap2_set)) != 1) {swap2 <- sample(x = unique(swap2_set), 1)} else {swap2 <- unique(swap2_set)}
+
+    # Sort by acm_id and reset the index
+    candidate_placements_df <- candidate_placements_df[order(candidate_placements_df$acm_id), ]
+    rownames(candidate_placements_df) <- 1:nrow(candidate_placements_df)
+    
+    # Swap the team assignment of those 2 ACMs - NOTE this is done by index, and we use acm_id as index
+    candidate_placements_df$placement <- replace(candidate_placements_df$placement, c(swap1, swap2), candidate_placements_df$placement[c(swap2, swap1)])
+     
+    candidate_placements_df <- candidate_placements_df[, !names(candidate_placements_df) %in% c("elig", "elig_rms", "acm_id_sch_id")]
+    
+    candidate_score <- calculate_score(candidate_placements_df, school_df)
+
+    if (temp > 0) {
+      ratio = exp((placement_score - candidate_score$aggr_score) / temp)
+    } else {
+      ratio = as.numeric(candidate_score$aggr_score < placement_score)
+    }
+    
+    # Used for bug testing
+    # if (is.na(ratio)){
+    #   return(list(placement_score=as.data.frame(placement_score),
+    #               candidate_score=as.data.frame(candidate_score),
+    #               best_placements=best_placements,
+    #               trace=trace))
+    # }
+    
+    if (runif(1) < ratio) {
+      team_placements_df <- candidate_placements_df
+      placement_score <- candidate_score$aggr_score
+      trace[i+1, 2:11] <- candidate_score
+
+      if (placement_score < best_score) {
+        best_placements <- team_placements_df
+        best_score_diff <- candidate_score
+        best_score <- best_score_diff$aggr_score
+      }
+    }
+  }
+  
+  # Add best scores to the last row of trace
+  trace[(number_of_iterations+2), 2:11] <- calculate_score(best_placements, school_df)
+  
+  # Merge in School Name and all survey info
+  cols.x <- c("acm_id", "placement", "days_old")
+  cols.y <- c("School", "sch_id")
+  best_placements <- merge(best_placements[, cols.x], school_df[, cols.y], by.x = "placement", by.y = "sch_id", all.x = TRUE)
+  best_placements <- merge(best_placements, acm_df, by = "acm_id", all.x = TRUE)
+  
+  # Merge in commute info
+  if(consider_commutes == "Yes"){
+    home_addresses <- dt_commutes[!duplicated(dt_commutes$Full.Name), ]
+    best_placements <- merge(best_placements, home_addresses[,c("Full.Name", "Home.Address")], by = "Full.Name", all.x = TRUE)
+    
+    best_placements <- within(best_placements, id_dest <- paste(Full.Name, School, sep = "_"))
+    commutes <- dt_commutes[id_dest %in% best_placements$id_dest, ]
+    commutes <- commutes[,c("Full.Name", "Commute.Time", "Commute.Rank")]
+    best_placements <- merge(best_placements, commutes, by = "Full.Name", all.x = TRUE)
+
+  } else {
+    best_placements$Commute.Time <- NA
+    best_placements$Commute.Rank <- NA
+    best_placements$Home.Address <- NA
+  }
+
+  # Create one Tutoring Experience Grades Column
+  tut_exp_cols = c("Tutoring.Experience.ES",                      
+                   "Tutoring.Experience.MS",
+                   "Tutoring.Experience.HS")
+  best_placements[, tut_exp_cols][best_placements[, tut_exp_cols] == ""] <- NA
+  best_placements$Tutoring.Experience.Grades <- apply(best_placements[, tut_exp_cols], 1, function(x) toString(na.omit(x)))
+  
+  # Create one Grade Level Preference Column
+  grd_lvl_pref_cols = c("Grade.Lvl.Pref.ES",
+                        "Grade.Lvl.Pref.MS",
+                        "Grade.Lvl.Pref.HS")
+  best_placements[, grd_lvl_pref_cols][best_placements[, grd_lvl_pref_cols] == ""] <- NA
+  best_placements$Grade.Lvl.Pref <- apply(best_placements[, grd_lvl_pref_cols ], 1, function(x) toString(na.omit(x)))
+  
+  # Create one language column
+  language_cols = c("Language.Ability.Arabic"                       ,
+                    "Language.Ability.CapeVerdeanCreole",
+                    "Language.Ability.Chinese.Cantonese",
+                    "Language.Ability.Chinese.Mandarin" ,
+                    "Language.Ability.HaitianCreole"    ,
+                    "Language.Ability.French"           ,
+                    "Language.Ability.Nepali"           ,
+                    "Language.Ability.Polish"           ,
+                    "Language.Ability.Spanish"          ,
+                    "Language.Ability.Swahili"          ,
+                    "Language.Ability.Urdu"             ,
+                    "Language.Ability.Vietnamese"       ,
+                    "Language.Ability.Other")
+  
+  best_placements[, language_cols][best_placements[, language_cols] == ""] <- NA
+  best_placements$Language <- apply(best_placements[, language_cols ], 1, function(x) toString(na.omit(x)))
+  
+  best_placements$Age <- best_placements$days_old/365.25
+    
+  cols <- c("acm_id",
+            "Full.Name",
+            "Pref.Name",
+            "placement",
+            "School",
+            "Gender",
+            "Race.Ethnicity", 
+            # "Attnd.CY.School",
+            "Language",
+            "Language.Ability.Spanish",
+            "Tutoring.Experience.Months",
+            "Tutoring.Experience.Grades",
+            #"Grade.Lvl.Pref",
+            "Teaching.Credential",
+            "Tutoring.Preference",
+            "Math.Confidence",
+            #"Birth.Date",
+            "Age",
+            "Educational.Attainment",
+            # "You are presented with a project to plan. You would most likely work with your team in which of the following ways?",
+            # "When you are under pressure to get an assignment in on time, how do you normally react?",
+            # "If people were to describe you in one word, which of the following would it be?",
+            # "When given a new project, your first response is which of the following?",
+            # "Becoming a City Year corps member often comes with a number of uncertainties. Of the following, which is of biggest concern to you?", 
+            "Roommate.Names",
+            "Prior.Rship.Name",
+            "IJ.Placement",
+            "Home.Address",
+            "Travel.Method",
+            "Commute.Time",
+            "Commute.Rank",
+            "Manual.Placement")
+  
+  best_placements <- best_placements[, names(best_placements) %in% cols]
+  
+  best_placements <- best_placements[order(best_placements$placement),]
+  
+  best_placements$acm_id[best_placements$acm_id > nrow(acm_enc)] <- 800:(800 + sum(school_df$size) - nrow(acm_enc) - 1)
+  
+  return(list(best_placements=best_placements, 
+              best_score=best_score,
+              diff_scores=best_score_diff,
+              trace=trace))
+}
+```
+
+```{r Load In, Shape Data, Initial Placement}
+# Full Application
+acm_df <- read.csv(file = paste(root_dir, acm_df_file, sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
+acm_df$acm_id <- 1:nrow(acm_df)
+
+if(consider_commutes == "Yes"){
+  acm_commutes <- read.csv(file = paste(root_dir, "ACM Commutes.csv", sep = ""), check.names=FALSE)
+  acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
+  acm_commutes$id_dest <- paste(acm_commutes$Full.Name, acm_commutes$School, sep = "_")
+  dt_commutes <- data.table(acm_commutes)
+}
+
+school_df <- read_excel(path = paste(root_dir, school_df_file, sep = ""))
+school_df <- school_df[!is.na(school_df$School),]
+school_df <- school_df[order(school_df$School),]
+school_df$sch_id <- 1:nrow(school_df)
+
+if(used_surveygizmo == "Yes"){
+  acm_df <- rename_headers(acm_df)
+}
+
+# Create One Race.Ethnicity Column
+ethn_cols = c("Race.Ethnicity.African.American.Black",
+              "Race.Ethnicity.American.Indian.Alaskan.Native",
+              "Race.Ethnicity.Asian",
+              "Race.Ethnicity.Hispanic.Latino",
+              "Race.Ethnicity.Middle.Eastern",
+              "Race.Ethnicity.Native.Hawaiian.Pacific.Islander",
+              "Race.Ethnicity.White.Caucasian", 
+              "Race.Ethnicity.Other")
+
+acm_df[, ethn_cols][acm_df[, ethn_cols] == ""] <- NA
+
+acm_df$Race.Ethnicity <- apply(acm_df[, ethn_cols], 1, function(x) toString(na.omit(x)))
+
+acm_df <- clean_roommates(acm_df)
+acm_df <- clean_pre_rel(acm_df)
+acm_df <- acm_df[acm_df$Full.Name!="",]
+acm_enc <- encode_acm_df(acm_df)
+school_targets <- school_config(school_df, acm_enc)
+team_placements_df <- initial_placement(acm_enc, school_targets)
+
+team_placements_df <- initial_valid_placement(team_placements_df, school_df, prevent_roommates=prevent_roommates, ij=ij)
+```
+
+```{r}
+start.time <- Sys.time()
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, number_of_iterations = 2000, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+
+best_placements <- output$best_placements
+
+# Hide "blown up" scores for a smoother, more interpretable graph
+if(output$best_score < 1000000){
+  trace <- output$trace[output$trace$score < 1000000 & output$trace$score > 0,]
+} else {
+  trace <- output$trace[output$trace$score > 0,]
+}
+
+write.table(output$best_placements, file = paste(root_dir, "Output - Team Placements (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
+
+#write.table(trace, file = paste(root_dir, "Output - Trace (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
+
+View(trace)
+View(best_placements[best_placements$Manual.Placement == "",])
+mean(best_placements$Commute.Time[best_placements$Commute.Time != 999], na.rm = TRUE)
+mean(best_placements$Commute.Rank, na.rm = TRUE)
+time.taken
+```
+
+``` {r}
+acm_df_FINAL <- read_excel(path = paste(root_dir, "SY18 FINAL Team Placements.xlsx", sep = ""))
+acm_df_FINAL <- acm_df_FINAL[names(acm_df_FINAL) %in% c("Full Name", "School")]
+acm_df_FINAL$acm_school<- paste(acm_df_FINAL$`Full Name`, acm_df_FINAL$School, sep="_")
+
+best_placements2 <- best_placements[!names(best_placements) %in% c("School", "acm_school", "acm_id", "placement", "Commute.Time", "Commute.Rank")]
+
+acm_df_FINAL <- merge(acm_df_FINAL, best_placements2, by.x="Full Name",by.y="Full.Name", all.x = TRUE)
+
+acm_df_FINAL <- merge(acm_df_FINAL, dt_commutes[,c("Commute.Time", "Commute.Rank", "id_dest")], by.x="acm_school", by.y = "id_dest", all.x = TRUE)
+#View(acm_df_FINAL)
+
+best_placements<- acm_df_FINAL
+```
+
+``` {r}
+# Load SY17 Placements
+best_placements <- read.csv(file = paste("C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\FY17 Placements\\Input 1 - ACM Data and Placements.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
+best_placements <- read.csv(file = paste("C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\FY17 Placements\\FY17 Corps Housing Survey.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
+school_df <- read_excel("C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\FY17 Placements\\Input 2 - School Data.xls")
+
+```
+
+```{r}
+best_placements <- read_excel(path = "C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\FY18 Placements\\SY18 FINAL Team Placements.xlsx")
+school_df <- read_excel("C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\FY18 Placements\\Input 2 - School Data.xlsx")
+#On cyconnect
+best_placements <- read_excel("Z:\\ChiPrivate\\Chicago Data and Evaluation\\SY18\\SY18 Team Placement\\SY18 FINAL Team Placements.xlsx")
+best_placements$School<- best_placements$School.Placement
+```
+
+```{r Visualizations: Number Teams at Various % Ethnic Representations}
+#View(best_placements)
+ethnicity_eths <- 
+    best_placements %>%
+    filter(Race.Ethnicity != "Unknown") %>%
+    group_by(School, 
+             Race.Ethnicity) %>%
+    summarize(n_eths = n()) %>%
+    group_by(School) %>%
+    mutate(lgst_eth_rep = max(n_eths/sum(n_eths))) %>%
+    distinct(lgst_eth_rep)
+
+hist(ethnicity_eths$lgst_eth_rep, breaks = c(.1,.2,.3,.4,.5,.6,.7,.8,.9), main = "SY17: Number of Teams by % of Team in Largest Ethnic Group", xlab = "% of Team in Team's Largest Ethnic Group", ylab = "", ylim = c(0,12),xlim = c(.2,.8), freq = TRUE, col = "grey", plot = TRUE, labels = TRUE,  yaxt='n',xaxt='n')
+
+axis(1, at=seq(0,.8,.1), labels=c("0", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%"))
+```
+
+
+```{r}
+#best_placements$Commute.Time <- best_placements$`How long is your commute to your school (one way)?`
+
+hist(best_placements$Commute.Time[best_placements$Commute.Time < 130], breaks = c(0,15,30,45,60,75,90,105,120), main = "SY17: Number of ACMs at Various Minutes Commuting", xlab = "Minutes Commuting (One Way)", ylab = "", ylim = c(0,60),xlim = c(0,120), freq = TRUE, col = "grey", plot = TRUE, labels = TRUE,  yaxt='n',  xaxt='n')
+
+axis(1, at=seq(0,120,15), labels=c("0", "15", "30", "45", "60", "75", "90", "105", "120"))
+
+mean(best_placements$Commute.Time)
+
+```
+
+```{r}
+gender_counts <- 
+    best_placements %>%
+    filter(Gender != "Unknown") %>%
+    group_by(School, 
+             Gender) %>%
+    summarize(n_gen = n()) %>%
+    spread(Gender, n_gen) %>%
+    rowwise() %>% 
+    mutate(team.size = sum(Female, Male, na.rm=TRUE),
+           pct_nfemale = (team.size - Female)/team.size)
+
+hist(gender_counts$pct_nfemale, breaks = seq(0,1,.1), main = "SY17: Number of Teams by % Non-Female", xlab = "% Non-female", ylab = "", ylim = c(0,20),xlim = c(0,.5), freq = TRUE, col = "grey", plot = TRUE, labels = TRUE,  yaxt='n',xaxt='n')
+
+axis(1, at=seq(0,.5,.1), labels=c("0", "10%", "20%", "30%", "40%", "50%"))
+
+#View(best_placements)
+
+```
+
+```{r}
+tut_exp <-
+  best_placements %>%
+  mutate(Tutoring.Experience = ifelse(Tutoring.Experience.Months>3, 1, 0))%>%
+  group_by(School) %>%
+  summarize(n_tut_exp = sum(Tutoring.Experience, na.rm = TRUE))
+
+hist(tut_exp$n_tut_exp, breaks = 7, main = "Number Teams at # ACMs with Tut Exp", xlab = "# ACMs with Tutoring Experience", freq = TRUE, col = "grey", plot = TRUE, labels = FALSE)
+
+#View(tut_exp)
+```
+
+
+```{r}
+best_placements$Tutoring.Experience.Months[best_placements$Tutoring.Experience.Months>48] <- 48
+hist(best_placements$Tutoring.Experience.Months[best_placements$Tutoring.Experience.Months>0], breaks = seq(0,48,3), main = "", xlab = "Months of Tutoring Experience", ylim = c(0,31), xlim = c(0,48), freq = TRUE, col = "grey", plot = TRUE, labels = TRUE, yaxt='n',xaxt='n')
+
+axis(1, at=seq(-1.5, 46.5, 12), labels=c("0", "12", "24", "36", "48 or more"))
+```
+
+```{r}
+edu_attainment <-
+  best_placements %>%
+  filter(!is.na(Educational.Attainment)) %>%
+  group_by(School) %>%
+  count(Educational.Attainment) %>%
+  spread(Educational.Attainment, n)
+
+edu_attainment <- best_placements %>%
+  group_by(School) %>%
+  summarise(n_HS = sum(Educational.Attainment=="High School/GED"),
+            team.size = sum(School!=""),
+            pcnt_HS = n_HS/team.size)
+
+edu_attainment <- merge(edu_attainment, school_df, by="School")
+
+hist(edu_attainment$n_HS[edu_attainment$GradeLevel != "High"], breaks = seq(0,3,1), xlab = "# ACMs at HS Education Level", freq = TRUE, col = "grey", ylim = c(0,11), xlim = c(0,3), plot = TRUE, labels = TRUE, yaxt='n',xaxt='n', right=FALSE)
+
+axis(1, at=seq(0.5,2.5,1), labels=c("0", "1", "2"))
+
+```
+
+```{r}
+# Visualize Error Over Time
+library(ggplot2)
+traceplot <-  ggplot(data = trace[trace$score>0,], aes(x = iter, y = score)) +  geom_point()
+traceplot
+```
+
+```{r Check Roommates}
+roommie_violations <- 
+    best_placements %>% 
+      filter(!is.na(Roommate.Names)) %>%
+      group_by(School) %>%
+      count(Roommate.Names) %>%
+      filter(n > 1) %>%
+      rename(Roommate.Violations = n) %>%
+  select(School, Roommate.Violations)
+
+roommie_violations
+```
+
+```{r}
+ij_violations <- 
+    best_placements %>% 
+      filter(IJ.Placement!="") %>%
+      group_by(School) %>%
+      count(IJ.Placement) %>%
+      filter(n > 1) %>%
+      rename(IJ.Violations = n) %>%
+      select(School, IJ.Violations)
+
+ij_violations
+```
+
+```{r}
+spanish_counts <- 
+    best_placements %>% 
+      filter(!is.na(Language.Ability.Spanish)) %>%
+      group_by(School) %>%
+      count(Language.Ability.Spanish) %>%
+      rename(N.Span.Speakers = n) %>%
+      select(School, N.Span.Speakers)
+      
+spanish_counts
+```
+
+```{r}
+male_counts <- 
+    best_placements %>% 
+      group_by(School) %>%
+      count(Gender) %>%
+      filter(Gender == "Male") %>%
+      rename(N.Male = n) %>%
+      select(School, N.Male )
+      
+male_counts
+```
+
 
