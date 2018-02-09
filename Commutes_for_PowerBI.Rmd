@@ -1,35 +1,27 @@
-```{r}
-# This portion is for setting parameters in a way that mimics PowerBI. In PowerBI, input parameters are contained in an object called dataset.
-
+```{r Power BI Parameters}
+# This chunk is for setting parameters in a way that mimics PowerBI. In PowerBI, input parameters are contained in an object called dataset.
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement-CHI\\FY18 Placements\\"
+dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\data\\CHI\\"
 dataset$calc_commutes[1] <-"Yes"
-dataset$API_Key[1] <- ""
+dataset$API_Key[1] <- as.character(read.table("C:\\Users\\CLuedtke\\Desktop\\GMaps_API_key.txt")[[1]])
 dataset$used_surveygizmo[1] <- "No"
-dataset$arrival_date[1] <- "2017-09-18"
-
+dataset$arrival_date[1] <- "2018-02-20"
 ```
 
-```{r}
-# This is the only necessary code block for running in PowerBI.
+```{r Define Functions}
+# This is the only necessary code block for running in PowerBI. Everything below this line is pasted into Power BI.
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(XML)
+library(RCurl)
 
-if(dataset$calc_commutes[1] == "Yes"){
-  library(dplyr)
-  library(tidyr)
-  library(readxl)
-  library(XML)
-  library(RCurl)
-  
-  root_dir <- dataset$FP[1]
-  api <- dataset$API_Key[1]
-  used_surveygizmo <- dataset$used_surveygizmo[1]
-  arrival_date <- dataset$arrival_date[1]
-  
-  # acm_df <- dataset
-  acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
-  school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xlsx", sep = ""))
+shape_inputs = function(acm_df, school_df){
+  # sometimes Excel will be read in with null rows, so remove them
+  acm_df <- acm_df[(acm_df$Res.Address.Line.1 != "") & !is.na(acm_df$Res.Address.Line.1),]
+  acm_df <- acm_df[,c("acm_id", "Full.Name", "Res.Address.Line.1", "Res.City", "Res.State", "Res.Postal.Code", "Travel.Method")]
   school_df <- school_df[!is.na(school_df$School),]
   
   if(used_surveygizmo == "Yes"){
@@ -43,18 +35,18 @@ if(dataset$calc_commutes[1] == "Yes"){
     }
   }
   
-  school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, "%I:%M%p" ),12,19)
+  # construct arrival time, Subtract 5 mins to allow on-time arrival
+  school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, format="%I:%M%p"), 12, 19)
   school_df$`ACM Start Time` <- as.POSIXct(paste(arrival_date, school_df$`ACM Start Time`))
   attributes(school_df$`ACM Start Time`)$tzone <- "GMT"
-  # Subtract 5 mins so ACM has time to get to circle
   school_df$`ACM Start Time` <- as.integer(school_df$`ACM Start Time`)-300
   
-  # Convert 'Walking', 'Bicycling', 'Public Transportation' to 'transit'
+  # Convert anything that is not 'transit' ('Walking', 'Bicycling', 'Public Transportation') to 'transit'
   acm_df$Travel.Method <- as.character(acm_df$Travel.Method)
   acm_df$Travel.Method[!(acm_df$Travel.Method %in%  'Driving')] <- "transit"
   acm_df$Travel.Method[acm_df$Travel.Method %in% 'Driving'] <- "driving"
   
-  # Combine address data into one text string:
+  # Combine address data into one text string
   acm_df$Full.Address <- paste(acm_df$"Res.Address.Line.1", acm_df$"Res.City", acm_df$"Res.State", acm_df$"Res.Postal.Code")
   acm_df$Full.Address[acm_df$Full.Address == "   "] <- NA
   
@@ -66,91 +58,93 @@ if(dataset$calc_commutes[1] == "Yes"){
   school_df$Address.Clean <- gsub(" ", "+", school_df$Address)
   school_df$Address.Clean <- gsub(",", "", school_df$Address.Clean)
   
-  gmapsdistance = function(origin, destination, mode, arrival_time, key, api) {
+  return(list(acm_df, school_df))
+}
   
-    data = expand.grid(or = origin, de = destination)
-    data$Time = NA
-    data$Distance = NA
-    data$status = "OK"
-    
-    url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?",
-                 "origins=", origin,
-                 "&destinations=", destination,
-                 "&mode=", mode,
-                 "&units=metric",
-                 "&arrival_time=", arrival_time,
-                 "&avoid=tolls",
-                 "&key=", api)
-    
-    # Call the Google Maps Webservice and store the XML output in webpageXML
-    webpageXML = xmlParse(getURL(url))
-          
-    # Extract the results from webpageXML
-    results = xmlChildren(xmlRoot(webpageXML))
-          
-    # Check the status of the request and throw an error if the request was denied
-    request.status = as(unlist(results$status[[1]]), "character")
-    
-    # Check for google API errors
-    if (!is.null(results$error_message)) {
-      stop(paste(c("Google API returned an error: ", xmlValue(results$error_message)), sep = ""))
-    }
-    
-    if (request.status == "REQUEST_DENIED") {
-      data$status = "REQUEST_DENIED"
-      # stop(as(results$error_message[1]$text, "character"))
-    }
-    
-    # Extract results from results$row
-    rowXML = xmlChildren(results$row[[1L]])
-    Status = as(rowXML$status[1]$text, "character")
-    
-    if (Status == "ZERO_RESULTS") {
-      data$status = "ROUTE_NOT_FOUND"
-    }
-    
-    if (Status == "NOT_FOUND") {
-      data$status = "PLACE_NOT_FOUND"
-    }
-    
-    if (Status == "INVALID_REQUEST") {
-      data$status = "INVALID_REQUEST"
-    }
-    
-    # Check whether the user is over their query limit
-    if (Status == "OVER_QUERY_LIMIT") {
-      stop("You have exceeded your allocation of API requests for today.")
-    }
-    
-    if(data$status == "OK"){
-      data$Distance = as(rowXML$distance[1]$value[1]$text, "numeric")
-      dur = grep("duration", names(rowXML), value = TRUE)
-      data$Time = as(rowXML[[dur]][1L]$value[1L]$text, "numeric")
-    } else {
-      data$Distance = NA
-      data$Time = NA
-    }
-    
-    Distance = data$Distance[1]
-    Time = data$Time[1]
-    Stat = data$status[1]
-    
-    output = list(Time = Time/60,
-                  Distance = Distance,
-                  Status = Stat)
-    
-    return(output)
-    
+gmapsdistance = function(origin, destination, mode, arrival_time, key, api){
+
+  data = expand.grid(or = origin, de = destination)
+  data$Time = NA
+  data$Distance = NA
+  data$status = "OK"
+  
+  url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?",
+               "origins=", origin,
+               "&destinations=", destination,
+               "&mode=", mode,
+               "&units=metric",
+               "&arrival_time=", arrival_time,
+               "&avoid=tolls",
+               "&key=", api)
+  
+  # Call the Google Maps Webservice and store the XML output in webpageXML
+  webpageXML = xmlParse(getURL(url))
+        
+  # Extract the results from webpageXML
+  results = xmlChildren(xmlRoot(webpageXML))
+        
+  # Check the status of the request and throw an error if the request was denied
+  request.status = as(unlist(results$status[[1]]), "character")
+  
+  # Check for google API errors
+  if (!is.null(results$error_message)) {
+    stop(paste(c("Google API returned an error: ", xmlValue(results$error_message)), sep = ""))
   }
   
+  if (request.status == "REQUEST_DENIED") {
+    data$status = "REQUEST_DENIED"
+    # stop(as(results$error_message[1]$text, "character"))
+  }
+  
+  # Extract results from results$row
+  rowXML = xmlChildren(results$row[[1L]])
+  Status = as(rowXML$status[1]$text, "character")
+  
+  if (Status == "ZERO_RESULTS") {
+    data$status = "ROUTE_NOT_FOUND"
+  }
+  
+  if (Status == "NOT_FOUND") {
+    data$status = "PLACE_NOT_FOUND"
+  }
+  
+  if (Status == "INVALID_REQUEST") {
+    data$status = "INVALID_REQUEST"
+  }
+  
+  # Check whether the user is over their query limit
+  if (Status == "OVER_QUERY_LIMIT") {
+    stop("You have exceeded your allocation of API requests for today.")
+  }
+  
+  if(data$status == "OK"){
+    data$Distance = as(rowXML$distance[1]$value[1]$text, "numeric")
+    dur = grep("duration", names(rowXML), value = TRUE)
+    data$Time = as(rowXML[[dur]][1L]$value[1L]$text, "numeric")
+  } else {
+    data$Distance = NA
+    data$Time = NA
+  }
+  
+  Distance = data$Distance[1]
+  Time = data$Time[1]
+  Stat = data$status[1]
+  
+  output = list(Time = Time/60,
+                Distance = Distance,
+                Status = Stat)
+  
+  return(output)
+}
+
+commute_procedure = function(acm_df, school_df){  
   # Create an empty dataframe that we will fill with commute times
   acm_commutes <- data.frame()
   
-  count = 1
+  count <- 0
 
-  for (x in acm_df$acm_id[(acm_df$Res.Address.Line.1 != "") & 
-                          !(is.na(acm_df$Res.Address.Line.1))]){
-    count = count + 1
+  for (x in acm_df$acm_id){
+    count <- count + 1
     
     for(y in school_df$School[school_df$Address.Clean != "" & !is.na(school_df$Address.Clean!="")]){
       acm_commute <- data.frame("acm_id" = x,
@@ -166,66 +160,52 @@ if(dataset$calc_commutes[1] == "Yes"){
       commute <- gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
                                destination = school_df$Address.Clean[school_df$School == y], 
                                mode = acm_df$Travel.Method[acm_df$acm_id == x],
-                               arrival_time= as.character(school_df$`ACM Start Time`[school_df$School == y]),
+                               arrival_time = as.character(school_df$`ACM Start Time`[school_df$School == y]),
                                api = api)
 
-      acm_commute$"Commute.Time" = commute$Time[1]
-      acm_commute$"Distance" = commute$Distance[1]
-      acm_commute$"Status" = commute$Status[1]
+      acm_commute$"Commute.Time" <- commute$Time[1]
+      acm_commute$"Distance" <- commute$Distance[1]
+      acm_commute$"Status" <- commute$Status[1]
       
       if (commute$Status[1] == "ROUTE_NOT_FOUND"){
-        commute = gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
-                              destination = as.character(school_df$Address.Clean[school_df$School == y]), 
-                              mode = "driving",
-                              arrival_time= school_df$`ACM Start Time`[school_df$School == y],
-                              api = api)
+        # if no route found, find driving distance, but keep the status. This is done so we have a loose idea of which schools are nearby.
+        commute <- gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x],
+                                 destination = school_df$Address.Clean[school_df$School == y], 
+                                 mode = "driving",
+                                 arrival_time= school_df$`ACM Start Time`[school_df$School == y],
+                                 api = api)
         acm_commute$"Commute.Time" = commute$Time[1]
         acm_commute$"Distance" = commute$Distance[1]
       }
       
       if (commute$Status[1] == "PLACE_NOT_FOUND"){
-        commute = gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
-                              destination = as.character(school_df$Address.Clean[school_df$School == y]), 
-                              mode = acm_df$Travel.Method[acm_df$acm_id == x],
-                              arrival_time= school_df$`ACM Start Time`[school_df$School == y],
-                              api = api)
-        acm_commute$"Commute.Time" = commute$Time[1]
-        acm_commute$"Distance" = commute$Distance[1]
-        acm_commute$"Status" = commute$Status[1]
+        # if place not found, try again
+        commute <- gmapsdistance(origin = acm_df$Full.Address[acm_df$acm_id == x], 
+                                 destination = school_df$Address.Clean[school_df$School == y], 
+                                 mode = acm_df$Travel.Method[acm_df$acm_id == x],
+                                 arrival_time= school_df$`ACM Start Time`[school_df$School == y],
+                                 api = api)
+        acm_commute$"Commute.Time" <- commute$Time[1]
+        acm_commute$"Distance" <- commute$Distance[1]
+        acm_commute$"Status" <- commute$Status[1]
       }
-
-      rownames(acm_commute) <- c()
       
+      # remove rownames and merge to our iteratively built dataframe
+      rownames(acm_commute) <- c()
       acm_commutes <- rbind(acm_commutes, acm_commute)
     }
   }
 
   acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
   
-  # If some (but not all) of an ACMs commutes were "ROUTE_NOT_FOUND" or "PLACE_NOT_FOUND", then convert commute.time to 999. If ALL were "ROUTE_NOT_FOUND", then driving commutes were calculated. They will be left in order to calc commute.rank, then converted to NA. User may then manually place "ROUTE_NOT_FOUND" ACMs based on commute.rank
-  ids_some_ROUTE_NOT_FOUND <- acm_commutes %>% 
+  # If some (but not all) of an ACM's commutes to schools were "ROUTE_NOT_FOUND" or "PLACE_NOT_FOUND", then convert commute.time to 999. If ALL were "ROUTE_NOT_FOUND", then driving commutes were calculated. Those commutes are used to to calc commute.rank, then converted to NA. User may then manually place "ROUTE_NOT_FOUND" ACMs based on commute.rank
+  ids_R_or_P_NOT_FOUND <- acm_commutes %>% 
     group_by(acm_id) %>%
     count(Status) %>%
-    filter(Status == "ROUTE_NOT_FOUND") %>%
+    filter(Status == "ROUTE_NOT_FOUND" | Status == "PLACE_NOT_FOUND") %>%
     filter(n != nrow(school_df)) %>%
     select(acm_id)
   
-  try((acm_commutes[(acm_commutes$acm_id %in% unlist(ids_some_ROUTE_NOT_FOUND)) & (acm_commutes$Status == "ROUTE_NOT_FOUND"),]$Commute.Time <- 999),
-      silent = TRUE)
-  
-  ids_some_PLACE_NOT_FOUND <- acm_commutes %>% 
-    group_by(acm_id) %>%
-    count(Status) %>%
-    filter(Status == "PLACE_NOT_FOUND") %>%
-    filter(n != nrow(school_df)) %>%
-    select(acm_id)
-  
-  try((acm_commutes[(acm_commutes$acm_id %in% unlist(ids_some_PLACE_NOT_FOUND)) & (acm_commutes$Status == "PLACE_NOT_FOUND"),]$Commute.Time <- 999),
-      silent = TRUE)
-  
-  # Convert NA commute times to 999
-  try((acm_commutes$Commute.Time[is.na(acm_commutes$Commute.Time)] <- 999), silent = TRUE)
-
   # Commute Rank
   acm_commutes <- acm_commutes %>%
     arrange(Commute.Time) %>%
@@ -243,15 +223,36 @@ if(dataset$calc_commutes[1] == "Yes"){
     acm_commutes_sch_no_addr[,c("Home.Address", "School.Address", "Status", "Distance")] <- NA
     acm_commutes <- rbind(acm_commutes, acm_commutes_sch_no_addr)
   }
-
-  try(acm_commutes$Commute.Time[(acm_commutes$Status != "OK" | is.na(acm_commutes$Status))] <- 999, silent=TRUE)
+  
+  # set invalid commutes to 999 to discourage placement at said schools
+  try(acm_commutes$Commute.Time[(acm_commutes$Status != "OK" | is.na(acm_commutes$Status) | is.na(acm_commutes$Commute.Time))] <- 999, silent=TRUE)
   try(acm_commutes$Commute.Rank[is.na(acm_commutes$Status)] <- NA, silent=TRUE)
 
   acm_commutes <- acm_commutes[order(acm_commutes$acm_id),]
-
-  # Write to .csv, which will be referenced by main algorithm
-  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes11.csv", sep = ""), sep=",", row.names=FALSE, na = "")
   
+  return(acm_commutes)
+}
+```
+
+```{r Run Commutes}
+root_dir <- dataset$FP[1]
+api <- dataset$API_Key[1]
+used_surveygizmo <- dataset$used_surveygizmo[1]
+arrival_date <- dataset$arrival_date[1]
+
+acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
+school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xlsx", sep = ""))
+
+if(dataset$calc_commutes[1] == "Yes"){
+  result <- shape_inputs(acm_df, school_df)
+  acm_df <- result[[1]]
+  school_df <- result[[2]]
+  start.time <- Sys.time()
+  acm_commutes <- commute_procedure(acm_df, school_df)
+  end.time <- Sys.time()
+  # Write to .csv
+  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE, na = "")
+  paste(end.time - start.time)
 } else {
   acm_commutes <- data.frame(acm_id	= NA,
                                Full.Name	= NA,
