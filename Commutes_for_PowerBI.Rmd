@@ -48,7 +48,6 @@ shape_inputs = function(acm_df, school_df){
   
   # Combine address data into one text string
   acm_df$Full.Address <- paste(acm_df$"Res.Address.Line.1", acm_df$"Res.City", acm_df$"Res.State", acm_df$"Res.Postal.Code")
-  acm_df$Full.Address[acm_df$Full.Address == "   "] <- NA
   
   # Replace spaces with "+" and remove commas (requests to google maps API cannot include spaces)
   acm_df$Full.Address <- gsub(" ", "+", acm_df$Full.Address)
@@ -76,7 +75,7 @@ gmapsdistance = function(origin, destination, mode, arrival_time, key, api){
                "&arrival_time=", arrival_time,
                "&avoid=tolls",
                "&key=", api)
-  
+
   # Call the Google Maps Webservice and store the XML output in webpageXML
   webpageXML = xmlParse(getURL(url))
         
@@ -197,8 +196,8 @@ commute_procedure = function(acm_df, school_df){
   }
 
   acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
-  
-  # If some (but not all) of an ACM's commutes to schools were "ROUTE_NOT_FOUND" or "PLACE_NOT_FOUND", then convert commute.time to 999. If ALL were "ROUTE_NOT_FOUND", then driving commutes were calculated. Those commutes are used to to calc commute.rank, then converted to NA. User may then manually place "ROUTE_NOT_FOUND" ACMs based on commute.rank
+
+  # If some (but not all) of an ACM's commutes to schools were "ROUTE_NOT_FOUND" or "PLACE_NOT_FOUND", then convert commute.time to 999. If ALL were "ROUTE_NOT_FOUND", then driving commutes were calculated. Those commutes are used to to calc commute.rank, then converted to 999. User may then manually place "ROUTE_NOT_FOUND" ACMs based on commute.rank
   ids_R_or_P_NOT_FOUND <- acm_commutes %>% 
     group_by(acm_id) %>%
     count(Status) %>%
@@ -234,7 +233,7 @@ commute_procedure = function(acm_df, school_df){
 }
 ```
 
-```{r Run Commutes}
+```{r Load Data}
 root_dir <- dataset$FP[1]
 api <- dataset$API_Key[1]
 used_surveygizmo <- dataset$used_surveygizmo[1]
@@ -242,13 +241,79 @@ arrival_date <- dataset$arrival_date[1]
 
 acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
 school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xlsx", sep = ""))
+```
 
+```{r Attempts to Calc as Matrix}
+# Trying to calc as matrix, limit of 25 x 25, need a way to merge in for N schools > 25 (harder), and append rows (easier)
+result <- shape_inputs(acm_df, school_df)
+acm_df <- result[[1]]
+school_df <- result[[2]]
+
+# Limit inputs to the first 10 elements of each
+origin = paste(as.vector(acm_df[['Full.Address']][1:10]), collapse = '|')
+destination = paste(as.vector(school_df[['Address.Clean']][1:10]), collapse = '|')
+
+url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?",
+               "origins=", origin,
+               "&destinations=", destination,
+               "&mode=transit",
+               "&units=metric",
+               "&arrival_time=1519131600",
+               "&avoid=tolls",
+               "&key=", api)
+paste(nchar(url))
+
+# Call the Google Maps Webservice and store the XML output in webpageXML
+webpageXML = xmlParse(getURL(url))
+      
+# Extract the results from webpageXML
+results = xmlChildren(xmlRoot(webpageXML))
+xml_file = xmlParse(getURL(url))
+xmlToDataFrame(xml_file)
+
+#attempt 3
+library(rlist)
+theurl <- getURL(url)
+tables <- readHTMLTable(theurl)
+tables <- list.clean(tables, fun = is.null, recursive = FALSE)
+n.rows <- unlist(lapply(tables, function(t) dim(t)[1]))
+
+# attempt 4 with JSON, worked but couldn't expand column
+library(jsonlite)
+url = paste0("https://maps.googleapis.com/maps/api/distancematrix/json?",
+               "origins=", origin,
+               "&destinations=", destination,
+               "&mode=transit",
+               "&units=metric",
+               "&arrival_time=1519131600",
+               "&avoid=tolls",
+               "&key=", api)
+
+table = fromJSON(getURL(url))
+
+lapply(as.character(df$action_info), RJSONIO::fromJSON) %>% 
+    lapply(function(e) list(bar=e$foo[1], baz=e$foo[2], type=e$type)) %>% 
+    rbindlist() %>%
+    cbind(df) %>% 
+    select(-action_info)
+
+# attempt 5 using googleway library
+library(googleway)
+
+test <- google_distance(origins = origin,
+                        destinations = destination,
+                        key = api,
+                        mode = "transit",
+                        language = "fr")
+```
+
+```{r Run Commutes}
 if(dataset$calc_commutes[1] == "Yes"){
   result <- shape_inputs(acm_df, school_df)
   acm_df <- result[[1]]
   school_df <- result[[2]]
   start.time <- Sys.time()
-  acm_commutes <- commute_procedure(acm_df, school_df)
+  acm_commutes <- commute_procedure(acm_df[1,], school_df)
   end.time <- Sys.time()
   # Write to .csv
   write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE, na = "")
