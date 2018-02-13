@@ -1,6 +1,8 @@
 ```{}
-### Survey changes
-* Prior Relationships should be entered one at a time in separate fields, so they export as separate columns and we avoid comma-separation issues (and make small script changes to reflect this)
+### Added TODO's at various points. Ctrl + F 'TODO' to see what is being developed.
+
+### TODO: Survey changes
+* Prior Relationships should be entered one at a time in separate fields so they export as separate columns and we avoid comma-separation issues (and make small script changes to reflect this)
 * CHI - add survey item about whether ACM attended CPS and which school
 ```
 
@@ -25,15 +27,15 @@ dataset$prevent_roommates[1] <-"Yes"
 dataset$consider_HS_elig[1] <- "No"
 
 # Set Soft  Constraints
-dataset$consider_commutes[1] <- "No"
-dataset$commute_factor = 0
+dataset$consider_commutes[1] <- "Yes"
+dataset$commute_factor = 1
 dataset$age_factor = 0
-dataset$ethnicity_factor = 1
+dataset$ethnicity_factor = 0
 dataset$Edscore_factor = 0
 dataset$Tutoring_factor = 0
 dataset$Spanish_factor = 0
 dataset$Math_factor = 0
-dataset$Gender_factor = 1
+dataset$Gender_factor = 0
 dataset$preserve_ij_factor = 0
 ```
 
@@ -531,7 +533,6 @@ s_curve = function(x, center, width) {
 }
 
 #' Annealing and Swap Function
-# TODO: Spanish requirement target set manually school data input
 # TODO: If Spanish speaker randomly chosen for placement, only consider swaps with other Spanish speakers, unless the chosen ACM is already at a school with a surplus of Spanish speakers, in which case they may be placed anywhere
 run_intermediate_annealing_process = function(starting_placements, school_df, best_placements=starting_placements, number_of_iterations, center_scale, width_scale) {
   
@@ -566,9 +567,9 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     cand_plcmts_df <- team_placements_df
     
     # Randomly select ACM to swap
-    swap1 <- sample(plcmts_df$acm_id[is.na(plcmts_df$Manual.Placement)
-                                          |plcmts_df$Manual.Placement==""
-                                          |plcmts_df$Manual.Placement==0], 1)
+    swap1 <- sample(cand_plcmts_df$acm_id[is.na(cand_plcmts_df$Manual.Placement)
+                                          |cand_plcmts_df$Manual.Placement==""
+                                          |cand_plcmts_df$Manual.Placement==0], 1)
     
     cand_plcmts_df <- make_swap(cand_plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df)
     
@@ -782,7 +783,6 @@ elig_plc_acmwise_df <- elig_plcmnts_acmwise(team_placements_df, prevent_roommate
 team_placements_df <- initial_valid_placement(team_placements_df, school_df, elig_plc_schwise_df, elig_plc_acmwise_df)
 ```
 
-
 ```{r Run Algorithm}
 start.time <- Sys.time()
 output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, number_of_iterations = 2000, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
@@ -800,9 +800,10 @@ if(output$best_score < 1000000){
 
 write.table(output$best_placements, file = paste(root_dir, "Output - Team Placements (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
 
-#write.table(trace, file = paste(root_dir, "Output - Trace (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
+write.table(trace, file = paste(root_dir, "Output - Trace (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
 
 View(trace)
+plot(trace[,c('iter', 'score')])
 View(best_placements[best_placements$Manual.Placement == "",])
 mean(best_placements$Commute.Time[best_placements$Commute.Time != 999], na.rm = TRUE)
 mean(best_placements$Commute.Rank, na.rm = TRUE)
