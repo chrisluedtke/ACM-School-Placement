@@ -1,6 +1,5 @@
+*.RData
 *.Rhistory
-Input 1 - ACM Data - CHI SY18.csv
 Boston Survey Data.csv
-data/CHI/Input 1 - ACM Data.csv
-data/CHI/Input 2 - School Data.xlsx
-data/CHI/ACM Commutes.csv
+data/CHI/*
+data/BOS/*

@@ -25,6 +25,38 @@ dataset$Gender_factor = 1
 # - IJ placements
 # - survey senior IMs for a balance of scores on 100 point scale
 # - Calculate % score improved from random placement, and display that to user to inform weight setting
+# - Make fake team placements -> Make IJ from fake team placements
+# - Make IJ placements but encourage bad commutes
+# - When making team placements, prevent IJ conflicts
+# - also prevent TL from having teammates
+
+
+
+
+# - add team leader column
+
+
+# TWO OPTIONS
+# - Place school teams AFTER IJ teams
+#   - make fake school teams first, then make fake IJ teams that prevent school teammates from being on the same IJ.
+#   - make IJ teams with the same process as school teams, but seek to maximize commutes to the TL's school. That way, hopefully no ACM is prevented from serving at a close school due to IJ conflicts.
+
+#   - construct lists of IJ teams with TL
+#   - create function that determintes eligible placements
+
+# - If placing IJ teams after school teams
+#   - 
+
+# Firm things
+#   - Roommates
+#   - IJ/school team
+#   - HS eligible
+#   - Manual Placements
+
+
+# Use cases
+# - either create IJ teams and prevent school teammates from being on same IJ team
+# - OR create school teams and prevent IJ teammates from being on the same school team
 
 # Manual Balance of Scores Brainstorming
 
@@ -409,9 +441,7 @@ initial_placement <- function(acm_enc, school_targets, prevent_roommates){
   
   # Number of survey respondents who were just placed
   slots <- nrow(team_placements)
-  
-  acm_enc$Manual.Placement
-  
+
   # List of ACM ids of survey respondents who were not manually placed, plus dummy id's for team slots that were not filled by any survey respondent
   if (nrow(acm_enc) == sum(team_size_targets$size)){
     filled_acm_roster <- acm_enc[is.na(acm_enc$Manual.Placement), ]$acm_id
