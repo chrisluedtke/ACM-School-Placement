@@ -1,0 +1,41 @@
+rules:
+- 
+  expr: 'is.numeric(acm_id)'
+  name: acm_id
+  label: numeric id
+  description: |
+   A good id field has positive integers 
+- 
+  expr: Educational.Attainment %in% c("Associate's Degree", "Bachelor's Degree", "Master's Degree", "Some College", "High School/GED", "")
+  name: Educational.Attainment 
+  label: Valid Ed Attainment
+  description: |
+   Educational Attainment was be described with the following buckets:
+   "Associate's Degree", "Bachelor's Degree", "Master's Degree", 
+   "Some College", "High School/GED", "" 
+- 
+  expr: Tutoring.Experience %in% c("Yes", "No", "")
+  name: Tutoring.Experience
+  label: Tutoring.Experience Formatting
+  description: |
+   Tutoring.Experience should only contain "Yes", "No", or "" 
+- 
+  expr: Language.Ability.Spanish %in% c("Spanish", "")
+  name: Language.Ability.Spanish
+  label: Language.Ability.Spanish Formatting
+  description: |
+   Language.Ability.Spanish should only contain "Spanish" or "" 
+- 
+  expr: Language.Other.English %in% c("Yes", "No", "")
+  name: Language.Other.English
+  label: Language.Other.English Formatting
+  description: |
+   Language.Other.English should only contain "Yes", "No", or ""
+- 
+  expr: Gender %in% c("Male", "Female", "Gender Nonconforming (GNC)", "Transgender Male", "Transgender Female", "")
+  name: Gender
+  label: Gender Formatting
+  description: |
+   Gender should only contain the following values:
+   "Male", "Female", "Gender Nonconforming (GNC)", 
+   "Transgender Male", "Transgender Female", or ""

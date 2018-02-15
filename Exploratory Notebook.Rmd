@@ -1,0 +1,53 @@
+---
+title: "Exploratory Notebook"
+output: html_notebook
+---
+
+```{r Power BI Inputs}
+#rm(list=ls(all=TRUE))
+
+# Initialize
+dataset <- data.frame(FP = 1)
+
+# Data Source Parameters
+dataset$FP[1] <-"C:\\Users\\perus\\GitHub\\ACM-School-Placement\\data\\CHI\\"
+dataset$used_surveygizmo[1] <- "No"
+acm_df_file <- "Input 1 - ACM Data.csv"
+school_df_file <- "Input 2 - School Data.xlsx"
+
+# Algorithm Settings
+dataset$number_iterations[1] <- 2000
+dataset$ij[1] <- "Do nothing with IJ Teams."
+
+# Set Firm Constraints
+dataset$prevent_roommates[1] <-"Yes"
+dataset$consider_HS_elig[1] <- "No"
+
+# Set Soft  Constraints
+dataset$consider_commutes[1] <- "No"
+dataset$commute_factor = 0
+dataset$age_factor = 0
+dataset$ethnicity_factor = 1
+dataset$Edscore_factor = 0
+dataset$Tutoring_factor = 0
+dataset$Spanish_factor = 0
+dataset$Math_factor = 0
+dataset$Gender_factor = 1
+dataset$preserve_ij_factor = 0
+```
+
+```{r Testing Data}
+source('lib/data.R')
+imported <- import_data(dataset)
+acm_df <- imported$acm
+```
+
+```{r Developing Validator}
+rules <- validator(.file = 'data/valid_acm.yaml')
+rules <- validator(acm_id > 0)
+validated_cols <- c('acm_id', 'Educational.Attainment', 'Tutoring.Experience', 'Language.Ability.Spanish', 'Language.Other.English', 'Gender')
+chq_cols <- try(acm_df[validated_cols])
+chq = confront(chq_cols, rules)
+summary(chq)
+```
+

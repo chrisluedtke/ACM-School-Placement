@@ -2,45 +2,46 @@ library(readxl)
 library(dplyr)
 library(tidyr)
 library(data.table)
+library(validate)
 
-import_data <- function(path, consider_commutes='No'){
-  acm_df <- read.csv(file = paste(path, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
+import_data <- function(params){
+  acm_df <- read.csv(file = paste(params$FP[1], "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
   acm_df$acm_id <- 1:nrow(acm_df)
   
-  if(consider_commutes == "Yes"){
-    acm_commutes <- read.csv(file = paste(path, "ACM Commutes.csv", sep = ""), check.names=FALSE)
+  if(params$consider_commutes == "Yes"){
+    acm_commutes <- read.csv(file = paste(params$FP[1], "ACM Commutes.csv", sep = ""), check.names=FALSE)
     acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
     acm_commutes$id_dest <- paste(acm_commutes$Full.Name, acm_commutes$School, sep = "_")
     dt_commutes <- data.table(acm_commutes)
   }
    
-  # school_df <- read_excel(path = paste(path, "Input 2 - School Data.xlsx", sep = ""))
-  # school_df <- school_df[!is.na(school_df$School),]
-  # school_df <- school_df[order(school_df$School),]
-  # school_df$sch_id <- 1:nrow(school_df)
-  # 
-  # if(used_surveygizmo == "Yes"){
-  #   acm_df <- rename_headers(acm_df)
-  # }
-  # 
-  # # Create One Race.Ethnicity Column
-  # ethn_cols = c("Race.Ethnicity.African.American.Black",
-  #               "Race.Ethnicity.American.Indian.Alaskan.Native",
-  #               "Race.Ethnicity.Asian",
-  #               "Race.Ethnicity.Hispanic.Latino",
-  #               "Race.Ethnicity.Middle.Eastern",
-  #               "Race.Ethnicity.Native.Hawaiian.Pacific.Islander",
-  #               "Race.Ethnicity.White.Caucasian", 
-  #               "Race.Ethnicity.Other")
-  # 
-  # acm_df[, ethn_cols][acm_df[, ethn_cols] == ""] <- NA
-  # 
-  # acm_df$Race.Ethnicity <- apply(acm_df[, ethn_cols], 1, function(x) toString(na.omit(x)))
-  # 
-  # acm_df <- clean_roommates(acm_df)
-  # acm_df <- clean_pre_rel(acm_df)
-  # acm_df <- acm_df[acm_df$Full.Name!="",]
-  acm_df
+  school_df <- read_excel(path = paste(params$FP[1], "Input 2 - School Data.xlsx", sep = ""))
+  school_df <- school_df[!is.na(school_df$School),]
+  school_df <- school_df[order(school_df$School),]
+  school_df$sch_id <- 1:nrow(school_df)
+
+  if(params$used_surveygizmo == "Yes"){
+    acm_df <- rename_headers(acm_df)
+  }
+
+  # Create One Race.Ethnicity Column
+  ethn_cols = c("Race.Ethnicity.African.American.Black",
+                "Race.Ethnicity.American.Indian.Alaskan.Native",
+                "Race.Ethnicity.Asian",
+                "Race.Ethnicity.Hispanic.Latino",
+                "Race.Ethnicity.Middle.Eastern",
+                "Race.Ethnicity.Native.Hawaiian.Pacific.Islander",
+                "Race.Ethnicity.White.Caucasian",
+                "Race.Ethnicity.Other")
+
+  acm_df[, ethn_cols][acm_df[, ethn_cols] == ""] <- NA
+
+  acm_df$Race.Ethnicity <- apply(acm_df[, ethn_cols], 1, function(x) toString(na.omit(x)))
+
+  acm_df <- clean_roommates(acm_df)
+  acm_df <- clean_pre_rel(acm_df)
+  acm_df <- acm_df[acm_df$Full.Name!="",]
+  list(acm=acm_df, school=school_df)
 }
 
 rename_headers <- function(acm_df){
@@ -56,7 +57,8 @@ rename_headers <- function(acm_df){
 }
 
 validate_imputs <- function(acm_df){
-  # Add validation code for all inputs
+  # To start, we need to designate a series of rules that our data should follow
+  
 }
 
 clean_roommates <- function(acm_df){

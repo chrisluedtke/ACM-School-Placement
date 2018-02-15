@@ -1,0 +1,7 @@
+rules:
+- 
+  expr: is.numeric(acm_id)
+  name: acm_id
+  label: numeric id
+  description: |
+   A good id field has positive integers 

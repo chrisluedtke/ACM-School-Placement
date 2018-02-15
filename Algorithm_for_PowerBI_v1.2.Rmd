@@ -635,7 +635,6 @@ acm_df <- acm_df[acm_df$Full.Name!="",]
 acm_enc <- encode_acm_df(acm_df)
 school_targets <- school_config(school_df, acm_enc)
 team_placements_df <- initial_placement(acm_enc, school_targets)
-
 team_placements_df <- initial_valid_placement(team_placements_df, school_df, prevent_roommates=prevent_roommates, ij=ij)
 
 ```
