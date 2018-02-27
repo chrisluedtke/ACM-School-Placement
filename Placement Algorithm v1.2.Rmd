@@ -72,7 +72,9 @@ clean_RMs_PrRels <- function(acm_df, school_df){
   RMs_PrRels_no_match <- Uniq_RMs_PrRels_df[!(unlist(Uniq_RMs_PrRels_df ) %in% c(acm_df$Full.Name, school_df$`Team Leader`, school_df$Manager))]
   write.table(RMs_PrRels_no_match, file = paste0(root_dir, "Invalid Roommate and Prior Relationship Names.csv"), sep=",", row.names=FALSE, col.names=FALSE)
   
-  # create consisten roommate sets for each roommate
+  ### RAISE ERROR if length(RMs_PrRels_no_match) > 0, and list what those names are
+  
+  # create consistent roommate sets for each roommate
   RMs_df <- acm_df[,names(acm_df) %in% c("acm_id", "Full.Name", "Roommates", RM_cols)]
   RMs_df <- RMs_df[RMs_df$Roommates == 'Yes' | RMs_df$Full.Name %in% unlist(RMs_df[, RM_cols], use.names = FALSE), ]
 
@@ -218,6 +220,7 @@ school_config <- function(school_df, acm_enc){
 #' between each ACM and each school (HS eligibility, TL and IM prior 
 #' relationship / roommate conflicts, manual placements, Spanish speakers)
 elig_plcmnts_schwise <- function(team_placements_df, school_df){
+  
   perm <- merge(team_placements_df, school_df, all.x=TRUE) %>%
      mutate(elig = 1, 
             HS_conf = 0, 
@@ -363,7 +366,7 @@ append_elig_col <- function(team_placements_df, elig_plc_schwise_df, elig_plc_ac
 initial_valid_placement <- function(team_placements_df, school_df, elig_plc_schwise_df, elig_plc_acmwise_df){
   team_placements_df <- append_elig_col(team_placements_df, elig_plc_schwise_df, elig_plc_acmwise_df)
   n_inelig <- nrow(team_placements_df[team_placements_df$elig == 0,])
-  
+
   while (n_inelig > 0){
     # Choose one invalid ACM to swap
     swap1 <- sample(team_placements_df$acm_id[team_placements_df$elig == 0], 1)
@@ -380,7 +383,6 @@ initial_valid_placement <- function(team_placements_df, school_df, elig_plc_schw
 }
 
 make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df){
-  
   plcmts_df_cols <- names(plcmts_df)
   plcmts_df$acm_id_sch_id <- paste(plcmts_df$acm_id, plcmts_df$placement, sep="_")
   
@@ -405,10 +407,10 @@ make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df
   
   if(length(school2_set)==0){
     return(next)
-  } else if (length(unique(school2_set)) > 1){
-    schools_to_swap[2] <- sample(unique(school2_set), 1)
+  } else if (length(school2_set) > 1){
+    schools_to_swap[2] <- sample(school2_set, 1)
   } else {
-    schools_to_swap[2] <- unique(school2_set)
+    schools_to_swap[2] <- school2_set
   }
   
   school2_ids = plcmts_df$acm_id[plcmts_df$placement == schools_to_swap[2]]
@@ -427,10 +429,10 @@ make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df
   
   if(length(swap2_set)==0){
     return(next)
-  } else if(length(unique(swap2_set)) != 1){
-    swap2 <- sample(unique(swap2_set), 1)
+  } else if(length(swap2_set) != 1){
+    swap2 <- sample(swap2_set, 1)
   } else {
-    swap2 <- unique(swap2_set)
+    swap2 <- swap2_set
   }
 
   # Sort by acm_id and reset the index
@@ -566,10 +568,11 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     # Create a copy of team_placements_df
     cand_plcmts_df <- team_placements_df
     
+    # TODO: is it necessary to ensure manual placement is null, "", or 0?
     # Randomly select ACM to swap
     swap1 <- sample(cand_plcmts_df$acm_id[is.na(cand_plcmts_df$Manual.Placement)
-                                          |cand_plcmts_df$Manual.Placement==""
-                                          |cand_plcmts_df$Manual.Placement==0], 1)
+                                          ||cand_plcmts_df$Manual.Placement==""
+                                          ||cand_plcmts_df$Manual.Placement==0], 1)
     
     cand_plcmts_df <- make_swap(cand_plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df)
     
