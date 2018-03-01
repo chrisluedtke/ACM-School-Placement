@@ -137,14 +137,14 @@ encode_acm_df <- function(df){
                                    Manual.Placement, 
                                    Birth.Date,
                                    Race.Ethnicity,
-                                   IJ.Placement,
+                                   # IJ.Placement,
                                    Prior.Rship.Name,
                                    Roommate.Names), by=c("acm_id" = "acm_id")) %>%
                mutate(days_old = as.integer(Sys.Date() - as.Date(as.character(df$Birth.Date), format="%m/%d/%Y"))) %>%
                replace_na(list(Lang_Other = 0, days_old = 0))
 
   acm_enc$Manual.Placement[acm_enc$Manual.Placement == ""] <- NA
-  acm_enc$IJ.Placement[acm_enc$IJ.Placement == ""] <- NA
+  # acm_enc$IJ.Placement[acm_enc$IJ.Placement == ""] <- NA
 
   return(acm_enc)
 }
@@ -405,14 +405,11 @@ make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df
     filter(acm_conf_sum == 0) %>%
     select(placement) %>% .[["placement"]]
   
-  if(length(school2_set)==0){
-    return(next)
-  } else if (length(school2_set) > 1){
-    schools_to_swap[2] <- sample(school2_set, 1)
-  } else {
-    schools_to_swap[2] <- school2_set
-  }
-  
+  if(length(school2_set)>0){
+    # school2_set is combined with itself to ensure we aren't passing a length 1 argument to sample()
+    schools_to_swap[2] <- sample(c(school2_set, school2_set), 1)
+  } else {return(plcmts_df[, plcmts_df_cols])}
+
   school2_ids = plcmts_df$acm_id[plcmts_df$placement == schools_to_swap[2]]
   # Find ACMs who are eligible to serve at school1 
   swap2_set_schwise <- elig_plc_schwise_df$acm_id[(elig_plc_schwise_df$sch_id == schools_to_swap[1])
@@ -427,13 +424,9 @@ make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df
     filter(acm_conf_sum == 0) %>%
     select(acm_id) %>% .[["acm_id"]]
   
-  if(length(swap2_set)==0){
-    return(next)
-  } else if(length(swap2_set) != 1){
-    swap2 <- sample(swap2_set, 1)
-  } else {
-    swap2 <- swap2_set
-  }
+  if(length(swap2_set)>0){
+    swap2 <- sample(c(swap2_set, swap2_set), 1)
+  } else {return(plcmts_df[, plcmts_df_cols])}
 
   # Sort by acm_id and reset the index
   plcmts_df <- plcmts_df[order(plcmts_df$acm_id), ]
@@ -767,7 +760,7 @@ acm_enc <- encode_acm_df(acm_df)
 school_targets <- school_config(school_df, acm_enc)
 
 # This seed (1) produces 3 errors to fix
-set.seed(1)
+#set.seed(1)
 
 team_placements_df <- initial_placement(acm_enc, school_targets)
 
@@ -783,7 +776,7 @@ elig_plc_acmwise_df <- elig_plcmnts_acmwise(team_placements_df, prevent_roommate
 team_placements_df <- initial_valid_placement(team_placements_df, school_df, elig_plc_schwise_df, elig_plc_acmwise_df)
 ```
 
-```{r Run_Algorithm}
+```{r Run_Algorithm, echo=FALSE}
 start.time <- Sys.time()
 
 output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, number_of_iterations = number_iterations, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
@@ -804,12 +797,10 @@ write.table(output$best_placements, file = paste(root_dir, "Output - Team Placem
 
 write.table(trace, file = paste(root_dir, "Output - Trace (", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
 
-View(trace)
-plot(trace[,c('iter', 'score')])
-View(best_placements[best_placements$Manual.Placement == "",])
-mean(best_placements$Commute.Time[best_placements$Commute.Time != 999], na.rm = TRUE)
-mean(best_placements$Commute.Rank, na.rm = TRUE)
-time.taken
-
-output <- output
+#View(trace)
+#plot(trace[,c('iter', 'score')])
+#View(best_placements[best_placements$Manual.Placement == "",])
+#mean(best_placements$Commute.Time[best_placements$Commute.Time != 999], na.rm = TRUE)
+#mean(best_placements$Commute.Rank, na.rm = TRUE)
+#time.taken
 ```
