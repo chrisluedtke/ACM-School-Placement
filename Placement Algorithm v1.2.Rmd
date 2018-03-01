@@ -2,24 +2,22 @@
 ### Added TODO's at various points. Ctrl + F 'TODO' to see what is being developed.
 
 ### TODO: Survey changes
-* Prior Relationships should be entered one at a time in separate fields so they export as separate columns and we avoid comma-separation issues (and make small script changes to reflect this)
-* CHI - add survey item about whether ACM attended CPS and which school
+# * Prior Relationships should be entered one at a time in separate fields so they export as separate columns and we avoid comma-separation issues (and make small script changes to reflect this)
+# * CHI - add survey item about whether ACM attended CPS and which school
 ```
 
-```{r Power BI Inputs}
+```{r Power_BI_Inputs, echo=FALSE, eval=FALSE}
 #rm(list=ls(all=TRUE))
 
 # Initialize
 dataset <- data.frame(FP = 1)
 
 # Data Source Parameters
-dataset$FP[1] <-"C:\\Users\\CLuedtke\\ACM-School-Placement\\data\\CHI\\"
+dataset$FP[1] <-"C:/Users/CLuedtke/ACM-School-Placement/data/CHI/"
 dataset$used_surveygizmo[1] <- "No"
-acm_df_file <- "Input 1 - ACM Data.csv"
-school_df_file <- "Input 2 - School Data.xlsx"
 
 # Algorithm Settings
-dataset$number_iterations[1] <- 2000
+dataset$number_iterations[1] <- 100
 dataset$ij[1] <- "Do nothing with IJ Teams."
 
 # Set Firm Constraints
@@ -29,17 +27,19 @@ dataset$consider_HS_elig[1] <- "No"
 # Set Soft  Constraints
 dataset$consider_commutes[1] <- "Yes"
 dataset$commute_factor = 1
-dataset$age_factor = 0
+
 dataset$ethnicity_factor = 0
+dataset$gender_factor = 0
+dataset$age_factor = 0
+
 dataset$Edscore_factor = 0
 dataset$Tutoring_factor = 0
 dataset$Spanish_factor = 0
 dataset$Math_factor = 0
-dataset$Gender_factor = 0
 dataset$preserve_ij_factor = 0
 ```
 
-```{r Define Functions}
+```{r Function_Definitions, echo=FALSE}
 rename_headers <- function(acm_df){
   vars_df <- read_excel(path = paste(root_dir, "Survey Items to Variable Names.xls", sep = ""))
   
@@ -62,7 +62,7 @@ clean_RMs_PrRels <- function(acm_df, school_df){
   RM_cols <- names(acm_df %>% select(.,matches("Roommate.Name")))
   PrRel_cols <- names(acm_df %>% select(.,matches("Prior.Rship")))
 
-  # return list of names mentioned as roommates or prior relationships that did not match to ACM, Team Leader, or Manager names 
+  # return list of names mentioned as roommates or prior relationships that did not match to ACM, Team Leader, or Manager names
   RMs_PrRels_df <- acm_df[,names(acm_df) %in% c(RM_cols, PrRel_cols)]
   Uniq_RMs_PrRels_df <- unname(unlist(RMs_PrRels_df))
   Uniq_RMs_PrRels_df <- Uniq_RMs_PrRels_df[!is.na(Uniq_RMs_PrRels_df) & Uniq_RMs_PrRels_df != ""]
@@ -446,7 +446,7 @@ make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df
   return(plcmts_df[, plcmts_df_cols])
 }
 
-calculate_score <- function(team_placements_df, school_targets, gender_target=gender_g, commute_factor=dataset$commute_factor, age_factor=dataset$age_factor, ethnicity_factor=dataset$ethnicity_factor, Edscore_factor=dataset$Edscore_factor, Tutoring_factor=dataset$Tutoring_factor, Spanish_factor=dataset$Spanish_factor, Math_factor=dataset$Math_factor, Gender_factor=dataset$Gender_factor) {
+calculate_score <- function(team_placements_df, school_targets, gender_target=gender_g, commute_factor=dataset$commute_factor, Edscore_factor=dataset$Edscore_factor, Math_factor=dataset$Math_factor, age_factor=dataset$age_factor, ethnicity_factor=dataset$ethnicity_factor, Tutoring_factor=dataset$Tutoring_factor, Spanish_factor=dataset$Spanish_factor,  gender_factor=dataset$gender_factor) {
   
   # Merge  with school_df to pull in school characteristics
   team_placements_df <- merge(team_placements_df, school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
@@ -518,7 +518,7 @@ calculate_score <- function(team_placements_df, school_targets, gender_target=ge
   
   scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * Math_factor
   
-  scores$Gender <- (sum(ifelse(placed$Males < 1, 1e10, 0)) + mean((placed$Male_tgt - placed$Males)^2) * 250) * Gender_factor
+  scores$Gender <- (sum(ifelse(placed$Males < 1, 1e10, 0)) + mean((placed$Male_tgt - placed$Males)^2) * 250) * gender_factor
 
   scores$aggr_score <- sum(unlist(scores))
 
@@ -568,11 +568,8 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
     # Create a copy of team_placements_df
     cand_plcmts_df <- team_placements_df
     
-    # TODO: is it necessary to ensure manual placement is null, "", or 0?
     # Randomly select ACM to swap
-    swap1 <- sample(cand_plcmts_df$acm_id[is.na(cand_plcmts_df$Manual.Placement)
-                                          ||cand_plcmts_df$Manual.Placement==""
-                                          ||cand_plcmts_df$Manual.Placement==0], 1)
+    swap1 <- sample(cand_plcmts_df$acm_id[is.na(cand_plcmts_df$Manual.Placement)], 1)
     
     cand_plcmts_df <- make_swap(cand_plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df)
     
@@ -690,7 +687,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
             # "Becoming a City Year corps member often comes with a number of uncertainties. Of the following, which is of biggest concern to you?", 
             "Roommate.Names",
             "Prior.Rship.Name",
-            "IJ.Placement",
+            # "IJ.Placement",
             "Home.Address",
             "Travel.Method",
             "Commute.Time",
@@ -710,7 +707,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
 }
 ```
 
-```{r Load In Prep Data Run Initial Placement}
+```{r Load_Data_Initial_Placement, echo=FALSE}
 library(readxl)
 library(dplyr)
 library(tidyr)
@@ -723,11 +720,11 @@ number_iterations <- dataset$number_iterations[1]
 consider_commutes <- dataset$consider_commutes[1]
 used_surveygizmo <- dataset$used_surveygizmo[1]
 consider_HS_elig <- dataset$consider_HS_elig[1]
-ij <- dataset$ij[1]
 preserve_ij_factor <- dataset$preserve_ij_factor[1]
+#ij <- dataset$ij[1]
 
 # Adjusted Factors
-#sum_factors <- sum(c(dataset$commute_factor, dataset$age_factor, dataset$ethnicity_factor, #dataset$Edscore_factor,dataset$Tutoring_factor,dataset$Spanish_factor,dataset$Math_factor,dataset$Gender_factor))
+#sum_factors <- sum(c(dataset$commute_factor, dataset$age_factor, dataset$ethnicity_factor, #dataset$Edscore_factor,dataset$Tutoring_factor,dataset$Spanish_factor,dataset$Math_factor,dataset$gender_factor))
 #
 #dataset$commute_factor = dataset$commute_factor/sum_factors
 #dataset$age_factor = dataset$age_factor/sum_factors
@@ -736,9 +733,9 @@ preserve_ij_factor <- dataset$preserve_ij_factor[1]
 #dataset$Tutoring_factor = dataset$Tutoring_factor/sum_factors
 #dataset$Spanish_factor = dataset$Spanish_factor/sum_factors
 #dataset$Math_factor = dataset$Math_factor/sum_factors
-#dataset$Gender_factor = dataset$Gender_factor/sum_factors
+#dataset$gender_factor = dataset$gender_factor/sum_factors
 
-acm_df <- read.csv(file = paste(root_dir, acm_df_file, sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
+acm_df <- read.csv(file = paste0(root_dir, "Input 1 - ACM Data.csv"), check.names=FALSE, stringsAsFactors=FALSE)
 acm_df <- acm_df[acm_df$Full.Name!="",]
 acm_df$acm_id <- 1:nrow(acm_df)
 
@@ -749,7 +746,7 @@ if(consider_commutes == "Yes"){
   dt_commutes <- data.table(acm_commutes)
 }
 
-school_df <- read_excel(path = paste0(root_dir, school_df_file))
+school_df <- read_excel(path = paste0(root_dir, "Input 2 - School Data.xlsx"))
 school_df <- school_df[!is.na(school_df$School),]
 school_df <- school_df[order(school_df$School),]
 school_df$sch_id <- 1:nrow(school_df)
@@ -786,9 +783,11 @@ elig_plc_acmwise_df <- elig_plcmnts_acmwise(team_placements_df, prevent_roommate
 team_placements_df <- initial_valid_placement(team_placements_df, school_df, elig_plc_schwise_df, elig_plc_acmwise_df)
 ```
 
-```{r Run Algorithm}
+```{r Run_Algorithm}
 start.time <- Sys.time()
-output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, number_of_iterations = 2000, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
+
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, number_of_iterations = number_iterations, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
+
 end.time <- Sys.time()
 time.taken <- end.time - start.time
 
@@ -811,4 +810,6 @@ View(best_placements[best_placements$Manual.Placement == "",])
 mean(best_placements$Commute.Time[best_placements$Commute.Time != 999], na.rm = TRUE)
 mean(best_placements$Commute.Rank, na.rm = TRUE)
 time.taken
+
+output <- output
 ```
