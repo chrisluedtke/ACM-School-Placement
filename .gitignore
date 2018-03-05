@@ -1,5 +1,9 @@
 *.RData
 *.Rhistory
+*.pbix
+FY17CHI - Input 1 - ACM Data.csv
+FY17CHI - Input 2 - ACM Data.csv
 Boston Survey Data.csv
 data/CHI/*
 data/BOS/*
+outputs/*
