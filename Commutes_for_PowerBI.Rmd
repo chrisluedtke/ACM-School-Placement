@@ -3,9 +3,9 @@
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\CLuedtke\\ACM-School-Placement\\data\\CHI\\"
+dataset$FP[1]<-""
 dataset$calc_commutes[1] <-"Yes"
-dataset$API_Key[1] <- as.character(read.table("C:\\Users\\CLuedtke\\Desktop\\GMaps_API_key.txt")[[1]])
+dataset$API_Key[1] <- 
 dataset$used_surveygizmo[1] <- "No"
 dataset$arrival_date[1] <- "2018-02-20"
 ```
@@ -251,7 +251,7 @@ school_df <- result[[2]]
 
 # Limit inputs to the first 10 elements of each
 origin = paste(as.vector(acm_df[['Full.Address']][1:10]), collapse = '|')
-destination = paste(as.vector(school_df[['Address.Clean']][1:10]), collapse = '|')
+destination = paste(as.vector(school_df[['Address.Clean']][1:5]), collapse = '|')
 
 url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?",
                "origins=", origin,
@@ -289,8 +289,26 @@ url = paste0("https://maps.googleapis.com/maps/api/distancematrix/json?",
                "&avoid=tolls",
                "&key=", api)
 
-table = fromJSON(getURL(url))
+response = getURL(url)
+responseList = fromJSON(response, simplifyVector = TRUE)
 
+processResponse <- function(responseList){
+  browser()
+  elements <- responseList$rows$elements
+  distances <- data.frame(matrix(responseList$rows$elements[[1]]$distance$value, ncol = 5))
+  distances$origin <- responseList$destination_addresses[[1]]
+  for (ix in 2:length(responseList$origin_addresses)){
+    newdistances <- data.frame(matrix(responseList$rows$elements[[ix]]$distance$value, ncol = 5))
+    newdistances$origin <- responseList$origin_addresses[[ix]]
+    distances <- rbind(distances, newdistances)
+  }
+  colnames(distances) <- responseList$destination_addresses
+  distances
+}
+
+tbl <- processResponse(responseList)
+
+  
 lapply(as.character(df$action_info), RJSONIO::fromJSON) %>% 
     lapply(function(e) list(bar=e$foo[1], baz=e$foo[2], type=e$type)) %>% 
     rbindlist() %>%
