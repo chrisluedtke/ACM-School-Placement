@@ -2,7 +2,6 @@
 ### Added TODO's at various points. Ctrl + F 'TODO' to see what is being developed.
 
 ### TODO: Survey changes
-# * currently enters infinite loop in initial_valid_placement() when inputting dummy ACM dataframce
 # * Prior Relationships should be entered one at a time in separate fields so they export as separate columns and we avoid comma-separation issues (and make small script changes to reflect this)
 # * CHI - add survey item about whether ACM attended CPS and which school
 ```
@@ -37,14 +36,14 @@ if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   install.packages(setdiff(packages, rownames(installed.packages())))
 }
 
-# ATtempt to load packages with no printed warnings or errors
+# Attempt to load packages with no printed warnings or errors
 suppressWarnings(suppressMessages(library("data.table")))
 suppressWarnings(suppressMessages(library("dplyr")))
 suppressWarnings(suppressMessages(library("readxl")))
 suppressWarnings(suppressMessages(library("tidyr")))
 
 # Attempt to load packages again, which will be silent if package was already loaded.
-# If package failed to load above, and it will print the error here.
+# If package failed to load above, it will print the error here.
 lapply(packages, require, character.only = TRUE)
 ```
 
