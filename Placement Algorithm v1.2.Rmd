@@ -34,7 +34,7 @@ packages <- c("readxl", "dplyr", "tidyr", "data.table")
 
 # If not installed, install them
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
-  install.packages(setdiff(packages, rownames(installed.packages())))  
+  install.packages(setdiff(packages, rownames(installed.packages())))
 }
 
 # ATtempt to load packages with no printed warnings or errors
