@@ -1,0 +1,16 @@
+{
+  "name": "City Year",
+  "dataColors": [
+    "#f1604a",
+    "#3ac2cf",
+    "#fbae3b",
+    "#bcc65d",
+    "#ffd410",
+    "#bb7711",
+    "#114400",
+    "#aacc66"
+  ],
+  "background": "#FFFFFF",
+  "foreground": "#3A6108",
+  "tableAccent": "#568410"
+}
