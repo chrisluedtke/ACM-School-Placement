@@ -1,15 +1,22 @@
 ```{}
-### Added TODO's at various points. Ctrl + F 'TODO' to see what is being developed.
-
-### TODO: Survey changes
-# * Prior Relationships should be entered one at a time in separate fields so they export as separate columns and we avoid comma-separation issues (and make small script changes to reflect this)
-# * CHI - add survey item about whether ACM attended CPS and which school
+### TODO's (Ctrl + F 'TODO' to see what is being developed)
+# * [Survey] Prior Relationships should be entered one at a time in separate fields so they export as separate columns and we avoid comma-separation issues (and make small script changes to reflect this)
+# * [Survey] [CHI] Add survey item about whether ACM attended CPS and which school
+# * [Algorithm] ACM subject preference (doable by setting targets in school data input)
+# * [Algorithm] Option to set definition of diversity (to equally distribute across schools or to reflect the school demographics)
+# * [Algorithm] Grade level preference - Pat and Adriana
+# * [Algorithm] Print error for unmatched name references, or implement fuzzy match - Cassandra
+# * [Algorithm] IJ team creation (implemented in CHI FY17, but currently disabled and likely obsolete since updates)
+# * [Algorithm] Remove features we have decided not to be meaningful (balanced tutoring experience, balanced math ability)
+# * [Algorithm] Connect to RAD dashboard (or targetX to get PCWs and remove from analysis)
+# * [Algorithm] scale factors by user importance setting?
 ```
 
 ```{r PowerBI_Parameters, eval=FALSE}
 # In PowerBI, these are set by parameter inputs
 # eval = FALSE makes this chunk invisible when referenced through PowerBI
 dataset<-df <- data.frame(matrix(, nrow=1, ncol=0))
+dataset$project_path <- 'C:/Users/CLuedtke/GitHub/ACM-School-Placement'
 dataset$acm_input_path <- 'data/CHI/Input 1 - ACM Data.csv'
 dataset$sch_input_path <- 'data/CHI/Input 2 - School Data.xlsx'
 dataset$used_surveygizmo <- 'No'
@@ -17,7 +24,7 @@ dataset$number_iterations <- 10
 dataset$prevent_roommates <- 'Yes'
 dataset$consider_HS_elig <- 'Yes'
 dataset$calculate_commutes <- 'No'
-dataset$commute_factor <- 1
+dataset$commute_factor <- 1 # Yes/No in PowerB, converted to 1/0
 dataset$age_factor <- 0
 dataset$ethnicity_factor <- 0
 dataset$gender_factor <- 0
@@ -49,7 +56,7 @@ lapply(packages, require, character.only = TRUE)
 
 ```{r Function_Definitions, echo=FALSE}
 rename_headers <- function(acm_df){
-  vars_df <- read_excel(path = paste0(user_path, "Survey Items to Variable Names.xls"))
+  vars_df <- read_excel(path = "Survey Items to Variable Names.xls")
   
   # Rename Headers
   for (x in names(acm_df)){
@@ -705,14 +712,11 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
 ```
 
 ```{r Load_Parameters, echo=FALSE}
-# TODO: scale factors by user importance setting
-user_path <- dirname(path.expand('~'))
-user_path <- paste0(user_path, '/ACM-School-Placement/')
+# we set the directory absolutely to allow consistency across R and Power BI implementations
+setwd(paste0(dataset$project_path))
 
-acm_input_path <- paste0(user_path, dataset$acm_input_path)
-sch_input_path <- paste0(user_path, dataset$sch_input_path)
-output_path <- paste0(user_path, 'outputs/')
-acm_commute_path <- paste0(output_path, 'FY17 CHI ACM Commutes.csv') #TODO
+output_path <- 'outputs/'
+acm_commute_path <- paste0(output_path, 'FY17 CHI ACM Commutes.csv') #TODO update this path to the commute script output
 prevent_roommates <- dataset$prevent_roommates
 number_iterations <- as.numeric(dataset$number_iterations)
 commute_factor <- dataset$commute_factor
@@ -732,7 +736,7 @@ score_factors <- list(commute_factor=dataset$commute_factor,
 ```
 
 ```{r Load_Data, echo=FALSE}
-acm_df <- read.csv(file = acm_input_path, check.names=FALSE, stringsAsFactors=FALSE)
+acm_df <- read.csv(file = paste0(dataset$acm_input_path), check.names=FALSE, stringsAsFactors=FALSE)
 acm_df <- acm_df[acm_df$Full.Name!="",]
 acm_df$acm_id <- 1:nrow(acm_df)
 
@@ -743,7 +747,7 @@ if(commute_factor > 0){
   dt_commutes <- data.table(acm_commutes)
 }
 
-school_df <- read_excel(path = sch_input_path)
+school_df <- read_excel(path = paste0(dataset$sch_input_path))
 school_df <- school_df[!is.na(school_df$School),]
 school_df <- school_df[order(school_df$School),]
 school_df$sch_id <- 1:nrow(school_df)
