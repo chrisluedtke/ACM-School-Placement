@@ -3,11 +3,11 @@
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-""
+dataset$FP[1]<-"C:\\Users\\gpnge\\Desktop\\Current\\ACM Placement Data\\CHI\\"
 dataset$calc_commutes[1] <-"Yes"
-dataset$API_Key[1] <- 
+dataset$API_Key[1] <- as.character(read.table("C:\\Users\\gpnge\\Desktop\\Current\\Google_API_Key.txt")[[1]])
 dataset$used_surveygizmo[1] <- "No"
-dataset$arrival_date[1] <- "2018-02-20"
+dataset$arrival_date[1] <- "2018-05-30"
 ```
 
 ```{r Define Functions}
@@ -239,8 +239,6 @@ api <- dataset$API_Key[1]
 used_surveygizmo <- dataset$used_surveygizmo[1]
 arrival_date <- dataset$arrival_date[1]
 
-acm_df <- read.csv(file = paste(root_dir, "Input 1 - ACM Data.csv", sep = ""), check.names=FALSE, stringsAsFactors = FALSE)
-school_df <- read_excel(path = paste(root_dir, "Input 2 - School Data.xlsx", sep = ""))
 ```
 
 ```{r Attempts to Calc as Matrix}
@@ -285,7 +283,7 @@ url = paste0("https://maps.googleapis.com/maps/api/distancematrix/json?",
                "&destinations=", destination,
                "&mode=transit",
                "&units=metric",
-               "&arrival_time=1519131600",
+               "&arrival_time=", as.integer(as.POSIXct(dataset$arrival_date)),
                "&avoid=tolls",
                "&key=", api)
 
