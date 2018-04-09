@@ -12,7 +12,7 @@ Each school year, City Year places thousands of AmeriCorps Members (ACMs) in hun
 
 In 2013, City Year Los Angles independently developed a solution using VBA and Excel. While this solutions was effective, it lacked the desired speed and usability. So in 2017, as a couple eager data science enthusiasts, we chose to build a solution from scratch in the R programming language.
 
-## Researching and Defining Our Approach
+## Researching Our Approach
 
 Our first step was to survey the many classic cases involving optimal matches across two sets of items. We were careful to choose the appropriate model, since each approach would impose slightly different constraints on the attributes we could consider and our method of scoring "good" placements.
 
@@ -20,23 +20,29 @@ In cases like the [National Resident Match Algorithm](https://en.wikipedia.org/w
 
 In the [Assignment Problem](https://en.wikipedia.org/wiki/Assignment_problem), a set of agents are matched to a set of tasks, and the goal is to minimize the aggregate cost of assignments. Rideshare solutions might use a similar approach in matching drivers to passengers while optimizing for things like proximity and number of passenger seats required (see also the [Nurse Scheduling Problem](https://en.wikipedia.org/wiki/Nurse_scheduling_problem)). In perhaps the most famous similar case, the [Traveling Salesman Problem](https://en.wikipedia.org/wiki/Travelling_salesman_problem) seeks to find the most optimal route an agent can travel between a list of destinations. These approaches are more aligned with our case, which requires the flexibility to include a number of different constraints and variables.
 
-For each of the above cases, various algorithmic solutions exist. Ultimately we chose simulated annealing, which is a method of randomized iterative optimization that could reasonably be applied to most of the cases above. This solution stood out to us in particular due to [a nicely compiled R implementation for the case of the Traveling Salesman](http://toddwschneider.com/posts/traveling-salesman-with-simulated-annealing-r-and-shiny/). The author's GitHub repository provided the backbone from which we tailored our solution. We can't understate the value of open source software in developing solutions like ours.
+For each of the above cases, various algorithmic solutions exist. Ultimately we chose simulated annealing, which is a method of randomized iterative optimization  developed by Marshal Rosenbluth in 1953. While this approach could reasonably be applied to most cases above, its implementation for Traveling Salesman stood out in particular due to [a nicely compiled R project repository](http://toddwschneider.com/posts/traveling-salesman-with-simulated-annealing-r-and-shiny/). This provided the backbone from which we tailored our solution, and we can't understate the value of open source software in developing solutions like ours.
 
 The research phase of our project provided an understanding of comparable problems and the language to express our need. With this knowledge we founded a weekly working group in Chicago's local civic tech community, [ChiHackNight](https://chihacknight.org/). We reached out for collaborators with any experience in Simulated Annealing or R, and we formed an enthusiastic group that served as an indispensable sounding board and development space for our implementation.
 
-(TODO: remove unnecessary language.  Lol, I think I added way too much.)
-Simulated annealing is a probabilistic optimization technique developed Marshal Rosenbluth in 1953, and offers some advantages over alternative optimization techniques frequently used.  Consider the most common solution, a technique called [hill climbing optimization](https://en.wikipedia.org/wiki/Hill_climbing).  Hill Climbing algorithm can be sketched as follows.  Suppose we have 100 ACMs we are going to place onto 10 teams, and we have some pre-defined loss function which gives us a measurement of error for a given placement relative to the "ideal" placement.  Now we begin the algorithm:
+## Walkthrough of Simulated Annealing
 
-  1. Randomly place ACMs onto teams
-  2. Calculate the baseline score
+(TODO: remove unnecessary language.  Lol, I think I added way too much.)
+Simulated annealing is a mild adjustment to the [hill climbing optimization](https://en.wikipedia.org/wiki/Hill_climbing), and it is helpful as a scaffold to first walkthrough hill climbing. We will see some limitation to hill climbing and see how simulated annealing addresses those limitations.
+
+Hill climbing algorithm can be sketched as follows.  Suppose we are placing ACMs onto teams, and we use a loss function to determine the error for a given placement relative to the "ideal" placement.  Now we begin the algorithm:
+
+```
+  1. Start with random placements of ACMs onto teams
+  2. Calculate the baseline loss
   3. For each iteration up to max:
-     1. Choose two ACMs at random and swap their teams
-     2. Calculate new score
-     3. If new score > baseline
+     1. Choose two ACMs at random and swap their team assignment
+     2. Calculate new loss
+     3. If new loss < baseline
          * then keep the swap and update baseline to be the new score
          * otherwise swap back
+```
 
-The general idea is that we start with a random placement and try new placements keeping the good ones and throwing out the bad. It makes intuitive sense that if we do this for long enough, we'll eventually find a much better placement than we started with.  In fact, over thousands of iterations we hope that the algorithm will converge to a particular placement, which we are hoping is at the global minimum of the space defined by our loss function, i.e. the best possible placement.
+Essentially, we start with a random placement, then try new placements and only keep placements that improve . It makes intuitive sense that if we do this for long enough, we will eventually find a much better placement than we started with.  In fact, over thousands of iterations we hope that the algorithm will converge to a particular placement, which we are hoping is at the global minimum of the space defined by our loss function, i.e. the best possible placement.
 
 Incidentally, this method was the one originally implemented in CYLA.
 
@@ -54,6 +60,7 @@ The simulated annealing algorithm offers a solution to the problem with just a s
 
 Simulated annealing gets its name from metallurgy, where the annealing of metals involves heating them up and then slowly cooling to ultimately reduce the defects in the metal.  Analogously, in simulated annealing we have the idea of "temperature" which corresponds to the probability that we'll accept a worse placement. When the temperature is high, the algorithm is more likely to accept a placement which is worse than the one it is currently at.  However, as the temperature cools over the course of the run, the algorithm becomes more conservative and eventually is just hill climbing.  We can adapt the algorithm from before to include these details:
 
+```
   1. Randomly place ACMs onto teams
   2. Calculate the baseline score and initialize temperature
   3. For each iteration up to max:
@@ -66,10 +73,13 @@ Simulated annealing gets its name from metallurgy, where the annealing of metals
             * if the random number is < the acceptance probability
               * then keep swap and update baseline
               * else revert swap
+```
 
 ## Commutes
 
 TODO: We ended up having to do a bit of work to get this one to work, so we may as well talk a bit about it.
+ - precalc
+ - google API
 
 ## Defining the Loss Function
 
