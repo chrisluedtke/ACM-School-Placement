@@ -1,0 +1,15 @@
+{% extends 'procedure/base.html' %}
+
+{% block content %}
+    <p>Step 3: Set the options for making school placements.</p>
+    <form method="POST" class="post-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn" name="run">Run Placements</button>
+    </form>
+
+    <form method="POST" class="post-form">
+        {% csrf_token %}
+        <button type="submit" class="btn" name="download">Download Placements</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'procedure/base.html' %}
+
+{% block content %}
+    <p>Next we need the survey data you collected from incoming ACMs.</p>
+
+    <p>When you have filled in the template, upload that data here.</p>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="myfile">
+        <button type="submit" class="btn" name="upload">Upload ACM Survey Data and Continue</button>
+    </form>
+
+{% endblock %}
