@@ -1,21 +1,22 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <p>First let's gather some information about your school partnerships.</p>
-    <p>Get the Excel template below and fill in the columns.</p>
+    <h3>Step 1: School Data</h3>
+
+    <p>Download the Excel template below and fill in the columns. There are comments on the cells of the column headers explaining what we use each piece of information for.</p>
 
     <form method="post">
         {% csrf_token %}
         <button type="submit" class="btn" name="download">Download School Data Template</button>
     </form>
 
-    <p>When you have filled in the template, upload it here.</p>
+    <p>When you have filled in the template, click "Choose File" and select your filled in template. Then click "Upload and Continue".</p>
 
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <!-- {{ form.as_p }} -->
         <input type="file" name="myfile">
-        <button type="submit" class="btn" name="upload">Upload School Data and Continue</button>
+        <button type="submit" class="btn" name="upload">Upload and Continue</button>
     </form>
 
 {% endblock %}

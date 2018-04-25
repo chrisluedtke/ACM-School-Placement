@@ -42,22 +42,29 @@ def step3(request):
     if request.method == 'POST' and 'run' in request.POST:
         form = RunParametersForm(request.POST)
         if form.is_valid():
-            post = form.save(commit=False)
-            post.run_date = timezone.now()
-            post.save()
+            params = form.save(commit=False)
+            params.run_date = timezone.now()
+            params.save()
             # load intermediate page (wait)
-            return HttpResponseRedirect(reverse('wait'))
+            return HttpResponseRedirect(reverse('dash'))
     else:
         form = RunParametersForm()
     return render(request, 'procedure/step3.html', {'form': form})
 
 def wait(request):
-    # trigger algorithm with given parameters
-    # os.system('dir')
-    os.system('Rscript launch_alg.R')
     # display progress
     return render(request, 'procedure/wait.html', {})
 
 def dash(request):
-    # display download button and dash
-    return render(request, 'procedure/wait.html', {})
+    if request.method == 'POST' and 'download' in request.POST:
+        file_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Placements.csv")
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as fh:
+                response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
+                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
+                return response
+
+    # trigger algorithm with given parameters
+    os.system('Rscript launch_alg.R')
+
+    return render(request, 'procedure/dash.html', {})

@@ -1,5 +1,13 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <p>Placements done! Download the spreadsheet below.</p>
+    <h3>That's it!</h3>
+    
+    <p>Your placements have finished. Download the spreadsheet below.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn" name="download">Download Placements</button>
+    </form>
+
 {% endblock %}

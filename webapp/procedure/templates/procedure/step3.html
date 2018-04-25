@@ -1,15 +1,14 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <p>Step 3: Set the options for making school placements.</p>
+    <h3>Step 3: Set Placement Options</h3>
+
+    <p>Finally, choose the rules and options you would like for your team placements. When you are ready, click "Run Placements", but do not click more than once.</p>
+
     <form method="POST" class="post-form">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit" class="btn" name="run">Run Placements</button>
     </form>
 
-    <form method="POST" class="post-form">
-        {% csrf_token %}
-        <button type="submit" class="btn" name="download">Download Placements</button>
-    </form>
 {% endblock %}

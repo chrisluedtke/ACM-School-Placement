@@ -1,13 +1,16 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <p>Next we need the survey data you collected from incoming ACMs.</p>
+    <h3>Step 2: ACM Survey Data</h3>
 
-    <p>When you have filled in the template, upload that data here.</p>
+    <p>Next we need the survey data you collected from your incoming corps. Make sure the headers and values of your survey data match the values we are expecting. Download the guide here, and make the changes to your survey data. If you used the national survey, you do not need to make any changes to your data.</p>
+
+    <p>Click "Choose File" and select your survey data file (.csv). Then click "Upload and Continue".</p>
+
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="file" name="myfile">
-        <button type="submit" class="btn" name="upload">Upload ACM Survey Data and Continue</button>
+        <button type="submit" class="btn" name="upload">Upload and Continue</button>
     </form>
 
 {% endblock %}
