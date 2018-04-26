@@ -64,7 +64,22 @@ def dash(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
                 return response
 
-    # trigger algorithm with given parameters
-    os.system('Rscript launch_alg.R')
+    # Write most recent parameters
+    params = RunParameters.objects.last()
+    params_fields = params._meta.get_fields()
+    field_list = ', '.join([field.name for field in params_fields])
+    value_list = [getattr(params, field.name) for field in params_fields]
+    value_list_str = ', '.join([str(e) for e in value_list])
+
+    with open('media/documents/params.csv', 'w') as file:
+        file.write(field_list)
+        file.write('\n')
+        file.write(value_list_str)
+
+    # Alternatively, pass arguments to R script like:
+    # os.system(f'Rscript launch_alg.R {value_list_str}')
+    # either way, will need to explicitly set data types in R
+    # https://www.r-bloggers.com/passing-arguments-to-an-r-script-from-command-lines/
+    os.system(f'Rscript launch_alg.R {value_list_str}')
 
     return render(request, 'procedure/dash.html', {})
