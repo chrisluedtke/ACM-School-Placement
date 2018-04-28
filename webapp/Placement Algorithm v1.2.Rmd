@@ -12,28 +12,13 @@
 # * [Algorithm] scale factors by user importance setting?
 ```
 
-```{r Read_Parameters, eval=TRUE}
-dataset <- read.csv('media/documents/params.csv')
-dataset$acm_input_path <- 'media/documents/ACM_Placement_Survey_Data.csv'
-dataset$sch_input_path <- 'media/documents/ACM_Placement_School_Data.xlsx'
-
-# dataset$commute_factor # Yes/No in PowerBI, converted to 1/0
-# dataset$age_factor # hard-coded as 0 below
-# dataset$ethnicity_factor
-# dataset$gender_factor
-# dataset$Spanish_factor # hard-coded as 0 below, remove when firm placements done
-# dataset$Tutoring_factor # hard-coded as 0 below
-# dataset$Edscore_factor
-# dataset$Math_factor# hard-coded as 0 below, remove?
-```
-
 ```{r Check_Install_Packages, echo=FALSE}
 # Packages required
 packages <- c("readxl", "dplyr", "tidyr", "data.table")
 
 # If not installed, install them
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
-  install.packages(setdiff(packages, rownames(installed.packages())))
+  install.packages(setdiff(packages, rownames(installed.packages())), repos = "http://cran.us.r-project.org")
 }
 
 # Attempt to load packages with no printed warnings or errors
@@ -45,6 +30,30 @@ suppressWarnings(suppressMessages(library("tidyr")))
 # Attempt to load packages again, which will be silent if package was already loaded.
 # If package failed to load above, it will print the error here.
 lapply(packages, require, character.only = TRUE)
+```
+
+```{r Read_Parameters, eval=TRUE}
+dataset <- read.csv('media/documents/params.csv', stringsAsFactors=FALSE)
+dataset$acm_input_path <- 'media/documents/ACM_Placement_Survey_Data.csv'
+dataset$sch_input_path <- 'media/documents/ACM_Placement_School_Data.xlsx'
+output_path <- 'media/documents/outputs/' #TODO update commute script to output here
+
+dataset$prevent_roommates <- as.logical(dataset$prevent_roommates)
+dataset$consider_HS_elig <- as.logical(dataset$consider_HS_elig)
+dataset$used_surveygizmo <- as.logical(dataset$used_surveygizmo)
+dataset$ij <- 0
+
+score_factors <- list(
+  commute_factor=dataset$commute_factor,
+  Edscore_factor=dataset$Edscore_factor,
+  Math_factor=0, # remove altogether?
+  age_factor=0,
+  ethnicity_factor=dataset$ethnicity_factor,
+  Tutoring_factor=0,
+  Spanish_factor=0, # remove when firm placements done
+  gender_factor=dataset$gender_factor,
+  preserve_ij_factor=0
+  )
 ```
 
 ```{r Function_Definitions, echo=FALSE}
@@ -227,7 +236,7 @@ school_config <- function(school_df, acm_enc){
 #' Calculates each ACM's eligibility to searve at each school based on factors
 #' between each ACM and each school (HS eligibility, TL and IM prior 
 #' relationship / roommate conflicts, manual placements, Spanish speakers)
-elig_plcmnts_schwise <- function(team_placements_df, school_df){
+elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig){
   
   perm <- merge(team_placements_df, school_df, all.x=TRUE) %>%
      mutate(elig = 1, 
@@ -239,7 +248,7 @@ elig_plcmnts_schwise <- function(team_placements_df, school_df){
             acm_id_sch_id = paste(acm_id, sch_id, sep="_"))
   
   # High School service Eligibility
-  if(consider_HS_elig == "Yes"){
+  if(consider_HS_elig == TRUE){
     perm$HS_conf[(perm$Ed_SomeCol != 1) & (perm$Ed_Col != 1) & (perm$days_old < 365*21) & (perm$GradeLevel == "High")] <- 1
   }
 
@@ -271,7 +280,7 @@ elig_plcmnts_acmwise <- function(team_placements_df, prevent_roommates){
   names(acm2_df) <- c("acm2_id", "acm2_Full.Name")
   acm_compat <- merge(acm1_df, acm2_df, all.x=TRUE)
   
-  if (prevent_roommates == "Yes"){
+  if (prevent_roommates == TRUE){
     acm_compat$rm_conf <- as.numeric(mapply(grepl, pattern=acm_compat$acm2_Full.Name, acm_compat$Roommate.Names))
   } else {acm_compat$rm_conf <- 0}
   
@@ -452,7 +461,7 @@ calculate_score <- function(team_placements_df, school_targets, score_weights, g
   scores = list()
   
   # COMMUTE SCORE: This score is simply the sum number of seconds each ACM travels to their assigned school
-  if(commute_factor > 0){
+  if(score_weights$commute_factor > 0){
     team_placements_df$id_dest <- paste(team_placements_df$Full.Name, team_placements_df$School, sep = "_")
 
     scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, mean((Commute.Time^2), na.rm = TRUE)] * 3.5 * score_weights$commute_factor
@@ -611,7 +620,7 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
   best_placements <- merge(best_placements, acm_df, by = "acm_id", all.x = TRUE)
   
   # Merge in commute info
-  if(commute_factor > 0){
+  if(score_factors$commute_factor > 0){
     home_addresses <- dt_commutes[!duplicated(dt_commutes$Full.Name), ]
     best_placements <- merge(best_placements, home_addresses[,c("Full.Name", "Home.Address")], by = "Full.Name", all.x = TRUE)
     
@@ -706,46 +715,26 @@ run_intermediate_annealing_process = function(starting_placements, school_df, be
 }
 ```
 
-```{r Load_Parameters, echo=FALSE}
-output_path <- 'media/documents/outputs/'
-acm_commute_path <- paste0(output_path, 'Commutes.csv') #TODO update this path to the commute script output
-prevent_roommates <- dataset$prevent_roommates
-number_iterations <- as.numeric(dataset$number_iterations)
-commute_factor <- dataset$commute_factor
-used_surveygizmo <- dataset$used_surveygizmo
-consider_HS_elig <- dataset$consider_HS_elig
-ij <- 0
-
-score_factors <- list(commute_factor=dataset$commute_factor,
-                      Edscore_factor=dataset$Edscore_factor,
-                      Math_factor=0,
-                      age_factor=0,
-                      ethnicity_factor=dataset$ethnicity_factor,
-                      Tutoring_factor=0,
-                      Spanish_factor=0,
-                      gender_factor=dataset$gender_factor,
-                      preserve_ij_factor=0)
-```
-
 ```{r Load_Data, echo=FALSE}
-acm_df <- read.csv(file = paste0(dataset$acm_input_path), check.names=FALSE, stringsAsFactors=FALSE)
+acm_df <- read.csv(dataset$acm_input_path, check.names=FALSE, stringsAsFactors=FALSE)
 acm_df <- acm_df[acm_df$Full.Name!="",]
+acm_df <- acm_df[!is.na(acm_df$Full.Name),]
 acm_df$acm_id <- 1:nrow(acm_df)
 
-if(commute_factor > 0){
-  acm_commutes <- read.csv(file = acm_commute_path, check.names=FALSE)
-  acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
-  acm_commutes$id_dest <- paste(acm_commutes$Full.Name, acm_commutes$School, sep = "_")
-  dt_commutes <- data.table(acm_commutes)
+if(dataset$used_surveygizmo == TRUE){
+  acm_df <- rename_headers(acm_df)
 }
 
-school_df <- read_excel(path = paste0(dataset$sch_input_path))
+school_df <- read_excel(dataset$sch_input_path)
 school_df <- school_df[!is.na(school_df$School),]
 school_df <- school_df[order(school_df$School),]
 school_df$sch_id <- 1:nrow(school_df)
 
-if(used_surveygizmo == "Yes"){
-  acm_df <- rename_headers(acm_df)
+if(score_factors$commute_factor > 0){
+  acm_commutes <- read.csv(paste0(output_path, 'Output_Commutes.csv'), check.names=FALSE)
+  acm_commutes$Commute.Time <- as.numeric(as.character(acm_commutes$Commute.Time))
+  acm_commutes$id_dest <- paste(acm_commutes$Full.Name, acm_commutes$School, sep = "_")
+  dt_commutes <- data.table(acm_commutes)
 }
 
 # Combine ethnicity columns into one
@@ -766,8 +755,8 @@ school_targets <- school_config(school_df, acm_enc)
 
 team_placements_df <- initial_placement(acm_enc, school_targets)
 
-elig_plc_schwise_df <- elig_plcmnts_schwise(team_placements_df, school_df)
-elig_plc_acmwise_df <- elig_plcmnts_acmwise(team_placements_df, prevent_roommates)
+elig_plc_schwise_df <- elig_plcmnts_schwise(team_placements_df, school_df, dataset$consider_HS_elig)
+elig_plc_acmwise_df <- elig_plcmnts_acmwise(team_placements_df, dataset$prevent_roommates)
 
 #Testing
 team_placements_df <- append_elig_col(team_placements_df, elig_plc_schwise_df, elig_plc_acmwise_df)
@@ -781,7 +770,7 @@ team_placements_df <- initial_valid_placement(team_placements_df, school_df, eli
 ```{r Run_Algorithm, echo=FALSE}
 start.time <- Sys.time()
 
-output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, number_of_iterations = number_iterations, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
+output <- run_intermediate_annealing_process(starting_placements = team_placements_df, school_df = school_targets, best_placements = team_placements_df, number_of_iterations = dataset$number_iterations, center_scale=runif(1, 1e-3, 0.25), width_scale=runif(1, 1e-3, 0.25))
 
 end.time <- Sys.time()
 time.taken <- end.time - start.time
