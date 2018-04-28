@@ -12,32 +12,19 @@
 # * [Algorithm] scale factors by user importance setting?
 ```
 
-```{r PowerBI_Parameters, eval=TRUE}
-args = commandArgs(trailingOnly=TRUE)
-# In PowerBI, these are set by parameter inputs
-# eval = FALSE makes this chunk invisible when referenced through PowerBI
-dataset <- data.frame(matrix(, nrow=1, ncol=0))
-#dataset$project_path <- 'C:/Users/City_Year/GitHub/ACM-School-Placement'
+```{r Read_Parameters, eval=TRUE}
+dataset <- read.csv('media/documents/params.csv')
 dataset$acm_input_path <- 'media/documents/ACM_Placement_Survey_Data.csv'
 dataset$sch_input_path <- 'media/documents/ACM_Placement_School_Data.xlsx'
-dataset$used_surveygizmo <- 'No'
-dataset$number_iterations <- 10
-dataset$prevent_roommates <- 'Yes'
-dataset$consider_HS_elig <- 'Yes'
-dataset$calculate_commutes <- 'No'
-dataset$commute_factor <- 0 # Yes/No in PowerBI, converted to 1/0
-dataset$age_factor <- 0 # hard-coded as 0 below
-dataset$ethnicity_factor <- 0
-dataset$gender_factor <- 0
-dataset$Spanish_factor <- 0 # hard-coded as 0 below, remove when firm placements done
-dataset$Tutoring_factor <- 0 # hard-coded as 0 below
-dataset$Edscore_factor <- 0
-dataset$Math_factor <- 0 # hard-coded as 0 below, remove?
-```
 
-```{r Set Working Directory, eval=FALSE}
-# We set absolute directories to allow certainty of processin Power BI implementation. Can set eval=TRUE or eval=FALSE when running in R. eval=FALSE in webapp.
-setwd(paste0(dataset$project_path))
+# dataset$commute_factor # Yes/No in PowerBI, converted to 1/0
+# dataset$age_factor # hard-coded as 0 below
+# dataset$ethnicity_factor
+# dataset$gender_factor
+# dataset$Spanish_factor # hard-coded as 0 below, remove when firm placements done
+# dataset$Tutoring_factor # hard-coded as 0 below
+# dataset$Edscore_factor
+# dataset$Math_factor# hard-coded as 0 below, remove?
 ```
 
 ```{r Check_Install_Packages, echo=FALSE}
