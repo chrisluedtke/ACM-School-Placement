@@ -26,10 +26,9 @@ The research phase of our project provided an understanding of comparable proble
 
 ## Walkthrough of Simulated Annealing
 
-(TODO: remove unnecessary language.  Lol, I think I added way too much.)
-Simulated annealing is a mild adjustment to the [hill climbing optimization](https://en.wikipedia.org/wiki/Hill_climbing), and it is helpful as a scaffold to first walkthrough hill climbing. We will see some limitation to hill climbing and see how simulated annealing addresses those limitations.
+Simulated annealing is a slightly more complex form of [hill climbing optimization](https://en.wikipedia.org/wiki/Hill_climbing). Understanding hill climbing is a helpful scaffolding step to understanding simulated annealing, and you will see why hill climbing alone is insufficient for our case.
 
-Hill climbing algorithm can be sketched as follows.  Suppose we are placing ACMs onto teams, and we use a loss function to determine the error for a given placement relative to the "ideal" placement.  Now we begin the algorithm:
+Suppose we are placing ACMs onto teams, and we use a loss function to determine the error for a given placement relative to the "ideal" placement. The hill climbing algorithm would operate as:
 
 ```
   1. Start with random placements of ACMs onto teams
@@ -42,23 +41,23 @@ Hill climbing algorithm can be sketched as follows.  Suppose we are placing ACMs
          * otherwise swap back
 ```
 
-Essentially, we start with a random placement, then try new placements and only keep placements that improve . It makes intuitive sense that if we do this for long enough, we will eventually find a much better placement than we started with.  In fact, over thousands of iterations we hope that the algorithm will converge to a particular placement, which we are hoping is at the global minimum of the space defined by our loss function, i.e. the best possible placement.
+Essentially, we try various placements and only update our placements when we find a better alternative. If we do this for long enough, the algorithm will converge to a particular placement, which we hope is the global minimum of the space defined by our loss function (i.e. the best possible placement). Incidentally, this method was the one originally implemented in CYLA.
 
-Incidentally, this method was the one originally implemented in CYLA.
+Unfortunately, this is not often the case, as the hill climbing algorithm suffers from a deal-breaking restriction.
 
-While that all sounds great, the hill climbing algorithm actually suffers from a number of known problems.  Let's start by exploring what I meant by "the space defined by our loss function."  Specifically, this is the space of all possible team placements with the corresponding score.   Hill climbing works great when the loss space has a single optimum, i.e. looks like this:
+To explain, let's start with what we mean by "the space defined by our loss function."  This is the space of all possible team placements with the corresponding score.   Hill climbing works well when the loss space has a single optimum, like this:
 
 ![Thanks Wikipedia!](imgs/Hill_climb_one_peak.png)
 
-However our loss space is quite different, as it is expansive with 2.1 x 10^12 combinations for 80 ACMs x 8 teams, and explodes exponentially as we add more ACMs and teams into the problem (at CYLA we have 31 teams and 300 ACMs). Furthermore, as we add complexity to the loss function by measuring more and more variables about the ACMs, this loss space becomes correspondingly multidimensional.  Instead of being 3 dimensional and smooth, as pictured, our loss space has 11 dimensions has many, many peaks and troughs. If we were to picture a 3-dimensional equivalent it might look like:
+However our loss space is quite different. Instead of being 3-dimensional with a single peak, our loss space has 11 dimensions and many peaks and troughs. As we add complexity to the loss function by measuring more and more variables about the ACMs, this loss space becomes correspondingly multidimensional. If we were to picture a similarly complex 3-dimensional equivalent, it might look like this:
 
 ![Thanks MIT!](imgs/optimization.jpg)
 
-The tendency for the hill climbing algorithm in this space will be to converge to one of the many dips in the space, but not necessarily (not even likely) the lowest possible point.
+In such a complex space, the hill climbing algorithm  will tend to converge to one of the many dips, but not likely the lowest possible point.
 
-The simulated annealing algorithm offers a solution to the problem with just a slight adjustment to hill climbing.  What we need is a strategy which can *explore a series of worse placements.*  The issue with hill climbing is that once it gets stuck in an area where *any swap leads to a worse placement*, then it has converged by its own rules.  But in a method which would allow for explore worse placements, we could escape the lip of the small dip we got stuck in then potentially finding an even lower dip.
+The simulated annealing algorithm offers a solution to the problem with just a slight adjustment to hill climbing.  What we need is a strategy which can *explore a series of worse placements*.  While hill climbing gets stuck in areas where *any swap leads to a worse placement*, simulated annealing allows for worse placements. Therefore we can escape the lip of the small dip if we get stuck, and we can then potentially find an even lower point.
 
-Simulated annealing gets its name from metallurgy, where the annealing of metals involves heating them up and then slowly cooling to ultimately reduce the defects in the metal.  Analogously, in simulated annealing we have the idea of "temperature" which corresponds to the probability that we'll accept a worse placement. When the temperature is high, the algorithm is more likely to accept a placement which is worse than the one it is currently at.  However, as the temperature cools over the course of the run, the algorithm becomes more conservative and eventually is just hill climbing.  We can adapt the algorithm from before to include these details:
+Simulated annealing gets its name from metallurgy, where the annealing of metals involves heating them up and then slowly cooling to ultimately reduce the defects in the metal.  Analogously, in our simulated annealing algorithm, there is a "temperature" component which corresponds to the probability that we will accept a worse placement. When the temperature is high, the algorithm is more likely to accept a placement which is worse than the one it is currently at.  However, as the temperature "cools" over the course of the run, the algorithm becomes more conservative and less likely to accept a worse placement. We can adapt the algorithm from before to include these details:
 
 ```
   1. Randomly place ACMs onto teams
@@ -75,12 +74,6 @@ Simulated annealing gets its name from metallurgy, where the annealing of metals
               * else revert swap
 ```
 
-## Commutes
-
-TODO: We ended up having to do a bit of work to get this one to work, so we may as well talk a bit about it.
- - precalc
- - google API
-
 ## Defining the Loss Function
 
 Since we have many different variables contributing to the score of the placement, we need to build a scoring function for each individual variable.  This requires some choices be made about how we will calculate something like a "score" for the age distribution.  For some variables, this was fairly straightforward.  For example, for education experience (and a number of other variables) we set ideal targets at each school for the numbers of high school graduate and ACMs with some college experience.  This set the ideal number of ACMs from those two subgroup for each team according to distributing them equally to each team.  Then at each iteration we would simply take the difference in desired ACMs from that subgroup and the actual, and the square the result. For other variables we would calculate values like the variance of the ages of the team compared to the variance of the ages of the Corps at he site, and take the absolute value of their difference.  Once we had calculated the individual scores for each variable, we would add them up to get the total score.  
@@ -93,7 +86,7 @@ One issue we encountered was that our scores were on dramatically different scal
 
 ## Flattening the Search Space
 
-In an early stage of our solution, we implemented a scoring function that penalized team placements that violated our firm constraints. For example, if two roommates were placed on the same school team, we worsened the placement score by a factor of 10 to disincentivize the match. However, this approach restricted the search behavior of the algorithm by creating large peaks and valleys in the search space.
+In an early stage of our solution, we implemented a scoring function that penalized team placements that violated a set of firm constraints. For example, if two roommates were placed on the same school team, we worsened the placement score by a factor of 10 to disincentivize the match. However, this approach restricted the search behavior of the algorithm by creating large peaks and valleys in the search space.
 
 For example, we want to ensure that Spanish speaking ACMs are placed at schools with greater Spanish speaking need. When we heavily penalized invalid placements based on Spanish speakers, we discovered that these ACMs would get stuck in the first valid placement the algorithm found for them. In order to consider alternative placements for the Spanish speakers, the algorithm would either need to randomly swap two Spanish speakers or accept a dramatically inflated score in an intermediary step before finding better placements for them.
 
@@ -103,11 +96,17 @@ We solved this by writing firm constraints such that certain placements would ne
 
 By this we mean, what is the function that we use to describe what the temperature should be based on which iteration it is?
 
+## Commutes
+
+TODO: We ended up having to do a bit of work to get this one to work, so we may as well talk a bit about it.
+ - precalc
+ - google API
+
 ## Results
 
 Implementing this solution has yielded several measurable and immeasurable benefits. For one, we drastically cut the time commitment necessary from our staff. Completing all placements by hand required thousands of worker hours across the national network. Last year, approximately 350 program managers spent 4 to 8 hours each to complete placements, totaling 1,400 to 2,800 hours. Second, our approach removes unconscious bias from the process. When managers chose their own teammates, it invited like-me biases and other forms of unconscious bias, causing team demographics to deviate from the mean.
 
-Another large benefit of our approach was improved commute times. In Chicago, commute had never been considered before, which lead to enormous inefficiency in placements. In the 2017 school year, the average ACM was placed at the 13th closest school to their home address. Since we have 26 school partners, this represents commute performance no better than random placement.
+Another large benefit of our approach was improved commute times. In Chicago, commute had never been considered before, which lead to enormous inefficiency in placements. In the 2017 school year, the average ACM was placed at the 13th closest school to their home address. Chicago had 26 school partners, so this represents commute performance no better than random placement.
 
 ![Chicago Commutes 2017](imgs/chi_sy17_commute_hist.png)
 
