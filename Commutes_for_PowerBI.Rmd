@@ -1,23 +1,37 @@
-```{r Power BI Parameters}
-# This chunk is for setting parameters in a way that mimics PowerBI. In PowerBI, input parameters are contained in an object called dataset.
-rm(list=ls(all=TRUE))
+```{r Check_Install_Packages}
+# This is the only necessary code block for running in PowerBI. Everything below this line is pasted into Power BI.
 
-dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\gpnge\\Desktop\\Current\\ACM Placement Data\\CHI\\"
-dataset$calc_commutes[1] <-"Yes"
-dataset$API_Key[1] <- as.character(read.table("C:\\Users\\gpnge\\Desktop\\Current\\Google_API_Key.txt")[[1]])
-dataset$used_surveygizmo[1] <- "No"
-dataset$arrival_date[1] <- "2018-05-30"
+# Packages required
+packages <- c("readxl", "dplyr", "tidyr", "XML", "RCurl")
+
+# If not installed, install them
+if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+  install.packages(setdiff(packages, rownames(installed.packages())), repos = "http://cran.us.r-project.org")
+}
+
+# Attempt to load packages with no printed warnings or errors
+suppressWarnings(suppressMessages(library("dplyr")))
+suppressWarnings(suppressMessages(library("readxl")))
+suppressWarnings(suppressMessages(library("tidyr")))
+suppressWarnings(suppressMessages(library("XML")))
+suppressWarnings(suppressMessages(library("RCurl")))
+
+# Attempt to load packages again, which will be silent if package was already loaded.
+# If package failed to load above, it will print the error here.
+lapply(packages, require, character.only = TRUE)
 ```
 
-```{r Define Functions}
-# This is the only necessary code block for running in PowerBI. Everything below this line is pasted into Power BI.
-library(dplyr)
-library(tidyr)
-library(readxl)
-library(XML)
-library(RCurl)
+```{r Power BI Parameters, eval=FALSE}
+# This chunk is for setting parameters in a way that mimics PowerBI. In PowerBI, input parameters are contained in an object called dataset.
+dataset <- data.frame(matrix(, nrow=1, ncol=0))
+dataset$FP <-"C:\\Users\\gpnge\\Desktop\\Current\\ACM Placement Data\\CHI\\"
+dataset$calc_commutes <- "Yes"
+dataset$API_Key <- as.character(read.table("C:\\Users\\gpnge\\Desktop\\Current\\Google_API_Key.txt")[[1]])
+dataset$used_surveygizmo <- "No"
+dataset$arrival_date <- "2018-05-30"
+```
 
+```{r Define_Functions}
 shape_inputs = function(acm_df, school_df){
   # sometimes Excel will be read in with null rows, so remove them
   acm_df <- acm_df[(acm_df$Res.Address.Line.1 != "") & !is.na(acm_df$Res.Address.Line.1),]
@@ -234,14 +248,13 @@ commute_procedure = function(acm_df, school_df){
 ```
 
 ```{r Load Data}
-root_dir <- dataset$FP[1]
-api <- dataset$API_Key[1]
-used_surveygizmo <- dataset$used_surveygizmo[1]
-arrival_date <- dataset$arrival_date[1]
-
+root_dir <- dataset$FP
+api <- dataset$API_Key
+used_surveygizmo <- dataset$used_surveygizmo
+arrival_date <- dataset$arrival_date
 ```
 
-```{r Attempts to Calc as Matrix}
+```{r Attempts to Calc as Matrix, eval=FALSE}
 # Trying to calc as matrix, limit of 25 x 25, need a way to merge in for N schools > 25 (harder), and append rows (easier)
 result <- shape_inputs(acm_df, school_df)
 acm_df <- result[[1]]
@@ -324,7 +337,7 @@ test <- google_distance(origins = origin,
 ```
 
 ```{r Run Commutes}
-if(dataset$calc_commutes[1] == "Yes"){
+if(dataset$calc_commutes == "Yes"){
   result <- shape_inputs(acm_df, school_df)
   acm_df <- result[[1]]
   school_df <- result[[2]]
