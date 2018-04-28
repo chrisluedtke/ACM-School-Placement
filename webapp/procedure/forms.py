@@ -5,11 +5,12 @@ class RunParametersForm(forms.ModelForm):
     class Meta:
         model = RunParameters
         fields = (
-        'used_surveygizmo',
         'number_iterations',
+        'used_surveygizmo',
         'prevent_roommates',
         'consider_HS_elig',
-        'consider_commutes',
+        'calc_commutes',
+        'API_Key',
         'commute_factor',
         'ethnicity_factor',
         'gender_factor',

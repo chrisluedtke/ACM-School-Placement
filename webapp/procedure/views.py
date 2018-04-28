@@ -52,9 +52,9 @@ def step3(request):
             # Write parameters to csv
             params = RunParameters.objects.last()
             params_fields = params._meta.get_fields()
-            field_list = ', '.join([field.name for field in params_fields])
+            field_list = ','.join([field.name for field in params_fields])
             value_list = [getattr(params, field.name) for field in params_fields]
-            value_list_str = ', '.join([str(e) for e in value_list])
+            value_list_str = ','.join([str(e) for e in value_list])
 
             with open('media/documents/params.csv', 'w') as file:
                 file.write(field_list)
