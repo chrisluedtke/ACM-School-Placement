@@ -1,9 +1,9 @@
+import os
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render, reverse
 from django.utils import timezone
-import os
 from .forms import RunParametersForm
 from .models import RunParameters
 
@@ -66,9 +66,7 @@ def step3(request):
             # either way, will need to explicitly set data types in R
             # https://www.r-bloggers.com/passing-arguments-to-an-r-script-from-command-lines/
             # TODO: load intermediate page (wait)
-
             return HttpResponseRedirect(reverse('run'))
-
     else:
         form = RunParametersForm()
     return render(request, 'procedure/step3.html', {'form': form})
