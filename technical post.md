@@ -61,12 +61,12 @@ Simulated annealing gets its name from metallurgy, where the annealing of metals
 
 ```
   1. Randomly place ACMs onto teams
-  2. Calculate the baseline score and initialize temperature
+  2. Calculate the baseline loss and initialize temperature
   3. For each iteration up to max:
      1. Choose two ACMs at random and swap their teams
      2. Calculate new score and update temperature/acceptance probability
-     3. If new score > baseline
-         * then keep the swap and update baseline to be the new score
+     3. If new loss < baseline
+         * then keep the swap and update baseline to be the new loss
          * otherwise:
             * draw random number between 0 and 1
             * if the random number is < the acceptance probability
@@ -76,35 +76,34 @@ Simulated annealing gets its name from metallurgy, where the annealing of metals
 
 ## Defining the Loss Function
 
-Since we have many different variables contributing to the score of the placement, we need to build a scoring function for each individual variable.  This requires some choices be made about how we will calculate something like a "score" for the age distribution.  For some variables, this was fairly straightforward.  For example, for education experience (and a number of other variables) we set ideal targets at each school for the numbers of high school graduate and ACMs with some college experience.  This set the ideal number of ACMs from those two subgroup for each team according to distributing them equally to each team.  Then at each iteration we would simply take the difference in desired ACMs from that subgroup and the actual, and the square the result. For other variables we would calculate values like the variance of the ages of the team compared to the variance of the ages of the Corps at he site, and take the absolute value of their difference.  Once we had calculated the individual scores for each variable, we would add them up to get the total score.  
+Since we have many different variables contributing to the loss of the placement, we need to build a loss function for each individual variable.  This requires some choices be made about *how* we will calculate loss the age distribution.  For some variables, this was fairly straightforward.  For example, for education experience we set ideal targets at each school for the numbers of high school graduate and ACMs with some college experience.  This set the ideal number of ACMs from those two subgroup for each team according to distributing them equally to each team.  Then at each iteration we would simply take the difference in desired ACMs from that subgroup and the actual, and the square the result. For other variables we would calculate values like the variance of the ages of the team compared to the variance of the ages of the Corps at he site, and take the absolute value of their difference.  Once we had calculated the individual losses for each variable, we would add them up to get the total loss.  
 
 One way we improved the efficiency of this process was to pre-process the data by changing categorical variables into a series of boolean columns.
 
-### Scores on Different Scales
+### Losses on Different Scales
 
-One issue we encountered was that our scores were on dramatically different scales.  Some were small values in the tens to hundreds, others were millions.  This imbalance caused a need for us to attempt to balance each score and then also apply a weighting method at the end so that we can vary the importance of each input.
+One issue we encountered was that our losses were on dramatically different scales.  Some were small values in the tens to hundreds, others were millions.  This imbalance caused a need for us to attempt to balance each loss and then also apply a weighting method at the end so that we can vary the importance of each input.
 
 ## Flattening the Search Space
 
-In an early stage of our solution, we implemented a scoring function that penalized team placements that violated a set of firm constraints. For example, if two roommates were placed on the same school team, we worsened the placement score by a factor of 10 to disincentivize the match. However, this approach restricted the search behavior of the algorithm by creating large peaks and valleys in the search space.
+In an early stage of our solution, we implemented a scoring function that penalized team placements that violated a set of firm constraints. For example, if two roommates were placed on the same school team, we worsened the placement loss by a factor of 10 to disincentivize the match. However, this approach restricted the search behavior of the algorithm by creating large peaks and valleys in the search space.
 
-For example, we want to ensure that Spanish speaking ACMs are placed at schools with greater Spanish speaking need. When we heavily penalized invalid placements based on Spanish speakers, we discovered that these ACMs would get stuck in the first valid placement the algorithm found for them. In order to consider alternative placements for the Spanish speakers, the algorithm would either need to randomly swap two Spanish speakers or accept a dramatically inflated score in an intermediary step before finding better placements for them.
+For example, we want to ensure that Spanish speaking ACMs are placed at schools with greater Spanish speaking need. When we heavily penalized invalid placements based on Spanish speakers, we discovered that these ACMs would get stuck in the first valid placement the algorithm found for them. In order to consider alternative placements for the Spanish speakers, the algorithm would either need to randomly swap two Spanish speakers or accept a dramatically inflated loss in an intermediary step before finding better placements for them.
 
 We solved this by writing firm constraints such that certain placements would never occur. When two ACMs are selected to be swapped, the algorithm references two pre-calculated tables that represent each ACM's eligibility to serve at each school and each ACM's eligibility to serve with each other ACM (to prevent roommate and prior relationship conflicts). With more constraints hard-coded into the algorithm, we flattened the search space such that the algorithm explores only valid placements and does not get 'stuck' when it places ACMs in the first valid slot that it finds.
 
 ## Scheduling the Annealing Process
 
-By this we mean, what is the function that we use to describe what the temperature should be based on which iteration it is?
+Another detail we needed to consider was at what schedule we wanted to reduce our temperature and thus volatility in the swaps made. Some considerations.  If our schedule cools too quickly, then we aren't garunteed to find the optimum because we might converge to a local minimum.  However, if our schedule is too long, then our algorithm might not converge in the set number of iterations I give it.  Here are a couple of examples of different curves we could have used for cooling:
 
-## Commutes
+A) Linear B) Quadratic C) Exponential D) Trionometric
+![Thanks what-when-how.com!](imgs/cooling_schedules.jpg)
 
-TODO: We ended up having to do a bit of work to get this one to work, so we may as well talk a bit about it.
- - precalc
- - google API
+In our case, we found exponential to be a good option.  The equation, of the form `f(x, c, w) = 1 / (1 + exp((x - c) / w))`, has two parameters, `c` and `w`, which very flexibly allowed to change when and at what rate the temperature would go from high to low. We then experimented with different values of c and w and observed the corresponding placements that came out in a fixed number of iterations to choose our preferred values for c and w. 
 
 ## Results
 
-Implementing this solution has yielded several measurable and immeasurable benefits. For one, we drastically cut the time commitment necessary from our staff. Completing all placements by hand required thousands of worker hours across the national network. Last year, approximately 350 program managers spent 4 to 8 hours each to complete placements, totaling 1,400 to 2,800 hours. Second, our approach removes unconscious bias from the process. When managers chose their own teammates, it invited like-me biases and other forms of unconscious bias, causing team demographics to deviate from the mean.
+Implementing this solution has yielded several benefits. For one, we drastically cut the time commitment necessary from our staff. Completing all placements by hand required thousands of worker hours across the national network. Last year, approximately 350 program managers spent 4 to 8 hours each to complete placements, totaling 1,400 to 2,800 hours. Second, our approach removes unconscious bias from the process. When managers chose their own teammates, it invited like-me biases and other forms of unconscious bias, causing team demographics to deviate from the mean.
 
 Another large benefit of our approach was improved commute times. In Chicago, commute had never been considered before, which lead to enormous inefficiency in placements. In the 2017 school year, the average ACM was placed at the 13th closest school to their home address. Chicago had 26 school partners, so this represents commute performance no better than random placement.
 
