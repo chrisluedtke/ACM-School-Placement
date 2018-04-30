@@ -114,3 +114,9 @@ Another large benefit of our approach was improved commute times. In Chicago, co
 The number of ACMs commuting longer than 60 minutes was drastically cut. For each school day in 2018, Chicago's ACMs commute 114 hours less than in 2017. Over the course of the 2018 school year (150 in-school days), the average ACM commutes 90 hours less than in 2017. ACMs already work 10 hours per day in our program, so this improvement is tremendously welcome from their perspective.
 
 ## Advocating for the Solution
+
+## Scaling the Solution
+
+The aim of moving the original Excel-based CY Jam application to R was to both improve the efficiency of the method, but to also make it easier for non-technical folks to implement.  Prior to our transition to R, CY Jam had only been used in Los Angeles and then two or three other sites around the US.  However, with the algorithm implemented in R we had the opportuntity to find a new platform to work the experience of running the algorithm to make it easier.  When we began this project, we identified the easiest platform to be Power BI. With its ability to run R code as part of its import query process, our first solution accepted parameters in a form which was prompted by opening the Power BI template.  In this workflow a site representative would simply need to fill out two excel sheets with input parameters on the volunteers to place, typically drawn from survey data, and the list of school teams to place them on.  Power BI would then pull this data in and run the placement algorithm as designed.
+
+Power BI, however, is an imperfect platform and some internal bugs and limitations caused us to look for alternatives.  So Chris started working on a web app ^^
