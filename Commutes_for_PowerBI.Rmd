@@ -3,9 +3,10 @@
 rm(list=ls(all=TRUE))
 
 dataset <- data.frame(FP = 1)
-dataset$FP[1]<-"C:\\Users\\gpnge\\Desktop\\Current\\ACM Placement Data\\CHI\\"
+#dataset$FP[1]<-"C:\\Users\\gpnge\\Desktop\\Current\\ACM Placement Data\\CHI\\"
+dataset$FP[1]<-"C:\\Users\\perus\\GitHub\\ACM-School-Placement\\"
 dataset$calc_commutes[1] <-"Yes"
-dataset$API_Key[1] <- as.character(read.table("C:\\Users\\gpnge\\Desktop\\Current\\Google_API_Key.txt")[[1]])
+dataset$API_Key[1] <- as.character(read.table("C:\\Users\\perus\\Desktop\\Google_API_Key.txt")[[1]])
 dataset$used_surveygizmo[1] <- "No"
 dataset$arrival_date[1] <- "2018-05-30"
 ```
@@ -19,6 +20,7 @@ library(XML)
 library(RCurl)
 
 shape_inputs = function(acm_df, school_df){
+  #browser()
   # sometimes Excel will be read in with null rows, so remove them
   acm_df <- acm_df[(acm_df$Res.Address.Line.1 != "") & !is.na(acm_df$Res.Address.Line.1),]
   acm_df <- acm_df[,c("acm_id", "Full.Name", "Res.Address.Line.1", "Res.City", "Res.State", "Res.Postal.Code", "Travel.Method")]
@@ -137,6 +139,7 @@ gmapsdistance = function(origin, destination, mode, arrival_time, key, api){
 }
 
 commute_procedure = function(acm_df, school_df){  
+  # This procedure 
   # Create an empty dataframe that we will fill with commute times
   acm_commutes <- data.frame()
   
@@ -238,19 +241,21 @@ root_dir <- dataset$FP[1]
 api <- dataset$API_Key[1]
 used_surveygizmo <- dataset$used_surveygizmo[1]
 arrival_date <- dataset$arrival_date[1]
-
+acm_df <- read.csv(file = paste0(dataset$FP, "data\\CHI\\Input 1 - ACM Data.csv"), check.names=FALSE, stringsAsFactors=FALSE)
+school_df <- read_excel(path = paste0(dataset$FP, "data\\CHI\\Input 2 - School Data.xlsx"))
 ```
 
 ```{r Attempts to Calc as Matrix}
 # Trying to calc as matrix, limit of 25 x 25, need a way to merge in for N schools > 25 (harder), and append rows (easier)
 result <- shape_inputs(acm_df, school_df)
-acm_df <- result[[1]]
-school_df <- result[[2]]
+acms <- result[[1]]
+schools <- result[[2]]
 
 # Limit inputs to the first 10 elements of each
-origin = paste(as.vector(acm_df[['Full.Address']][1:10]), collapse = '|')
-destination = paste(as.vector(school_df[['Address.Clean']][1:5]), collapse = '|')
+origin = paste(as.vector(acms[['Full.Address']][1:10]), collapse = '|')
+destination = paste(as.vector(schools[['Address.Clean']][1:5]), collapse = '|')
 
+# Below are attempts that we'll be deleting
 url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?",
                "origins=", origin,
                "&destinations=", destination,
@@ -321,6 +326,34 @@ test <- google_distance(origins = origin,
                         key = api,
                         mode = "transit",
                         language = "fr")
+```
+
+```{r Matrix Based gmapsdistance}
+library(gmapsdistance)
+
+result <- shape_inputs(acm_df, school_df)
+acms <- result[[1]]
+schools <- result[[2]]
+
+# Limit inputs to the first 10 elements of each
+origin = as.vector(acms[['Full.Address']][1:100])
+destination = as.vector(schools[['Address.Clean']])
+
+set.api.key(api)
+distances <-  gmapsdistance::gmapsdistance(origin=origin,
+                                          destination=destination,
+                                          key=api,
+                                          mode="transit",
+                                          arrival = as.integer(as.POSIXct(dataset$arrival_date)),
+                                          shape="long")
+
+# We now need to attach our commute times
+all_combinations <- data.frame(expand.grid(acm=acm_df$acm_id, school=school_df$School))
+acm_commutes <- all_combinations %>%
+                  left_join(acms[c('acm_id', 'Full.Address')], by = c("acm" = "acm_id")) %>%
+                  left
+  
+
 ```
 
 ```{r Run Commutes}
