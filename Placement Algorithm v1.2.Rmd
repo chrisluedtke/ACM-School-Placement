@@ -15,7 +15,7 @@
 ```{r PowerBI_Parameters, eval=FALSE}
 # In PowerBI, these are set by parameter inputs
 # eval = FALSE makes this chunk invisible when referenced through PowerBI
-dataset<-df <- data.frame(matrix(, nrow=1, ncol=0))
+dataset <- data.frame(matrix(, nrow=1, ncol=0))
 dataset$project_path <- 'C:/Users/CLuedtke/GitHub/ACM-School-Placement'
 dataset$acm_input_path <- 'data/CHI/Input 1 - ACM Data.csv'
 dataset$sch_input_path <- 'data/CHI/Input 2 - School Data.xlsx'

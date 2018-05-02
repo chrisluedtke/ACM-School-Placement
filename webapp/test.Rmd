@@ -1,0 +1,6 @@
+```{r Load_Parameters, echo=FALSE}
+args = commandArgs(trailingOnly=TRUE)
+print(args)
+dataset <- read.csv('media/documents/params.csv', check.names=FALSE, stringsAsFactors=FALSE)
+print(dataset)
+```

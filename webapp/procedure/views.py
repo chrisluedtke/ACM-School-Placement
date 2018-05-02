@@ -1,10 +1,11 @@
+import os
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render, reverse
 from django.utils import timezone
-import os
 from .forms import RunParametersForm
+from .models import RunParameters
 
 # Create your views here.
 def welcome(request):
@@ -30,6 +31,7 @@ def step1(request):
     return render(request, 'procedure/step1.html', {})
 
 def step2(request):
+    # Upload ACM data
     if request.method == 'POST' and 'upload' in request.POST:
         file_path = os.path.join(settings.MEDIA_ROOT, "documents/ACM_Placement_Survey_Data.csv")
         if os.path.exists(file_path):
@@ -39,20 +41,43 @@ def step2(request):
     return render(request, 'procedure/step2.html', {})
 
 def step3(request):
-    if request.method == 'POST' and 'run' in request.POST:
+    # Save Options
+    if request.method == 'POST' and 'save' in request.POST:
         form = RunParametersForm(request.POST)
         if form.is_valid():
             params = form.save(commit=False)
             params.run_date = timezone.now()
             params.save()
-            # load intermediate page (wait)
-            return HttpResponseRedirect(reverse('dash'))
+
+            # Write parameters to csv
+            params = RunParameters.objects.last()
+            params_fields = params._meta.get_fields()
+            field_list = ','.join([field.name for field in params_fields])
+            value_list = [getattr(params, field.name) for field in params_fields]
+            value_list_str = ','.join([str(e) for e in value_list])
+
+            with open('media/documents/params.csv', 'w') as file:
+                file.write(field_list)
+                file.write('\n')
+                file.write(value_list_str)
+                file.write('\n')
+            # Alternatively, pass arguments to R script like:
+            # os.system(f'Rscript launch_alg.R {value_list_str}')
+            # either way, will need to explicitly set data types in R
+            # https://www.r-bloggers.com/passing-arguments-to-an-r-script-from-command-lines/
+            # TODO: load intermediate page (wait)
+            return HttpResponseRedirect(reverse('run'))
     else:
         form = RunParametersForm()
     return render(request, 'procedure/step3.html', {'form': form})
 
+def run(request):
+    if request.method == 'POST' and 'run' in request.POST:
+        return HttpResponseRedirect(reverse('dash'))
+    return render(request, 'procedure/run.html', {})
+
 def wait(request):
-    # display progress
+    #TODO: display progress
     return render(request, 'procedure/wait.html', {})
 
 def dash(request):
@@ -64,7 +89,6 @@ def dash(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
                 return response
 
-    # trigger algorithm with given parameters
     os.system('Rscript launch_alg.R')
 
     return render(request, 'procedure/dash.html', {})

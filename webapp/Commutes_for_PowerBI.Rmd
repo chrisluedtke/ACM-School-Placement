@@ -2,7 +2,13 @@
 # This is the only necessary code block for running in PowerBI. Everything below this line is pasted into Power BI.
 
 # Packages required
-packages <- c("readxl", "dplyr", "tidyr", "XML", "RCurl")
+packages <- c(
+  "readxl",
+  "dplyr",
+  "tidyr",
+  "XML",
+  "RCurl"
+  )
 
 # If not installed, install them
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
@@ -21,26 +27,26 @@ suppressWarnings(suppressMessages(library("RCurl")))
 lapply(packages, require, character.only = TRUE)
 ```
 
-```{r Power BI Parameters, eval=FALSE}
+```{r Read_Parameters, eval=TRUE}
 # This chunk is for setting parameters in a way that mimics PowerBI. In PowerBI, input parameters are contained in an object called dataset.
-dataset <- data.frame(matrix(, nrow=1, ncol=0))
-dataset$FP <-"C:\\Users\\gpnge\\Desktop\\Current\\ACM Placement Data\\CHI\\"
-dataset$calc_commutes <- "Yes"
-dataset$API_Key <- as.character(read.table("C:\\Users\\gpnge\\Desktop\\Current\\Google_API_Key.txt")[[1]])
-dataset$used_surveygizmo <- "No"
-dataset$arrival_date <- "2018-05-30"
+dataset <- read.csv('media/documents/params.csv', stringsAsFactors=FALSE)
+dataset$acm_input_path <- 'media/documents/ACM_Placement_Survey_Data.csv'
+dataset$sch_input_path <- 'media/documents/ACM_Placement_School_Data.xlsx'
+dataset$calc_commutes <- as.logical(dataset$calc_commutes)
+dataset$arrival_date <- "2018-05-15"
+output_path <- 'media/documents/outputs/'
+
+acm_df <- read.csv(dataset$acm_input_path)
+school_df <- read_excel(dataset$sch_input_path)
+api <- dataset$API_Key
+used_surveygizmo <- dataset$used_surveygizmo
+arrival_date <- dataset$arrival_date
 ```
 
 ```{r Define_Functions}
 shape_inputs = function(acm_df, school_df){
-  #browser()
-  # sometimes Excel will be read in with null rows, so remove them
-  acm_df <- acm_df[(acm_df$Res.Address.Line.1 != "") & !is.na(acm_df$Res.Address.Line.1),]
-  acm_df <- acm_df[,c("acm_id", "Full.Name", "Res.Address.Line.1", "Res.City", "Res.State", "Res.Postal.Code", "Travel.Method")]
-  school_df <- school_df[!is.na(school_df$School),]
-  
-  if(used_surveygizmo == "Yes"){
-    vars_df <- read_excel(path = paste(root_dir, "Survey Items to Variable Names.xls", sep = ""))
+  if(used_surveygizmo == TRUE){
+    vars_df <- read_excel(path = "Survey Items to Variable Names.xls")
     
     # Rename Headers
     for (x in names(acm_df)){
@@ -49,6 +55,11 @@ shape_inputs = function(acm_df, school_df){
       }
     }
   }
+  
+  # sometimes Excel will be read in with null rows, so remove them
+  acm_df <- acm_df[(acm_df$Res.Address.Line.1 != "") & !is.na(acm_df$Res.Address.Line.1),]
+  acm_df <- acm_df[,c("acm_id", "Full.Name", "Res.Address.Line.1", "Res.City", "Res.State", "Res.Postal.Code", "Travel.Method")]
+  school_df <- school_df[!is.na(school_df$School),]
   
   # construct arrival time, Subtract 5 mins to allow on-time arrival
   school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, format="%I:%M%p"), 12, 19)
@@ -152,7 +163,6 @@ gmapsdistance = function(origin, destination, mode, arrival_time, key, api){
 }
 
 commute_procedure = function(acm_df, school_df){  
-  # This procedure 
   # Create an empty dataframe that we will fill with commute times
   acm_commutes <- data.frame()
   
@@ -249,26 +259,16 @@ commute_procedure = function(acm_df, school_df){
 }
 ```
 
-```{r Load Data}
-root_dir <- dataset$FP[1]
-api <- dataset$API_Key[1]
-used_surveygizmo <- dataset$used_surveygizmo[1]
-arrival_date <- dataset$arrival_date[1]
-acm_df <- read.csv(file = paste0(dataset$FP, "data\\CHI\\Input 1 - ACM Data.csv"), check.names=FALSE, stringsAsFactors=FALSE)
-school_df <- read_excel(path = paste0(dataset$FP, "data\\CHI\\Input 2 - School Data.xlsx"))
-```
-
 ```{r Attempts to Calc as Matrix, eval=FALSE}
 # Trying to calc as matrix, limit of 25 x 25, need a way to merge in for N schools > 25 (harder), and append rows (easier)
 result <- shape_inputs(acm_df, school_df)
-acms <- result[[1]]
-schools <- result[[2]]
+acm_df <- result[[1]]
+school_df <- result[[2]]
 
 # Limit inputs to the first 10 elements of each
-origin = paste(as.vector(acms[['Full.Address']][1:10]), collapse = '|')
-destination = paste(as.vector(schools[['Address.Clean']][1:5]), collapse = '|')
+origin = paste(as.vector(acm_df[['Full.Address']][1:10]), collapse = '|')
+destination = paste(as.vector(school_df[['Address.Clean']][1:5]), collapse = '|')
 
-# Below are attempts that we'll be deleting
 url = paste0("https://maps.googleapis.com/maps/api/distancematrix/xml?",
                "origins=", origin,
                "&destinations=", destination,
@@ -341,54 +341,27 @@ test <- google_distance(origins = origin,
                         language = "fr")
 ```
 
-```{r Matrix Based gmapsdistance}
-library(gmapsdistance)
-
-result <- shape_inputs(acm_df, school_df)
-acms <- result[[1]]
-schools <- result[[2]]
-
-# Limit inputs to the first 10 elements of each
-origin = as.vector(acms[['Full.Address']][1:100])
-destination = as.vector(schools[['Address.Clean']])
-
-set.api.key(api)
-distances <-  gmapsdistance::gmapsdistance(origin=origin,
-                                          destination=destination,
-                                          key=api,
-                                          mode="transit",
-                                          arrival = as.integer(as.POSIXct(dataset$arrival_date)),
-                                          shape="long")
-
-# We now need to attach our commute times
-all_combinations <- data.frame(expand.grid(acm=acm_df$acm_id, school=school_df$School))
-acm_commutes <- all_combinations %>%
-                  left_join(acms[c('acm_id', 'Full.Address')], by = c("acm" = "acm_id")) %>%
-                  left
-  
-
-```
-
 ```{r Run Commutes}
-if(dataset$calc_commutes == "Yes"){
+if(dataset$calc_commutes == TRUE){
   result <- shape_inputs(acm_df, school_df)
-  acm_df <- result[[1]]
-  school_df <- result[[2]]
+  acm_df_clean <- result[[1]]
+  school_df_clean <- result[[2]]
   start.time <- Sys.time()
-  acm_commutes <- commute_procedure(acm_df[1,], school_df)
+  #TODO: acm_df[1,] is only calculating commutes for a single ACM, remember to remove for production
+  acm_commutes <- commute_procedure(acm_df_clean[2,], school_df_clean)
   end.time <- Sys.time()
   # Write to .csv
-  write.table(acm_commutes, file = paste(root_dir, "ACM Commutes.csv", sep = ""), sep=",", row.names=FALSE, na = "")
+  write.table(acm_commutes, file = paste0(output_path, "Output_Commutes.csv"), sep=",", row.names=FALSE, na = "")
   paste(end.time - start.time)
 } else {
   acm_commutes <- data.frame(acm_id	= NA,
-                               Full.Name	= NA,
-                               Home.Address	= NA,
-                               School.Address	= NA,
-                               School	= NA,
-                               Commute.Time	= NA,
-                               Mode	= NA,
-                               Stutus	= NA,
-                               Commute.Rank= NA)
+                             Full.Name	= NA,
+                             Home.Address	= NA,
+                             School.Address	= NA,
+                             School	= NA,
+                             Commute.Time	= NA,
+                             Mode	= NA,
+                             Stutus	= NA,
+                             Commute.Rank= NA)
 }
 ```

@@ -8,5 +8,6 @@ urlpatterns = [
     path('step3/', views.step3, name='step3'),
     path('wait/', views.wait, name='wait'),
     path('dash/', views.dash, name='dash'),
+    path('run/', views.run, name='run'),
     # path('dashboard/', views.dashboard, name='dashboard'),
 ]
