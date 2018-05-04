@@ -4,7 +4,7 @@ How do you distribute a large pool of people into a fixed number of teams which 
 
 This type of problem falls into the general umbrella of combinatorial optimization, where we are interested in finding the best combination from a large pool of possibilities. For example, for a site of 80 AmeriCorps Members (ACMs) split into 8 equally sized teams, there are 5.9 x 10^61 possible combinations (for comparison, there are 8.1 x 10^67 ways to shuffle a deck of cards, which is regarded as practically infinite).
 
-In this post, we go over how we implemented our solution to this problem so that others might adapt it to their own use case. This post was a collaborative effort between Alex Perusse and Chris Luedtke, who co-developed this method, and is also available on (his blog.)[put your blog link here]
+In this post, we go over how we implemented our solution to this problem so that others might adapt it to their own use case. This post was a collaborative effort between Alex Perusse [(blog)]() and Chris Luedtke [(blog)](https://chrisluedtke.github.io/).
 
 ## Defining the Business Need
 
@@ -74,32 +74,35 @@ Simulated annealing gets its name from metallurgy, where the annealing of metals
               * else revert swap
 ```
 
-## Defining the Loss Function
+## Scheduling the Annealing Process
 
-Since we have many different variables contributing to the loss of the placement, we need to build a loss function for each individual variable.  This requires some choices be made about *how* we will calculate loss the age distribution.  For some variables, this was fairly straightforward.  For example, for education experience we set ideal targets at each school for the numbers of high school graduate and ACMs with some college experience.  This set the ideal number of ACMs from those two subgroup for each team according to distributing them equally to each team.  Then at each iteration we would simply take the difference in desired ACMs from that subgroup and the actual, and the square the result. For other variables we would calculate values like the variance of the ages of the team compared to the variance of the ages of the Corps at he site, and take the absolute value of their difference.  Once we had calculated the individual losses for each variable, we would add them up to get the total loss.  
+In simulated annealing, it is important to consider the schedule with which to reduce the temperature (i.e. the volatility) in the swaps made. If the schedule cools too quickly, the algorithm might converge too quickly to a local minimum.  If the schedule is too long, the algorithm might not converge in the set number of iterations.  Here are a couple of examples of different curves we could have used for cooling:
+
+A) Linear B) Quadratic C) Exponential D) Trionometric:
+
+![Thanks what-when-how.com!](imgs/cooling_schedules.jpg)
+
+In our case, we found exponential to be a good option.  The equation, of the form `f(x, c, w) = 1 / (1 + exp((x - c) / w))`, has two parameters, `c` and `w`, which affect when and at what rate the temperature goes from high to low. To set values for c and w, we experimented with different values and observed the corresponding placements while keeping the number of iterations fixed.
+
+## Defining 'Good' Placements
+
+#### Soft Constraints
+
+Since we have many different variables contributing to the loss of the placement, we need a loss function for each individual variable.  This requires some choices be made about *how* we calculate loss.  For some variables, this was fairly straightforward.  For educational experience, we set ideal targets at each school for the number of ACMs with high school experience and those with college experience.  The ideal number of ACMs from those subgroups is set for each team according to an equal distribution to each team.  Then at each iteration we calculate the difference in desired ACMs from that subgroup and the actual, and the square of the result. For other variables, we calculate values like the variance of the ages of the team compared to the variance of the ages of the ACMs at the whole site, and take the absolute value of their difference.  Once we calculate the individual losses for each variable, we add them up to get the total loss.
 
 One way we improved the efficiency of this process was to pre-process the data by changing categorical variables into a series of boolean columns.
 
-### Losses on Different Scales
+#### Losses on Different Scales
 
 One issue we encountered was that our losses were on dramatically different scales.  Some were small values in the tens to hundreds, others were millions.  This imbalance caused a need for us to attempt to balance each loss and then also apply a weighting method at the end so that we can vary the importance of each input.
 
-## Flattening the Search Space
+#### Firm Constraints
 
-In an early stage of our solution, we implemented a scoring function that penalized team placements that violated a set of firm constraints. For example, if two roommates were placed on the same school team, we worsened the placement loss by a factor of 10 to disincentivize the match. However, this approach restricted the search behavior of the algorithm by creating large peaks and valleys in the search space.
+In an early stage of our solution, we implemented a loss function that penalized team placements which violated a set of firm constraints. For example, if two roommates were placed on the same school team, we worsened the placement loss by a factor of 10 to disincentivize the match. However, this approach restricted the search behavior of the algorithm by creating large peaks and valleys in the search space.
 
 For example, we want to ensure that Spanish speaking ACMs are placed at schools with greater Spanish speaking need. When we heavily penalized invalid placements based on Spanish speakers, we discovered that these ACMs would get stuck in the first valid placement the algorithm found for them. In order to consider alternative placements for the Spanish speakers, the algorithm would either need to randomly swap two Spanish speakers or accept a dramatically inflated loss in an intermediary step before finding better placements for them.
 
 We solved this by writing firm constraints such that certain placements would never occur. When two ACMs are selected to be swapped, the algorithm references two pre-calculated tables that represent each ACM's eligibility to serve at each school and each ACM's eligibility to serve with each other ACM (to prevent roommate and prior relationship conflicts). With more constraints hard-coded into the algorithm, we flattened the search space such that the algorithm explores only valid placements and does not get 'stuck' when it places ACMs in the first valid slot that it finds.
-
-## Scheduling the Annealing Process
-
-Another detail we needed to consider was at what schedule we wanted to reduce our temperature and thus volatility in the swaps made. Some considerations.  If our schedule cools too quickly, then we aren't garunteed to find the optimum because we might converge to a local minimum.  However, if our schedule is too long, then our algorithm might not converge in the set number of iterations I give it.  Here are a couple of examples of different curves we could have used for cooling:
-
-A) Linear B) Quadratic C) Exponential D) Trionometric
-![Thanks what-when-how.com!](imgs/cooling_schedules.jpg)
-
-In our case, we found exponential to be a good option.  The equation, of the form `f(x, c, w) = 1 / (1 + exp((x - c) / w))`, has two parameters, `c` and `w`, which very flexibly allowed to change when and at what rate the temperature would go from high to low. We then experimented with different values of c and w and observed the corresponding placements that came out in a fixed number of iterations to choose our preferred values for c and w.
 
 ## Results
 
@@ -109,7 +112,7 @@ In Chicago, perhaps the greatest benefit of our approach was improved commute ti
 
 However, using our method we made dramatic improvements. Fewer than 10% of the ACMs we placed in 2018 commute 60 minutes or more. In 2017, that number was 30%.
 
-Below are the commute time distributions in 2018 (orange) and 2017 (blue):
+Below are the one-way commute time distributions in 2018 (orange) and 2017 (blue):
 
 ![Chicago Commutes 2017 vs 2018](imgs/chi_sy18vsy17.png)
 
@@ -121,8 +124,8 @@ Developing in R improved both the efficiency and efficacy of the method in addit
 
 With the algorithm implemented in R, we were able develop a more user-friendly platform to run the algorithm in Power BI. In this workflow, a site representative provides two excel sheets with ACM attributes (typically from a survey) and school team attributes from the site and district. When loading the Power BI template, the user is prompted to set various options that modified the soft and firm constraints of the placements.
 
-While Power BI is our go-to method and a large improvement on CY Jam, several important limitations remain. For one, Power BI prevents R scripts from running over 30 minutes. For another, Power BI's convoluted query schedule triggers the R script to run twice in parallel. On top of these issues, the user still must install and configure R and its dependencies.
+While Power BI is our go-to method and a large improvement on CY Jam, several important limitations remain. For one, Power BI prevents R scripts from running over 30 minutes. For another, Power BI's convoluted query schedule triggers the R script to [run twice in parallel](https://community.powerbi.com/t5/Desktop/Query-Containing-R-Script-Algorithm-is-Evaluated-Twice-on/m-p/394475#M179946). On top of these issues, the user still must install and configure R and its dependencies.
 
-Ultimately, the most streamlined user workflow requires a dedicated app, which we have already begun developing:
+Ultimately, the most streamlined user workflow would require a dedicated app, which we have already begun developing:
 
 ![Placement App Demo](imgs/placement_app.gif)
