@@ -1,15 +1,17 @@
+import datetime
 from django.db import models
 
 class RunParameters(models.Model):
     id = models.IntegerField(primary_key=True)
     run_date = models.DateTimeField('Date of run')
     used_surveygizmo = models.BooleanField('Did you use the nation-wide survey?', default=False)
-    number_iterations = models.IntegerField('How many iterations?', default=100)
+    number_iterations = models.IntegerField('Number of iterations', default=100, help_text='This is the number of team placements that will be attempted. 10,000 or more is recommended.')
     prevent_roommates = models.BooleanField('Prevent roommates from serving on the same team?', default=True)
-    consider_HS_elig = models.BooleanField('Consider High School eligibility?', default=True)
-    calc_commutes = models.BooleanField('Calcute commute times? If you already calculated commutes in a previous run, re-calculating is not necessary.', default=False)
-    API_Key = models.CharField('Google API Key (required to calculate commutes)', default='', max_length=100)
-    commute_factor = models.IntegerField('Importance of commute', default=0)
+    consider_HS_elig = models.BooleanField('Consider High School eligibility?', default=True, help_text='An ACM is HS eligible if they are 21+ years old (or have college experience) and are confident tutoring at least algebra-level math.')
+    calc_commutes = models.BooleanField('Calcute commutes?', default=False, help_text='If you already calculated commutes in a previous run, it is not necessary to re-calculate unless you have added new ACMs or schools.')
+    API_Key = models.CharField('Google API Key (required to calculate commutes)', blank=True, max_length=100, help_text='Required if calculating commutes.')
+    commute_date = models.DateField('Travel date for commute calculations', blank=True, default=datetime.date.today, help_text='Required if calculating commutes. Choose a date that represents normal traffic (i.e. a normal weekday).')
+    commute_factor = models.IntegerField('Importance of commute', default=0, help_text='Only set greater than zero if you are calculating commutes or have already calculated commutes in a previous run.')
     ethnicity_factor = models.IntegerField('Importance of ethnic diversity', default=0)
     gender_factor = models.IntegerField('Importance of gender diversity', default=0)
     Edscore_factor = models.IntegerField('Importance of educational attainment diversity', default=0)

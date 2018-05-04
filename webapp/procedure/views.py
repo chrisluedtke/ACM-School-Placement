@@ -1,3 +1,4 @@
+import csv
 import os
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
@@ -6,6 +7,7 @@ from django.shortcuts import render, reverse
 from django.utils import timezone
 from .forms import RunParametersForm
 from .models import RunParameters
+from openpyxl import load_workbook
 
 # Create your views here.
 def welcome(request):
@@ -72,15 +74,36 @@ def step3(request):
     return render(request, 'procedure/step3.html', {'form': form})
 
 def run(request):
+    with open(os.path.join(settings.MEDIA_ROOT, 'documents/ACM_Placement_Survey_Data.csv'),"r") as f:
+        reader = csv.reader(f,delimiter = ",")
+        data = list(reader)
+        n_acms = len(data)-1
+
+    wb = load_workbook(os.path.join(settings.MEDIA_ROOT, 'documents/ACM_Placement_School_Data.xlsx'))
+    sheet = wb.worksheets[0]
+    n_schools = sheet.max_row
+
+    params = RunParameters.objects.last()
+    if params.calc_commutes == True:
+        and_text = ' and calculating commutes'
+    else:
+        and_text = ''
+
+    run_time = params.number_iterations/30 # filler: assumed 30 iterations per second
+    if params.calc_commutes == True:
+        run_time = run_time + n_acms*n_schools*0.5 # 0.5 seconds per API request
+    run_time_mins = round(run_time/60, 0)
+
     if request.method == 'POST' and 'run' in request.POST:
         return HttpResponseRedirect(reverse('dash'))
-    return render(request, 'procedure/run.html', {})
+    return render(request, 'procedure/run.html', {'n_acms': n_acms, 'n_schools': n_schools, 'run_time_mins':run_time_mins, 'and_text':and_text})
 
 def wait(request):
     #TODO: display progress
     return render(request, 'procedure/wait.html', {})
 
 def dash(request):
+    # download placements
     if request.method == 'POST' and 'download' in request.POST:
         file_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Placements.csv")
         if os.path.exists(file_path):
