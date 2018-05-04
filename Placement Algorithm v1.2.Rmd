@@ -539,7 +539,21 @@ s_curve = function(x, center, width) {
 }
 
 #' Annealing and Swap Function
-# TODO: If Spanish speaker randomly chosen for placement, only consider swaps with other Spanish speakers, unless the chosen ACM is already at a school with a surplus of Spanish speakers, in which case they may be placed anywhere
+#' TODO: If Spanish speaker randomly chosen for placement, only consider swaps with other Spanish speakers, unless the chosen ACM is already at a school with a surplus of Spanish speakers, in which case they may be placed anywhere
+
+## One Way: (this is probably the best way, because it allows targets to by unmet or overmet, which is nice)
+## Drawback: if fewer span ACMs than targets, the first schools to be filled will remain filled while the others will remain unfilled
+## TODO: produce error if fewer ACMs than Span speaker targets
+# if Spanish Speaker chosen for swap:
+# * count SpanDiffs
+#   * if swap1's school is at/below Spanish speaker target, only allow swap with other Spanish speaker
+#   * if swap1's school is over Spanish speaker target and all schools' targets *not* met, search under-filled schools for non-spanish speaking swap2
+#   * if swap1's school is over Spanish speaker target and all schools' targets met, allow unconstrained swapping
+
+## Another Way
+# Set all Spanish Speakers' as ineligibile at schools not needing Span speakers
+# 
+
 run_intermediate_annealing_process = function(starting_placements, school_df, best_placements=starting_placements, number_of_iterations, center_scale, width_scale) {
   
   team_placements_df <- starting_placements
