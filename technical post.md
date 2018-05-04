@@ -4,13 +4,13 @@ How do you distribute a large pool of people into a fixed number of teams which 
 
 This type of problem falls into the general umbrella of combinatorial optimization, where we are interested in finding the best combination from a large pool of possibilities. For example, for a site of 80 AmeriCorps Members (ACMs) split into 8 equally sized teams, there are 5.9 x 10^61 possible combinations (for comparison, there are 8.1 x 10^67 ways to shuffle a deck of cards, which is regarded as practically infinite).
 
-In this post, we go over how we implemented our solution to this problem so that others might adapt it to their own use case. This post was a collaborative effort between Alex Perusse and Chris Leudche, who co-developed this method, and is also available on (his blog.)[put your blog link here]
+In this post, we go over how we implemented our solution to this problem so that others might adapt it to their own use case. This post was a collaborative effort between Alex Perusse and Chris Luedtke, who co-developed this method, and is also available on (his blog.)[put your blog link here]
 
 ## Defining the Business Need
 
 Each school year, City Year places thousands of AmeriCorps Members (ACMs) in hundreds of schools as near-peer tutors and mentors. For the vast majority of city locations, the solution was to do it by hand. Managers and Directors would do their best to make relatively "equal" teams.  As we will explore in greater detail, this solution is costly in terms of time and invites certain biases.  It was particularly challenging at sites with 200+ ACMs to place, like in City Year Chicago and Los Angeles, where the authors of this post reside.
 
-In 2013, City Year Los Angles independently developed a solution using VBA and Excel. While this solutions was effective, it lacked the desired speed and usability. So in 2017, as a couple eager data science enthusiasts, we chose to build a solution from scratch in the R programming language.
+In 2013, City Year Los Angeles independently developed a solution using VBA and Excel. While this solutions was effective, it lacked the desired speed and usability. So in 2017, as a couple eager data science enthusiasts, we chose to build a solution from scratch in the R programming language.
 
 ## Researching Our Approach
 
@@ -99,24 +99,30 @@ Another detail we needed to consider was at what schedule we wanted to reduce ou
 A) Linear B) Quadratic C) Exponential D) Trionometric
 ![Thanks what-when-how.com!](imgs/cooling_schedules.jpg)
 
-In our case, we found exponential to be a good option.  The equation, of the form `f(x, c, w) = 1 / (1 + exp((x - c) / w))`, has two parameters, `c` and `w`, which very flexibly allowed to change when and at what rate the temperature would go from high to low. We then experimented with different values of c and w and observed the corresponding placements that came out in a fixed number of iterations to choose our preferred values for c and w. 
+In our case, we found exponential to be a good option.  The equation, of the form `f(x, c, w) = 1 / (1 + exp((x - c) / w))`, has two parameters, `c` and `w`, which very flexibly allowed to change when and at what rate the temperature would go from high to low. We then experimented with different values of c and w and observed the corresponding placements that came out in a fixed number of iterations to choose our preferred values for c and w.
 
 ## Results
 
-Implementing this solution has yielded several benefits. For one, we drastically cut the time commitment necessary from our staff. Completing all placements by hand required thousands of worker hours across the national network. Last year, approximately 350 program managers spent 4 to 8 hours each to complete placements, totaling 1,400 to 2,800 hours. Second, our approach removes unconscious bias from the process. When managers chose their own teammates, it invited like-me biases and other forms of unconscious bias, causing team demographics to deviate from the mean.
+Implementing this solution has yielded several benefits. For one, we drastically cut the time commitment necessary from our staff. Completing all placements by hand required thousands of worker hours across the national network. Last year, approximately 350 program managers spent 4 to 8 hours each to complete placements, totaling 1,400 to 2,800 hours. Second, our approach removes unconscious bias from the process. When managers chose their own teammates, it invited "like-me" biases and other forms of unconscious bias, causing team demographics to deviate from the mean.
 
-Another large benefit of our approach was improved commute times. In Chicago, commute had never been considered before, which lead to enormous inefficiency in placements. In the 2017 school year, the average ACM was placed at the 13th closest school to their home address. Chicago had 26 school partners, so this represents commute performance no better than random placement.
+In Chicago, perhaps the greatest benefit of our approach was improved commute times. Commute had never been formally considered in Chicago, which lead to enormous inefficiency in placements. In the 2017 school year, the average ACM was placed at the 13th closest school to their home address. With 26 school partners that year, commute efficiency was only as good as random placement.
 
-![Chicago Commutes 2017](imgs/chi_sy17_commute_hist.png)
+However, using our method we made dramatic improvements. Fewer than 10% of the ACMs we placed in 2018 commute 60 minutes or more. In 2017, that number was 30%.
 
-![Chicago Commutes 2018](imgs/chi_sy18_commute_hist.png)
+Below are the commute time distributions in 2018 (orange) and 2017 (blue):
 
-The number of ACMs commuting longer than 60 minutes was drastically cut. For each school day in 2018, Chicago's ACMs commute 114 hours less than in 2017. Over the course of the 2018 school year (150 in-school days), the average ACM commutes 90 hours less than in 2017. ACMs already work 10 hours per day in our program, so this improvement is tremendously welcome from their perspective.
+![Chicago Commutes 2017 vs 2018](imgs/chi_sy18vsy17.png)
 
-## Advocating for the Solution
+For each school day in 2018, Chicago's ACMs commute 114 hours less than in 2017. Over the course of the 2018 school year (150 in-school days), the average ACM commutes 90 hours less than in 2017. ACMs already work 10 hours per day in our program, so this improvement is tremendously welcome from their perspective.
 
 ## Scaling the Solution
 
-The aim of moving the original Excel-based CY Jam application to R was to both improve the efficiency of the method, but to also make it easier for non-technical folks to implement.  Prior to our transition to R, CY Jam had only been used in Los Angeles and then two or three other sites around the US.  However, with the algorithm implemented in R we had the opportuntity to find a new platform to work the experience of running the algorithm to make it easier.  When we began this project, we identified the easiest platform to be Power BI. With its ability to run R code as part of its import query process, our first solution accepted parameters in a form which was prompted by opening the Power BI template.  In this workflow a site representative would simply need to fill out two excel sheets with input parameters on the volunteers to place, typically drawn from survey data, and the list of school teams to place them on.  Power BI would then pull this data in and run the placement algorithm as designed.
+Developing in R improved both the efficiency and efficacy of the method in addition to streamlining the process for non-technical folks. While the original Excel-based application ('CY Jam') had only been used in Los Angeles and a few other sites, our re-worked method is scheduled for use in 13. This is largely due to the application's improved usability.
 
-Power BI, however, is an imperfect platform and some internal bugs and limitations caused us to look for alternatives.  So Chris started working on a web app ^^
+With the algorithm implemented in R, we were able develop a more user-friendly platform to run the algorithm in Power BI. In this workflow, a site representative provides two excel sheets with ACM attributes (typically from a survey) and school team attributes from the site and district. When loading the Power BI template, the user is prompted to set various options that modified the soft and firm constraints of the placements.
+
+While Power BI is our go-to method and a large improvement on CY Jam, several important limitations remain. For one, Power BI prevents R scripts from running over 30 minutes. For another, Power BI's convoluted query schedule triggers the R script to run twice in parallel. On top of these issues, the user still must install and configure R and its dependencies.
+
+Ultimately, the most streamlined user workflow requires a dedicated app, which we have already begun developing:
+
+![Placement App Demo](imgs/placement_app.gif)
