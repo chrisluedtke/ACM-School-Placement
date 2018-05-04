@@ -1,7 +1,7 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <h3>Step 2: ACM Survey Data</h3>
+    <h3>Step 2 of 3: ACM Survey Data</h3>
 
     <p>Next we need the survey data you collected from your incoming corps. Make sure the headers and values of your survey data match the values we are expecting. Download the guide here, and make the changes to your survey data. If you used the national survey, you do not need to make any changes to your data.</p>
 
@@ -10,7 +10,9 @@
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="file" name="myfile">
-        <button type="submit" class="btn btn-primary" name="upload">Upload and Continue</button>
+        <div>
+            <button type="submit" class="btn btn-primary" name="upload">Upload and Continue</button>
+        </div>
     </form>
 
 {% endblock %}

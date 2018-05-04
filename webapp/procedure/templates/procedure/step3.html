@@ -1,14 +1,13 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <h3>Step 3: Set Placement Options</h3>
+    <h3>Step 3 of 3: Set Placement Options</h3>
 
-    <p>Finally, choose the rules and options you would like for your team placements.</p>
+    <p>Finally, choose the rules and options for your team placements.</p>
 
     <form method="POST" class="post-form">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit" class="btn" name="save">Save Options and Continue</button>
     </form>
-
 {% endblock %}

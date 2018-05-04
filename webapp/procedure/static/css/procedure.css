@@ -1,32 +1,40 @@
-.headerbar {
+.cy-headerbar {
     width: 100%;
     display: inline-block;
     background-color: #f1604a;
-    /* float: left; */
 }
 
-.header {
-    width: 50%;
+.cy-header {
+    width: 550px;
     margin: auto;
-    margin-top: 18px;
-    margin-bottom: 18px;
+    margin-top: 15px;
+    margin-bottom: 20px;
 }
 
-.logo {
+.cy-logo {
     width: 100px;
     display: inline-block;
 }
 
-.logo-title {
+.cy-logo-title {
     display: inline-block;
-    line-height: 25px;
+    width: 350px;
+    line-height: 30px;
     font-size: 25px;
     font-weight: bold;
-    /* margin-top: 30px; */
-    margin-left: 12px;
-    text-align: left;
+    text-align: center;
+    vertical-align: middle;
 }
 
-.content-block {
-    width: 50%;
+.cy-icon {
+    width: 50px;
+    display: inline-block;
+    text-align: right;
+    vertical-align: middle;
+}
+
+.cy-content-block {
+    width: 525px;
+    margin: auto;
+    margin-top: 25px;
 }

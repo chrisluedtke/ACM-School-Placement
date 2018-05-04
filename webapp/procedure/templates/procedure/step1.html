@@ -1,7 +1,7 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <h3>Step 1: School Data</h3>
+    <h3>Step 1 of 3: School Data</h3>
 
     <p>Download the Excel template below and fill in the columns. There are comments on the cells of the column headers explaining what we use each piece of information for.</p>
 
@@ -16,7 +16,9 @@
         {% csrf_token %}
         <!-- {{ form.as_p }} -->
         <input type="file" name="myfile">
-        <button type="submit" class="btn" name="upload">Upload and Continue</button>
+        <div>
+            <button type="submit" class="btn" name="upload">Upload and Continue</button>
+        </div>
     </form>
 
 {% endblock %}

@@ -9,6 +9,7 @@ webapp/media/documents/*.csv
 webapp/media/documents/*.xlsx
 webapp/myvenv
 webapp/db.sqlite3
+__pycache__/
 .ipynb_checkpoints/*
 webapp/site_structure.txt
 FY18 Chicago Team Placement Schedule.xlsx
