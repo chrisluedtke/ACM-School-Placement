@@ -4,7 +4,7 @@ How do you distribute a large pool of people into a fixed number of teams which 
 
 This type of problem falls into the general umbrella of combinatorial optimization, where we are interested in finding the best combination from a large pool of possibilities. For example, for a site of 80 AmeriCorps Members (ACMs) split into 8 equally sized teams, there are 5.9 x 10^61 possible combinations (for comparison, there are 8.1 x 10^67 ways to shuffle a deck of cards, which is regarded as practically infinite).
 
-In this post, we go over how we implemented our solution to this problem so that others might adapt it to their own use case. This post was a collaborative effort between Alex Perusse [(blog)]() and Chris Luedtke [(blog)](https://chrisluedtke.github.io/).
+In this post, we go over how we implemented our solution to this problem so that others might adapt it to their own use case. This post was a collaborative effort between Alex Perusse [(blog)](https://mrklees.github.io/) and Chris Luedtke [(blog)](https://chrisluedtke.github.io/).
 
 ## Defining the Business Need
 
