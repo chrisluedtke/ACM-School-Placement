@@ -9,7 +9,7 @@ class RunParameters(models.Model):
     prevent_roommates = models.BooleanField('Prevent roommates from serving on the same team?', default=True)
     consider_HS_elig = models.BooleanField('Consider High School eligibility?', default=True, help_text='An ACM is HS eligible if they are 21+ years old (or have college experience) and are confident tutoring at least algebra-level math.')
     calc_commutes = models.BooleanField('Calcute commutes?', default=False, help_text='If you already calculated commutes in a previous run, it is not necessary to re-calculate unless you have added new ACMs or schools.')
-    API_Key = models.CharField('Google API Key (required to calculate commutes)', blank=True, max_length=100, help_text='Required if calculating commutes.')
+    API_Key = models.CharField('Google API Key', blank=True, max_length=100, help_text='Required if calculating commutes.')
     commute_date = models.DateField('Travel date for commute calculations', blank=True, default=datetime.date.today, help_text='Required if calculating commutes. Choose a date that represents normal traffic (i.e. a normal weekday).')
     commute_factor = models.IntegerField('Importance of commute', default=0, help_text='Only set greater than zero if you are calculating commutes or have already calculated commutes in a previous run.')
     ethnicity_factor = models.IntegerField('Importance of ethnic diversity', default=0)

@@ -1,13 +1,37 @@
 {% extends 'procedure/base.html' %}
 
 {% block content %}
-    <h3>Step 3 of 3: Set Placement Options</h3>
+  {% load widget_tweaks %}
 
-    <p>Finally, choose the rules and options for your team placements.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
 
-    <form method="POST" class="post-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn" name="save">Save Options and Continue</button>
-    </form>
+    {% for hidden_field in form.hidden_fields %}
+      {{ hidden_field }}
+    {% endfor %}
+
+    {% for field in form.visible_fields %}
+      <div class="form-group">
+        {% if field.field.widget.input_type == "checkbox" %}
+          {{ field }} {{ field.label_tag }}
+          <!-- <input type="{{ field.field.widget.input_type }}"
+             id="{{ field.id_for_label }}"
+             name="{{ field.html_name }}"
+             placeholder="{{ field.label }}"
+             maxlength="{{ field.field.max_length }}"> {{ field.label_tag }} </input> -->
+        {% else %}
+          {{ field.label_tag }}
+          {% render_field field class="form-control" %}
+        {% endif %}
+
+        {% if field.help_text %}
+          <small class="form-text text-muted">{{ field.help_text }}</small>
+        {% endif %}
+
+
+      </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
 {% endblock %}
