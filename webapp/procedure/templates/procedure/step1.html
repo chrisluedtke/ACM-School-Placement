@@ -3,21 +3,25 @@
 {% block content %}
     <h3>Step 1 of 3: School Data</h3>
 
-    <p>Download the Excel template below and fill in the columns. There are comments on the cells of the column headers explaining what we use each piece of information for.</p>
+    <p>Download the Excel template below and fill in the columns. View comments on the column headers to learn how each column affects the placement process.</p>
 
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn" name="download">Download School Data Template</button>
-    </form>
+    <div class="form-group">
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-light" name="download">Download School Data Template</button>
+        </form>
+    </div>
 
-    <p>When you have filled in the template, click "Choose File" and select your filled in template. Then click "Upload and Continue".</p>
+    <p>After you have filled in the template, upload the file and continue.</p>
 
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <!-- {{ form.as_p }} -->
-        <input type="file" name="myfile">
+        <div class="form-group">
+            <input type="file" name="myfile" class="file">
+        </div>
+
         <div>
-            <button type="submit" class="btn" name="upload">Upload and Continue</button>
+            <button type="submit" class="btn btn-success" name="upload">Upload and Continue</button>
         </div>
     </form>
 

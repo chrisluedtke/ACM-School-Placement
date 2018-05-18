@@ -3,15 +3,18 @@
 {% block content %}
     <h3>Step 2 of 3: ACM Survey Data</h3>
 
-    <p>Next we need the survey data you collected from your incoming corps. Make sure the headers and values of your survey data match the values we are expecting. Download the guide here, and make the changes to your survey data. If you used the national survey, you do not need to make any changes to your data.</p>
+    <p>Before uploading your survey data, ensure your survey results are clean. Check that no ACM took the survey twice, and if two ACMs have the same name, add a digit to make each name unique (i.e. John Smith1, John Smith2). If you did not use the SurveyGizmo survey provided by HQ, you must ensure the headers and values of your survey results exactly match the expected values. Review the information in <a href="https://cityyear.sharepoint.com/:w:/r/teams/ImpactAnalytics/Community/_layouts/15/Doc.aspx?sourcedoc=%7B6433CED2-5A68-4BDF-A82B-A36624B349C3%7D&file=Guide-%20FY19%20ACM%20Placement%20Tool.docx&action=default&mobileredirect=true"> this guide</a>, and make any necessary changes to your survey data. </p>
 
-    <p>Click "Choose File" and select your survey data file (.csv). Then click "Upload and Continue".</p>
+    <p>Upload your survey data file (.csv) and continue.</p>
 
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <input type="file" name="myfile">
+        <div class="form-group">
+            <input type="file" name="myfile" class="file">
+        </div>
+
         <div>
-            <button type="submit" class="btn btn-primary" name="upload">Upload and Continue</button>
+            <button type="submit" class="btn btn-success" name="upload">Upload and Continue</button>
         </div>
     </form>
 

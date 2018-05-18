@@ -5,10 +5,10 @@
 
     <p>You are placing {{ n_acms }} ACMs on {{ n_schools }} teams{{ and_text }}. This will take about <strong> {{run_time_mins}} minutes</strong>.</p>
 
-    <p>When you are ready, click "Run Placements" only once. The process will begin as soon as you press the button. Do not close this page, and make sure your computer does not enter sleep mode. When the process is done, a new page will load automatically.</p>
+    <p>When you are ready, click "Run Placements" only once. The process will begin as soon as you press the button. Do not close this page. When the process is done, a new page will load automatically.</p>
 
-    <form method="POST" class="post-form">
+    <form method="post" class="post-form">
         {% csrf_token %}
-        <button type="submit" class="btn" name="run">Run Placements</button>
+        <button type="submit" class="btn btn-success" name="run">Run Placements</button>
     </form>
 {% endblock %}
