@@ -3,7 +3,9 @@
 {% block content %}
     <h3>Step 2 of 3: ACM Survey Data</h3>
 
-    <p>Before uploading your survey data, ensure your survey results are clean. Check that no ACM took the survey twice, and if two ACMs have the same name, add a digit to make each name unique (i.e. John Smith1, John Smith2). If you did not use the SurveyGizmo survey provided by HQ, you must ensure the headers and values of your survey results exactly match the expected values. Review the information in <a href="https://cityyear.sharepoint.com/:w:/r/teams/ImpactAnalytics/Community/_layouts/15/Doc.aspx?sourcedoc=%7B6433CED2-5A68-4BDF-A82B-A36624B349C3%7D&file=Guide-%20FY19%20ACM%20Placement%20Tool.docx&action=default&mobileredirect=true"> this guide</a>, and make any necessary changes to your survey data. </p>
+    <p>Before uploading your survey data, ensure your survey results are clean. Check that no ACM took the survey twice, and if two ACMs have the same name, change them to make each name unique (i.e. John Smith1, John Smith2). If you did not use the SurveyGizmo survey provided by HQ, you must ensure the column names and values match the expected values. Review the information in <a href="https://cityyear.sharepoint.com/:w:/r/teams/ImpactAnalytics/Community/_layouts/15/Doc.aspx?sourcedoc=%7B6433CED2-5A68-4BDF-A82B-A36624B349C3%7D&file=Guide-%20FY19%20ACM%20Placement%20Tool.docx&action=default&mobileredirect=true"> this guide</a> for more details on cleaning.</p>
+
+    <p>If you would like to ensure any ACM gets placed at a specific school, add a column called "Manual.Placements" to your survey results, and type the name of the school as it appears in the spreadsheet from Step 1.</p>
 
     <p>Upload your survey data file (.csv) and continue.</p>
 
@@ -13,7 +15,7 @@
             <input type="file" name="myfile" class="file">
         </div>
 
-        <div>
+        <div class="form-group">
             <button type="submit" class="btn btn-success" name="upload">Upload and Continue</button>
         </div>
     </form>

@@ -4,7 +4,7 @@ from django.db import models
 class RunParameters(models.Model):
     id = models.IntegerField(primary_key=True)
     run_date = models.DateTimeField('Date of run')
-    used_surveygizmo = models.BooleanField('Did you use the nation-wide survey?', default=False)
+    used_surveygizmo = models.BooleanField('Did you use the SurzeyGizmo survey?', default=False)
     number_iterations = models.IntegerField('Number of iterations', default=100, help_text='The number of team placements that will be attempted. 10,000 or more is recommended.')
     prevent_roommates = models.BooleanField('Prevent roommates from serving on the same team?', default=True)
     consider_HS_elig = models.BooleanField('Consider High School eligibility?', default=True, help_text='ACMs are HS-eligible if they are 21+ years old (or have college experience) and are confident tutoring at least algebra-level math.')

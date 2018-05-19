@@ -23,7 +23,7 @@ def step1(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
                 return response
     # upload school data template
-    if request.method == 'POST' and 'upload' in request.POST:
+    if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES:
         ## Method 1
         file_path = os.path.join(settings.MEDIA_ROOT, "documents/ACM_Placement_School_Data.xlsx")
         if os.path.exists(file_path):
@@ -34,7 +34,7 @@ def step1(request):
 
 def step2(request):
     # Upload ACM data
-    if request.method == 'POST' and 'upload' in request.POST:
+    if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES:
         file_path = os.path.join(settings.MEDIA_ROOT, "documents/ACM_Placement_Survey_Data.csv")
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -112,6 +112,22 @@ def dash(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
                 return response
 
-    os.system('Rscript launch_alg.R')
+    error_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/errors.txt")
 
-    return render(request, 'procedure/dash.html', {})
+    if os.path.exists(error_path):
+        os.remove(error_path)
+
+    os.system(f'Rscript --no-restore --no-save launch_alg.R > {error_path} 2>&1')
+
+    if os.path.exists(error_path):
+        return HttpResponseRedirect(reverse('oops'))
+
+    else:
+        return render(request, 'procedure/dash.html', {})
+
+def oops(request):
+    if request.method == 'POST':
+        return HttpResponseRedirect(reverse('step1'))
+    error_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/errors.txt")
+    error_text = open(error_path, "r")
+    return render(request, 'procedure/oops.html', {'error_text':error_text})

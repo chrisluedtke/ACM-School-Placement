@@ -31,11 +31,11 @@
         {% if field.help_text %}
           <small class="form-text text-muted">{{ field.help_text }}</small>
         {% endif %}
-
-
       </div>
     {% endfor %}
 
-    <button type="submit" class="btn btn-success" name="save">Submit</button>
+    <div class="form-group">
+        <button type="submit" class="btn btn-success" name="save">Save and Continue</button>
+    </div>
   </form>
 {% endblock %}
