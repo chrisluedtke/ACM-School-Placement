@@ -786,10 +786,10 @@ if(output$best_score < 1000000){
 
 placements_trace <- bind_rows(best_placements, trace)
 
-write.table(output$best_placements, file = paste(output_path, "Output_Placements_(", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
+# write.table(output$best_placements, file = paste(output_path, "Output_Placements_(", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
 write.table(output$best_placements, file = paste0(output_path, "Output_Placements.csv"), sep=",", row.names=FALSE, na = "")
 
-write.table(trace, file = paste(output_path, "Output_Trace_(", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
+# write.table(trace, file = paste(output_path, "Output_Trace_(", gsub(":", ".", Sys.time()), ").csv", sep = ""), sep=",", row.names=FALSE, na = "")
 write.table(trace, file = paste0(output_path, "Output_Trace.csv"), sep=",", row.names=FALSE, na = "")
 
 #remove(best_placements, acm_commutes, acm_df, acm_enc, dt_commutes, 

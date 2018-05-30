@@ -5,14 +5,11 @@
 
     <p>An error occured during placements. Review the details below, make necessary changes, and return to Step 1.</p>
 
-    {% for line in error_text %}
+    {% for line in error_list %}
         <p><code>{{ line }}</code></p>
     {% endfor %}
 
-    <form method="post">
-        {% csrf_token %}
-        <div class="form-group">
-            <button type="submit" class="btn btn-success">Return to Step 1</button>
-        </div>
+    <form method="link">
+        <input type="button" value="Return to Step 1" class="btn btn-success" onclick="location.href='{% url 'step1' %}'">
     </form>
 {% endblock %}

@@ -103,31 +103,35 @@ def wait(request):
     return render(request, 'procedure/wait.html', {})
 
 def dash(request):
+    plcmt_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Placements.csv")
+    trace_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Trace.csv")
+    error_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/errors.txt")
+    rm8_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Invalid Roommate and Prior Relationship Names.csv")
+
     # download placements
     if request.method == 'POST' and 'download' in request.POST:
-        file_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Placements.csv")
-        if os.path.exists(file_path):
-            with open(file_path, 'rb') as fh:
+        if os.path.exists(plcmt_path):
+            with open(plcmt_path, 'rb') as fh:
                 response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
-                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
+                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(plcmt_path)
                 return response
 
-    error_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/errors.txt")
-
-    if os.path.exists(error_path):
-        os.remove(error_path)
+    for file in [plcmt_path, trace_path, error_path, rm8_path]:
+        if os.path.exists(file):
+            os.remove(file)
 
     os.system(f'Rscript --no-restore --no-save launch_alg.R > {error_path} 2>&1')
 
-    if os.path.exists(error_path):
-        return HttpResponseRedirect(reverse('oops'))
+    error_list = []
+    with open(error_path) as error_text:
+        for line in error_text:
+            if line not in ['[[1]]\n', '[1] TRUE\n']:
+                error_list.append(line)
+    if 'error:' in str(error_list).lower():
+        return render(request, 'procedure/oops.html', {'error_list': error_list})
 
     else:
         return render(request, 'procedure/dash.html', {})
 
 def oops(request):
-    if request.method == 'POST':
-        return HttpResponseRedirect(reverse('step1'))
-    error_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/errors.txt")
-    error_text = open(error_path, "r")
-    return render(request, 'procedure/oops.html', {'error_text':error_text})
+    return render(request, 'procedure/oops.html')
