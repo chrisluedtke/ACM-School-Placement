@@ -7,7 +7,7 @@
 
   <p>Choose your options for how placements are made.</p>
 
-  <form method="post" novalidate>
+  <form method="post" enctype="multipart/form-data" novalidate>
     {% csrf_token %}
 
     {% for hidden_field in form.hidden_fields %}
@@ -15,7 +15,7 @@
     {% endfor %}
 
     {% for field in form.visible_fields %}
-      <div class="form-group">
+      <div class="form-group" enctype="multipart/form-data">
         {% if field.field.widget.input_type == "checkbox" %}
           {{ field }} {{ field.label_tag }}
           <!-- <input type="{{ field.field.widget.input_type }}"
@@ -27,7 +27,6 @@
           {{ field.label_tag }}
           {% render_field field class="form-control" %}
         {% endif %}
-
         {% if field.help_text %}
           <small class="form-text text-muted">{{ field.help_text }}</small>
         {% endif %}

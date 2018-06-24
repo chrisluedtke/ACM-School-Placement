@@ -1,13 +1,19 @@
 {% extends 'procedure/base.html' %}
-
+{% load staticfiles %}
 {% block content %}
     <h3>That's it!</h3>
 
-    <p>Your placements have finished. Download the spreadsheet below.</p>
+    <p>Your placements have finished. Download the following spreasheets:</p>
+    <div class="form-group">
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success" name="download_placements">Download Placements</button>
+            <button type="submit" class="btn btn-success" name="download_commutes">Download Commutes</button>
+        </form>
+    </div>
 
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-success" name="download">Download Placements</button>
-    </form>
+    <div style="text-align:center;">
+      <img src="{% static 'procedure/acm_group.png' %}" alt="City Year" width=450px>
+    </div>
 
 {% endblock %}

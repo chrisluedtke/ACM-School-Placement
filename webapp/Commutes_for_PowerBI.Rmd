@@ -1,6 +1,4 @@
 ```{r Check_Install_Packages}
-# This is the only necessary code block for running in PowerBI. Everything below this line is pasted into Power BI.
-
 # Packages required
 packages <- c(
   "readxl",
@@ -10,19 +8,6 @@ packages <- c(
   "RCurl"
   )
 
-# If not installed, install them
-if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
-  install.packages(setdiff(packages, rownames(installed.packages())), repos = "http://cran.us.r-project.org")
-}
-
-# Attempt to load packages with no printed warnings or errors
-suppressWarnings(suppressMessages(library("dplyr")))
-suppressWarnings(suppressMessages(library("readxl")))
-suppressWarnings(suppressMessages(library("tidyr")))
-suppressWarnings(suppressMessages(library("XML")))
-suppressWarnings(suppressMessages(library("RCurl")))
-
-# Attempt to load packages again, which will be silent if package was already loaded.
 # If package failed to load above, it will print the error here.
 lapply(packages, require, character.only = TRUE)
 ```
@@ -33,19 +18,18 @@ dataset <- read.csv('media/documents/params.csv', stringsAsFactors=FALSE)
 dataset$acm_input_path <- 'media/documents/ACM_Placement_Survey_Data.csv'
 dataset$sch_input_path <- 'media/documents/ACM_Placement_School_Data.xlsx'
 dataset$calc_commutes <- as.logical(dataset$calc_commutes)
-dataset$arrival_date <- "2018-05-15"
-output_path <- 'media/documents/outputs/'
 
+api_key_file <- 'gdm_api_key.txt'
+api_key <- readChar(api_key_file, file.info(api_key_file)$size)
 acm_df <- read.csv(dataset$acm_input_path)
 school_df <- read_excel(dataset$sch_input_path)
-api <- dataset$API_Key
-used_surveygizmo <- dataset$used_surveygizmo
-arrival_date <- dataset$arrival_date
+
+output_path <- 'media/documents/outputs/'
 ```
 
 ```{r Define_Functions}
 shape_inputs = function(acm_df, school_df){
-  if(used_surveygizmo == TRUE){
+  if(dataset$used_surveygizmo == TRUE){
     vars_df <- read_excel(path = "Survey Items to Variable Names.xls")
     
     # Rename Headers
@@ -63,7 +47,7 @@ shape_inputs = function(acm_df, school_df){
   
   # construct arrival time, Subtract 5 mins to allow on-time arrival
   school_df$`ACM Start Time` <- substr(strptime(school_df$`ACM Start Time`, format="%I:%M%p"), 12, 19)
-  school_df$`ACM Start Time` <- as.POSIXct(paste(arrival_date, school_df$`ACM Start Time`))
+  school_df$`ACM Start Time` <- as.POSIXct(paste(dataset$commute_date, school_df$`ACM Start Time`))
   attributes(school_df$`ACM Start Time`)$tzone <- "GMT"
   school_df$`ACM Start Time` <- as.integer(school_df$`ACM Start Time`)-300
   
@@ -162,7 +146,7 @@ gmapsdistance = function(origin, destination, mode, arrival_time, key, api){
   return(output)
 }
 
-commute_procedure = function(acm_df, school_df){  
+commute_procedure = function(acm_df, school_df, api){  
   # Create an empty dataframe that we will fill with commute times
   acm_commutes <- data.frame()
   
@@ -301,7 +285,7 @@ url = paste0("https://maps.googleapis.com/maps/api/distancematrix/json?",
                "&destinations=", destination,
                "&mode=transit",
                "&units=metric",
-               "&arrival_time=", as.integer(as.POSIXct(dataset$arrival_date)),
+               "&arrival_time=", as.integer(as.POSIXct(dataset$commute_date)),
                "&avoid=tolls",
                "&key=", api)
 
@@ -348,10 +332,8 @@ if(dataset$calc_commutes == TRUE){
   school_df_clean <- result[[2]]
   start.time <- Sys.time()
   #TODO: acm_df[1,] is only calculating commutes for a single ACM, remember to remove for production
-  acm_commutes <- commute_procedure(acm_df_clean[2,], school_df_clean)
+  acm_commutes <- commute_procedure(acm_df_clean[2,], school_df_clean, api = api_key)
   end.time <- Sys.time()
-  # Write to .csv
-  write.table(acm_commutes, file = paste0(output_path, "Output_Commutes.csv"), sep=",", row.names=FALSE, na = "")
   paste(end.time - start.time)
 } else {
   acm_commutes <- data.frame(acm_id	= NA,
@@ -364,4 +346,6 @@ if(dataset$calc_commutes == TRUE){
                              Stutus	= NA,
                              Commute.Rank= NA)
 }
+
+write.table(acm_commutes, file = paste0(output_path, "Output_Commute_Reference.csv"), sep=",", row.names=FALSE, na = "")
 ```

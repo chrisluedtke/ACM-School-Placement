@@ -39,6 +39,11 @@
     margin-top: 25px;
 }
 
+.centerImage{
+    text-align: center;
+    display: block;
+}
+
 html {
   overflow-y: scroll;
 }

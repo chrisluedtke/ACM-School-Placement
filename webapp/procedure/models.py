@@ -5,16 +5,19 @@ class RunParameters(models.Model):
     id = models.IntegerField(primary_key=True)
     run_date = models.DateTimeField('Date of run')
     used_surveygizmo = models.BooleanField('Did you use the SurzeyGizmo survey?', default=False)
-    number_iterations = models.IntegerField('Number of iterations', default=100, help_text='The number of team placements that will be attempted. 10,000 or more is recommended.')
+    number_iterations = models.IntegerField('Number of iterations', default=10000, help_text='The number of team placements that will be attempted. 10,000 or more is recommended.')
     prevent_roommates = models.BooleanField('Prevent roommates from serving on the same team?', default=True)
-    consider_HS_elig = models.BooleanField('Consider High School eligibility?', default=True, help_text='ACMs are HS-eligible if they are 21+ years old (or have college experience) and are confident tutoring at least algebra-level math.')
-    calc_commutes = models.BooleanField('Calcute commutes?', default=False, help_text='If you already calculated commutes in a previous run, it is not necessary to re-calculate unless you have added new ACMs or schools.')
-    API_Key = models.CharField('Google API Key', blank=True, max_length=100, help_text='Required if calculating commutes.')
+    consider_HS_elig = models.BooleanField('Apply High School eligibility rule?', default=True, help_text='ACMs are eligible to serve in High School if they are 21+ years old (or have college experience) and are confident tutoring at least algebra-level math.')
+    # HS_elig_age = models.IntegerField('Minimum Age to Serve in High School', default=21)
+    # HS_elig_ed = models.IntegerField('Minimum Education to Serve in High School', default=21)
+    calc_commutes = models.BooleanField('Calculate commutes?', default=True, help_text="Commute calculations cost HQ a small amount and take time to complete. For 100 ACMs and 10 schools, the cost is $5 and takes about 10 minutes.")
     commute_date = models.DateField('Travel date for commute calculations', blank=True, default=datetime.date.today, help_text='Required if calculating commutes. Choose a date that represents normal traffic.')
-    commute_factor = models.IntegerField('Importance of commute', default=0, help_text='Only set greater than zero if you are calculating commutes or have already calculated commutes in a previous run.')
-    ethnicity_factor = models.IntegerField('Importance of ethnic diversity', default=0)
-    gender_factor = models.IntegerField('Importance of gender diversity', default=0)
-    Edscore_factor = models.IntegerField('Importance of educational attainment diversity', default=0)
+    commutes_reference = models.FileField(upload_to='documents/outputs', blank=True, help_text="After placements are made, you can download a 'Output_Commutes_Reference.csv' spreadsheet. If you want to run additional placement processes, upload that file here to avoid commute calculation wait time and cost, and un-check 'Calculate commutes?'.")
+    ## FACTORS ##
+    commute_factor = models.IntegerField('Importance of commute', default=1)
+    ethnicity_factor = models.IntegerField('Importance of ethnic diversity', default=1)
+    gender_factor = models.IntegerField('Importance of gender diversity', default=1)
+    Edscore_factor = models.IntegerField('Importance of educational attainment diversity', default=1)
 
 # class Document(models.Model):
 #     document = models.FileField(upload_to='documents/')
@@ -23,6 +26,3 @@ class RunParameters(models.Model):
 # class Placments(models.Model):
 #     tutor =
 #     school =
-
-## Down the line... (not mvp)
-# Celery: kick tasks off to celery workers like a task queue (look into rabbitmq, redis)
