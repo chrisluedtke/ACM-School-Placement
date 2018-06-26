@@ -15,16 +15,18 @@ commute_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Commu
 error_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/errors.txt")
 rm8_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Invalid Roommate and Prior Relationship Names.csv")
 
+params_path = os.path.join(settings.MEDIA_ROOT, "documents/params.csv")
 survey_data_path = os.path.join(settings.MEDIA_ROOT, "documents/ACM_Placement_Survey_Data.csv")
 school_data_path = os.path.join(settings.MEDIA_ROOT, "documents/ACM_Placement_School_Data.xlsx")
 
 def reset_files():
-    for file in [plcmt_path, trace_path, error_path, rm8_path, commute_path, school_data_path, survey_data_path]:
+    for file in [plcmt_path, trace_path, error_path, rm8_path, commute_path, school_data_path, survey_data_path, params_path]:
         if os.path.exists(file):
             os.remove(file)
 
 # Create your views here.
 def welcome(request):
+    reset_files()
     return render(request, 'procedure/welcome.html')
 
 def step1(request):
@@ -57,13 +59,12 @@ def step3(request):
         if form.is_valid():
             params = form.save(commit=False)
             params.run_date = timezone.now()
-            params.save()
-
-            # place Output_Commute_Reference.csv
+            # If commutes uploaded, over-ride calc_commutes
             if params.commutes_reference.name:
-                if os.path.exists(commute_path):
-                    os.remove(commute_path)
-                os.rename(params.commutes_reference.path, commute_path)
+                params.calc_commutes = False
+            if params.commutes_reference.name == False and params.calc_commutes == False:
+                params.commute_factor = 0
+            params.save()
 
             # Write parameters to csv
             params_fields = params._meta.get_fields()
@@ -73,6 +74,12 @@ def step3(request):
                 w = csv.writer(f)
                 w.writerow(field_list)
                 w.writerow(value_list)
+
+            # place Output_Commute_Reference.csv
+            if params.commutes_reference.name and (os.path.normpath(params.commutes_reference.path) != os.path.normpath(commute_path)):
+                if os.path.exists(commute_path):
+                    os.remove(commute_path)
+                os.rename(params.commutes_reference.path, commute_path)
             return HttpResponseRedirect(reverse('run'))
     else:
         form = RunParametersForm()
@@ -126,19 +133,20 @@ def dash(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(commute_path)
                 return response
 
+    ## Clean input
+
     ## This doesn't work in Azure, but it works in Docker container locally
-    # os.system(f'Rscript --no-restore --no-save launch_alg.R > {error_path} 2>&1')
+    os.system(f'Rscript --no-restore --no-save launch_alg.R > {error_path} 2>&1')
 
     error_list = []
     with open(error_path) as error_text:
         for line in error_text:
             if line not in ['[[1]]\n', '[1] TRUE\n']:
                 error_list.append(line)
-    if 'error:' in str(error_list).lower():
+    if 'execution halted' in str(error_list).lower():
         return render(request, 'procedure/oops.html', {'error_list': error_list})
-
     else:
-        return render(request, 'procedure/dash.html', {})
+        return render(request, 'procedure/dash.html', {'commute_ref_present':os.path.exists(commute_path)})
 
 def oops(request):
     return render(request, 'procedure/oops.html')

@@ -12,7 +12,7 @@ class RunParameters(models.Model):
     # HS_elig_ed = models.IntegerField('Minimum Education to Serve in High School', default=21)
     calc_commutes = models.BooleanField('Calculate commutes?', default=True, help_text="Commute calculations cost HQ a small amount and take time to complete. For 100 ACMs and 10 schools, the cost is $5 and takes about 10 minutes.")
     commute_date = models.DateField('Travel date for commute calculations', blank=True, default=datetime.date.today, help_text='Required if calculating commutes. Choose a date that represents normal traffic.')
-    commutes_reference = models.FileField(upload_to='documents/outputs', blank=True, help_text="After placements are made, you can download a 'Output_Commutes_Reference.csv' spreadsheet. If you want to run additional placement processes, upload that file here to avoid commute calculation wait time and cost, and un-check 'Calculate commutes?'.")
+    commutes_reference = models.FileField(upload_to='documents/outputs', blank=True, help_text="After placements are made, you can download a 'Output_Commute_Reference.csv' spreadsheet. If you want to run additional placement processes, upload that file here to avoid commute calculation wait time and cost.")
     ## FACTORS ##
     commute_factor = models.IntegerField('Importance of commute', default=1)
     ethnicity_factor = models.IntegerField('Importance of ethnic diversity', default=1)
