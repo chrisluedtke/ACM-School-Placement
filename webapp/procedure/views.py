@@ -1,5 +1,8 @@
 import csv
 import os
+
+from .cleaning import *
+from .commutes import *
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponseRedirect, HttpResponse
@@ -40,16 +43,23 @@ def step1(request):
             response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
             return response
     # upload school data template
-    if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES:
+    if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES and '.xlsx' in request.FILES['myfile'].name:
         filename = FileSystemStorage().save(school_data_path, request.FILES['myfile'])
         return HttpResponseRedirect(reverse('step2'))
     return render(request, 'procedure/step1.html', {})
 
 def step2(request):
+    if os.path.exists(survey_data_path):
+        os.remove(survey_data_path)
     # Upload ACM data
-    if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES:
+    if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES and '.csv' in request.FILES['myfile'].name:
         filename = FileSystemStorage().save(survey_data_path, request.FILES['myfile'])
-        return HttpResponseRedirect(reverse('step3'))
+        # Rename headers
+        missing_cols = rename_headers(survey_data_path)
+        if missing_cols:
+            return render(request, 'procedure/oops.html', {'error_list': ['Warning: the following columns could not be resolved from your survey file. These columns will be filled with blanks if you choose to continue:']+missing_cols, 'continue':True, 'continue_to':'step3'})
+        else:
+            return HttpResponseRedirect(reverse('step3'))
     return render(request, 'procedure/step2.html', {})
 
 def step3(request):
@@ -62,7 +72,7 @@ def step3(request):
             # If commutes uploaded, over-ride calc_commutes
             if params.commutes_reference.name:
                 params.calc_commutes = False
-            if params.commutes_reference.name == False and params.calc_commutes == False:
+            if not params.commutes_reference.name and params.calc_commutes == False:
                 params.commute_factor = 0
             params.save()
 
@@ -70,7 +80,7 @@ def step3(request):
             params_fields = params._meta.get_fields()
             field_list = [field.name for field in params_fields]
             value_list = [str(getattr(params, field.name)) for field in params_fields]
-            with open(os.path.join(settings.MEDIA_ROOT, "documents/params.csv"),'w', newline='') as f:
+            with open(params_path,'w', newline='') as f:
                 w = csv.writer(f)
                 w.writerow(field_list)
                 w.writerow(value_list)
@@ -86,10 +96,8 @@ def step3(request):
     return render(request, 'procedure/step3.html', {'form': form})
 
 def run(request):
-    with open(survey_data_path,"r") as f:
-        reader = csv.reader(f,delimiter = ",")
-        data = list(reader)
-        n_acms = len(data)-1
+    # TODO: fails for certain encoding (like ANSI with certain characters)
+    n_acms = sum(1 for line in open(survey_data_path)) - 1
 
     wb = load_workbook(school_data_path)
     sheet = wb.worksheets[0]
@@ -98,7 +106,7 @@ def run(request):
     params = RunParameters.objects.last()
     if params.calc_commutes == True:
         and_text = ' and calculating commutes'
-        and_cost_text = f' and cost HQ '
+        and_cost_text = ' and cost HQ '
         and_cost = f'${round(n_acms * n_schools * 0.005, 2)}'
     else:
         and_text, and_cost_text, and_cost = '', '', ''
@@ -110,6 +118,7 @@ def run(request):
 
     if request.method == 'POST' and 'run' in request.POST:
         return HttpResponseRedirect(reverse('dash'))
+
     return render(request, 'procedure/run.html', {'n_acms': n_acms, 'n_schools': n_schools, 'run_time_mins':run_time_mins, 'and_text':and_text, 'and_cost_text':and_cost_text, 'and_cost':and_cost})
 
 def wait(request):
@@ -133,20 +142,39 @@ def dash(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(commute_path)
                 return response
 
-    ## Clean input
+    # Run Placement Process
+    start_time = datetime.datetime.now()
+    params = RunParameters.objects.last()
+    # acm_df cleaned on upload
+    # commutes in python:
+    if params.calc_commutes == True:
+        api = open('gdm_api_key.txt').readline()
+        acm_df, school_df = clean_commute_inputs(survey_data_path, school_data_path, params.commute_date.strftime("%Y-%m-%d"))
+        try:
+            commute_procedure(acm_df, school_df, api, commute_path)
+        except Exception as e:
+            return render(request, 'procedure/oops.html', {'error_list': [str(e)], 'continue':False})
 
-    ## This doesn't work in Azure, but it works in Docker container locally
+    # algorithm in R:
     os.system(f'Rscript --no-restore --no-save launch_alg.R > {error_path} 2>&1')
-
+    run_time=round((datetime.datetime.now()-start_time).seconds/60, 1)
+    # check for errors
     error_list = []
     with open(error_path) as error_text:
         for line in error_text:
             if line not in ['[[1]]\n', '[1] TRUE\n']:
                 error_list.append(line)
     if 'execution halted' in str(error_list).lower():
-        return render(request, 'procedure/oops.html', {'error_list': error_list})
+        return render(request, 'procedure/oops.html', {'error_list': error_list, 'continue':False, 'commute_ref_present':os.path.exists(commute_path)})
     else:
-        return render(request, 'procedure/dash.html', {'commute_ref_present':os.path.exists(commute_path)})
+        return render(request, 'procedure/dash.html', {'commute_ref_present':os.path.exists(commute_path), 'run_time':run_time})
 
 def oops(request):
-    return render(request, 'procedure/oops.html')
+    # download commutes
+    if request.method == 'POST' and 'download_commutes' in request.POST:
+        if os.path.exists(commute_path):
+            with open(commute_path, 'rb') as fh:
+                response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
+                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(commute_path)
+                return response
+    return render(request, 'procedure/oops.html', {})

@@ -3,7 +3,7 @@
 {% block content %}
     <h3>That's it!</h3>
 
-    <p>Your placements have finished. Download the following spreasheets:</p>
+    <p>Your placements finished in <strong>{{ run_time }} minutes</strong>. Download the results:</p>
     <form method="post">
         {% csrf_token %}
             <div class="form-group">

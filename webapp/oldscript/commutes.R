@@ -1,8 +1,7 @@
 shape_inputs = function(acm_df, school_df){
-  browser()
-  # sometimes Excel will be read in with null rows, so remove them
   acm_df <- acm_df[(acm_df$Res.Address.Line.1 != "") & !is.na(acm_df$Res.Address.Line.1),]
   acm_df <- acm_df[,c("acm_id", "Full.Name", "Res.Address.Line.1", "Res.City", "Res.State", "Res.Postal.Code", "Travel.Method")]
+  # sometimes Excel will be read in with null rows, so remove them
   school_df <- school_df[!is.na(school_df$School),]
   
   # construct arrival time, Subtract 5 mins to allow on-time arrival

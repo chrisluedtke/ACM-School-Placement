@@ -3,13 +3,31 @@
 {% block content %}
     <h3>Oops!</h3>
 
-    <p>An error occured during placements. Review the details below, make necessary changes, and return to Step 1.</p>
+    <p>An error or warning occured. Review the details below, make necessary changes, and return to Step 1 (or continue if possible).</p>
+
+    {% if commute_ref_present %}
+    <p>Prior to this hiccup, commute calculations finished successfully. Download this spreadsheet and upload it in Step 3 to avoid calculating commutes again.</p>
+
+    <form method="post">
+        {% csrf_token %}
+            <div class="form-group">
+                <button type="submit" class="btn btn-success" name="download_commutes">Download Commutes</button>
+            </div>
+    </form>
+    {% endif %}
 
     {% for line in error_list %}
         <p><code>{{ line }}</code></p>
     {% endfor %}
 
     <form method="link">
+      <div class="form-group">
         <input type="button" value="Return to Step 1" class="btn btn-success" onclick="location.href='{% url 'step1' %}'">
+      </div>
+      {% if continue %}
+      <div class="form-group">
+        <input type="button" value="Continue" class="btn btn-success" onclick="location.href='{% url continue_to %}'">
+      </div>
+      {% endif %}
     </form>
 {% endblock %}

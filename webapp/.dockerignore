@@ -1,4 +1,9 @@
 /media/documents/outputs/*
 /media/documents/ACM_*
 /media/documents/params*
+/myvenv
+/oldscript
+/demo_data
+/packages
 snippets.txt
+Commutes.ipynb

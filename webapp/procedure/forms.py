@@ -6,7 +6,6 @@ class RunParametersForm(forms.ModelForm):
         model = RunParameters
         fields = [
             'number_iterations',
-            'used_surveygizmo',
             'prevent_roommates',
             'consider_HS_elig',
             'calc_commutes',

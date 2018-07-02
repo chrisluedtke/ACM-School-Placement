@@ -25,6 +25,7 @@ nbconvert==5.3.1
 nbformat==4.4.0
 notebook==5.4.1
 openpyxl==2.5.3
+pandas
 pandocfilters==1.4.2
 parso==0.2.0
 pickleshare==0.7.4
@@ -35,6 +36,7 @@ pytz==2018.4
 pywinpty==0.5.1
 pyzmq==17.0.0
 qtconsole==4.3.1
+requests
 Send2Trash==1.5.0
 simplegeneric==0.8.1
 six==1.11.0
@@ -45,3 +47,4 @@ traitlets==4.3.2
 wcwidth==0.1.7
 webencodings==0.5.1
 widgetsnbextension==3.2.1
+xlrd
