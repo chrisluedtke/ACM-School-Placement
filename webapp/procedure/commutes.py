@@ -77,10 +77,8 @@ def commute_procedure(acm_df, school_df, api, commute_path):
     commute_schl_df = acm_df.merge(school_df, on ='tmp'); del commute_schl_df['tmp']
     commute_schl_df['id_dest'] = commute_schl_df['acm_id'].astype(str) + '_' + commute_schl_df['sch_id'].astype(str)
 
-    # TODO: remove [0:1] for production
-    # TODO: set invalid commutes to 999, calculate Rank
     commutes_list = []
-    for index, row in commute_schl_df[0:26].iterrows():
+    for index, row in commute_schl_df.iterrows():
         commute_result = gmapsdistance(origin = row['Home_Address'],
                                        destination = row['School_Address'],
                                        mode = row['Travel.Method'],
