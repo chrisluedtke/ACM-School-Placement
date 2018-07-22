@@ -3,16 +3,17 @@
 {% block content %}
     <h3>Oops!</h3>
 
-    <p>An error or warning occured. Review the details below, make necessary changes, and return to Step 1 (or continue if possible).</p>
+    <p>An error or warning occured. Review the details below, make necessary changes, and return to Step 1 (or continue if possible). For help, reach out to our team at <a href="mailto:acmplacement@CityYear.onmicrosoft.com
+">acmplacement@CityYear.onmicrosoft.com</a></p>
 
     {% if commute_ref_present %}
     <p>Prior to this hiccup, commute calculations finished successfully. Download this spreadsheet and upload it in Step 3 to avoid calculating commutes again.</p>
 
     <form method="post">
         {% csrf_token %}
-            <div class="form-group">
-                <button type="submit" class="btn btn-success" name="download_commutes">Download Commutes</button>
-            </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-success" name="download_commutes">Download Commutes</button>
+        </div>
     </form>
     {% endif %}
 
