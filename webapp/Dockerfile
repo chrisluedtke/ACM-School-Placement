@@ -22,6 +22,10 @@ EXPOSE 8000
 ## development
 # CMD [ "python3", "manage.py", "runserver", "0.0.0.0:8000" ]
 
+RUN python3 manage.py migrate
+
 RUN python3 manage.py collectstatic
 
-CMD [ "gunicorn", "acm_plmt.wsgi", "--bind=0.0.0.0:8000", "-k eventlet" ]
+# For async workers, use gunicorn[eventlet] and add "-k eventlet"
+# 2 hour timeout: 7200
+CMD [ "gunicorn", "acm_plmt.wsgi", "--bind=0.0.0.0:8000",  "--timeout=7200" ]

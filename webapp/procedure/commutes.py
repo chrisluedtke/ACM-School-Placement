@@ -2,15 +2,30 @@ import pandas as pd
 import datetime
 import requests
 
-def clean_commute_inputs(survey_data_path, school_data_path, commute_date):
+def clean_commute_inputs(survey_data_path, school_data_path, api, commute_date):
     acm_df = pd.read_csv(survey_data_path)
     school_df = pd.read_excel(school_data_path)
 
-    acm_df['acm_id'] = range(1, len(acm_df)+1)
-    acm_df['Home_Address'] = acm_df[['Res.Address.Line.1','Res.City','Res.State', 'Res.Postal.Code']].apply(lambda x: x.str.cat(sep=' '), axis=1)
+    # Ensure each school address has a valid location according to Google
+    school_df['School_Address'] = school_df['Address']; del school_df['Address']
+    for index, row in school_df.fillna(value='').iterrows():
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={row['School_Address']}&key={api}"
+        response = requests.get(url, timeout=5)
+        response_status = response.json()['status']
 
-    school_df['sch_id'] = range(1, len(school_df)+1)
-    school_df.rename(columns={'Address': 'School_Address'}, inplace=True)
+        if response_status != "OK":
+            raise Exception(f"Error during commute calculation: while searching for {row['School']} (address: {row['School_Address']}), Google Maps returned: {response_status}. Each school row must have a valid address.")
+
+    # clean acm_df
+    acm_df['Travel.Method'].fillna('', inplace=True)
+    acm_df.loc[acm_df['Travel.Method'].str.lower().str.contains('driving'), 'Travel.Method'] = "driving"
+    acm_df.loc[~acm_df['Travel.Method'].str.lower().str.contains('driving'), 'Travel.Method'] = "transit"
+    # remove invalid addresses, this Home_Address column added in clean_acm_df()
+    acm_df = acm_df.loc[~acm_df['Home_Address'].isnull() & (acm_df['Home_Address'] != '')]
+
+    # clean school_df
+    if len(school_df.loc[school_df['ACM Start Time (Eastern Time)'].isnull()]) > 0:
+        raise Exception(f"Error during commute calculation: one of your school rows is missing a start time. Each school row must have a valid start time.")
 
     school_df['ArrivalTime'] = commute_date + ' ' + school_df['ACM Start Time (Eastern Time)'].str.replace('AM', '').str.replace('A M', '').str.replace('A.M.', '')
     school_df['ArrivalTime'] = pd.to_datetime(school_df['ArrivalTime'])
@@ -19,11 +34,16 @@ def clean_commute_inputs(survey_data_path, school_data_path, commute_date):
     # subtract 3 mins to arrive on time
     school_df['ArrivalTime'] = school_df['ArrivalTime'] - 180
 
-    acm_df['Travel.Method'].fillna('', inplace=True)
-    acm_df.loc[acm_df['Travel.Method'].str.lower().str.contains('driving'), 'Travel.Method'] = "driving"
-    acm_df.loc[~acm_df['Travel.Method'].str.lower().str.contains('driving'), 'Travel.Method'] = "transit"
+    acm_df['acm_id'] = range(1, len(acm_df)+1)
+    school_df['sch_id'] = range(1, len(school_df)+1)
 
-    return acm_df, school_df
+    acm_df['tmp'] = 1
+    school_df['tmp'] = 1
+    commute_schl_df = acm_df.merge(school_df, on ='tmp'); del commute_schl_df['tmp']
+
+    commute_schl_df['id_dest'] = commute_schl_df['acm_id'].astype(str) + '_' + commute_schl_df['sch_id'].astype(str)
+
+    return commute_schl_df
 
 def gmapsdistance(origin, destination, mode, arrival_time, api):
     url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={origin}&destinations={destination}&mode={mode}&units=imperial&arrival_time={arrival_time}&avoid=tolls&key={api}"
@@ -51,25 +71,7 @@ def gmapsdistance(origin, destination, mode, arrival_time, api):
 
     return commute_dict
 
-def commute_procedure(acm_df, school_df, api, commute_path):
-    # Ensure each school address has a valid location according to Google
-    school_df.fillna(value='', inplace=True)
-    for index, row in school_df.iterrows():
-        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={row['School_Address']}&key={api}"
-        response = requests.get(url, timeout=5)
-        response_status = response.json()['status']
-
-        if response_status != "OK":
-            raise Exception(f"Error during commute calculation: while searching for {row['School']} (address: {row['School_Address']}), Google Maps returned: {response_status}.")
-
-    acm_df = acm_df.loc[~acm_df['Home_Address'].isnull() & (acm_df['Home_Address'] != '')]
-
-    acm_df['tmp'] = 1
-    school_df['tmp'] = 1
-    commute_schl_df = acm_df.merge(school_df, on ='tmp'); del commute_schl_df['tmp']
-
-    commute_schl_df['id_dest'] = commute_schl_df['acm_id'].astype(str) + '_' + commute_schl_df['sch_id'].astype(str)
-
+def commute_procedure(commute_schl_df, api, commute_path):
     commutes_list = []
     for index, row in commute_schl_df.iterrows():
         commute_result = gmapsdistance(origin = row['Home_Address'],
@@ -78,20 +80,11 @@ def commute_procedure(acm_df, school_df, api, commute_path):
                                        arrival_time = str(row['ArrivalTime']),
                                        api = api)
 
-#         if commute_result['Status'] == 'ROUTE_NOT_FOUND' and row['Travel.Method'] == 'transit':
-#             # if no route found for transit, find driving distance, but keep the status. This is done so we have a loose idea of which schools are nearby.
-#             commute_result = gmapsdistance(origin = row['AddressCleanQuery_acm'],
-#                                            destination = row['AddressCleanQuery_school'],
-#                                            mode = 'driving',
-#                                            arrival_time = str(row['ArrivalTime']),
-#                                            api = api)
-#             commute_result['Status'] = 'ROUTE_NOT_FOUND'
         commute_result['id_dest'] = row['id_dest']
         commutes_list.append(commute_result)
 
     commutes_df = pd.DataFrame(commutes_list)
     commutes_df = commute_schl_df[['Full.Name', 'School', 'Travel.Method', 'id_dest']].merge(commutes_df, on='id_dest', how='right')
-    del commutes_df['id_dest']
 
     commutes_df['Time.Mins'] = pd.to_numeric(commutes_df['Time.Mins'], errors='coerce')
     commutes_df['Rank'] = commutes_df.groupby('Full.Name')['Time.Mins'].rank()

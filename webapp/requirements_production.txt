@@ -1,3 +1,5 @@
 -r requirements.txt
-gunicorn[eventlet]
+gunicorn 
+# Use this instead for async workers:
+# gunicorn[eventlet]
 whitenoise

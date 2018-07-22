@@ -1,6 +1,7 @@
 import datetime
 import csv
 import os
+import pandas as pd
 
 from .cleaning import *
 from .commutes import *
@@ -11,7 +12,6 @@ from django.shortcuts import render, reverse
 from django.utils import timezone
 from .forms import RunParametersForm
 from .models import RunParameters
-from openpyxl import load_workbook
 
 plcmt_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Placements.csv")
 trace_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Trace.csv")
@@ -52,11 +52,10 @@ def step1(request):
 def step2(request):
     if os.path.exists(survey_data_path):
         os.remove(survey_data_path)
-    # Upload ACM data
+    # Upload and clean ACM data
     if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES and '.csv' in request.FILES['myfile'].name:
         filename = FileSystemStorage().save(survey_data_path, request.FILES['myfile'])
-        # Rename headers
-        missing_cols = rename_headers(survey_data_path)
+        missing_cols = clean_acm_df(survey_data_path)
         if missing_cols:
             return render(request, 'procedure/oops.html', {'error_list': ['Warning: the following columns could not be resolved from your survey file. These columns will be filled with blanks if you choose to continue:']+missing_cols, 'continue':True, 'continue_to':'step3'})
         else:
@@ -97,24 +96,28 @@ def step3(request):
     return render(request, 'procedure/step3.html', {'form': form})
 
 def run(request):
-    # TODO: fails for certain encoding (like ANSI with certain characters)
-    n_acms = sum(1 for line in open(survey_data_path)) - 1
+    # TODO: fails for certain encoding (like ANSI encoding with certain characters)
+    acm_df = pd.read_csv(survey_data_path)
+    school_df = pd.read_excel(school_data_path)
 
-    wb = load_workbook(school_data_path)
-    sheet = wb.worksheets[0]
-    n_schools = sheet.max_row
+    n_acms = len(acm_df)
+    n_schools = len(school_df)
 
     params = RunParameters.objects.last()
+
+    run_time = 12 # in seconds, base time required for 1 iteration and no commutes
+    run_time += params.number_iterations/4.38 # 4.38 iterations per second
     if params.calc_commutes == True:
+        n_acm_addresses = len(acm_df.loc[~acm_df['Home_Address'].isnull() & (acm_df['Home_Address'] != '')])
+
         and_text = ' and calculating commutes'
         and_cost_text = ' and cost HQ '
-        and_cost = f'${round(n_acms * n_schools * 0.005, 2)}'
+        and_cost = f'${round(n_acm_addresses * n_schools * 0.005, 2)}'
+
+        run_time += (n_acm_addresses*n_schools)/1.73 # 1.73 API requests per second
     else:
         and_text, and_cost_text, and_cost = '', '', ''
 
-    run_time = params.number_iterations/30 # filler: assumed 30 iterations per second
-    if params.calc_commutes == True:
-        run_time += n_acms*n_schools*0.5 # 0.5 seconds per API request
     run_time_mins = int(round(run_time/60))
 
     if request.method == 'POST' and 'run' in request.POST:
@@ -127,7 +130,7 @@ def wait(request):
     return render(request, 'procedure/wait.html', {})
 
 def dash(request):
-    # download placements
+    # user download placements
     if request.method == 'POST' and 'download_placements' in request.POST:
         if os.path.exists(plcmt_path):
             with open(plcmt_path, 'rb') as fh:
@@ -135,7 +138,7 @@ def dash(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(plcmt_path)
                 return response
 
-    # download commutes
+    # user download commutes
     if request.method == 'POST' and 'download_commutes' in request.POST:
         if os.path.exists(commute_path):
             with open(commute_path, 'rb') as fh:
@@ -150,9 +153,13 @@ def dash(request):
     # commutes in python:
     if params.calc_commutes == True:
         api = open('gdm_api_key.txt').readline()
-        acm_df, school_df = clean_commute_inputs(survey_data_path, school_data_path, params.commute_date.strftime("%Y-%m-%d"))
         try:
-            commute_procedure(acm_df, school_df, api, commute_path)
+            commute_schl_df = clean_commute_inputs(survey_data_path, school_data_path, api, params.commute_date.strftime("%Y-%m-%d"))
+        except Exception as e:
+            return render(request, 'procedure/oops.html', {'error_list': [str(e)], 'continue':False})
+
+        try:
+            commute_procedure(commute_schl_df, api, commute_path)
         except Exception as e:
             return render(request, 'procedure/oops.html', {'error_list': [str(e)], 'continue':False})
 
