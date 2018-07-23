@@ -136,7 +136,7 @@ elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig
   
   # High School service Eligibility
   if(consider_HS_elig == TRUE){
-    perm$HS_conf[(perm$Ed_SomeCol != 1) & (perm$Ed_Col != 1) & (perm$Age < 21) & (perm$GradeLevel == "High")] <- 1
+    perm$HS_conf[(((perm$Ed_SomeCol != 1) & (perm$Ed_Col != 1) & (perm$Age < 21)) | (perm$Math.Confidence != 1)) & (perm$GradeLevel == "High")] <- 1
   }
 
   # TL and IM Previous Relationship conflict (TLs, IMs check)
