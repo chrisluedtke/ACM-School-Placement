@@ -1,6 +1,6 @@
 /media/documents/outputs/*
-/media/documents/ACM_*
-/media/documents/params*
+/media/documents/inputs/*
+/media/documents/to_zip/*
 /myvenv
 /oldscript
 /demo_data

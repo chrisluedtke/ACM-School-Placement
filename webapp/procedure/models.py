@@ -1,6 +1,9 @@
 import datetime
 from django.db import models
 
+def get_tomorrow_date():
+    return datetime.date.today() + datetime.timedelta(days=1)
+
 class RunParameters(models.Model):
     id = models.IntegerField(primary_key=True)
     run_date = models.DateTimeField('Date of run')
@@ -10,8 +13,8 @@ class RunParameters(models.Model):
     # HS_elig_age = models.IntegerField('Minimum Age to Serve in High School', default=21)
     # HS_elig_ed = models.IntegerField('Minimum Education to Serve in High School', default=21)
     calc_commutes = models.BooleanField('Calculate commutes?', default=True, help_text="Commute calculations cost HQ a small amount and take time to complete. For 100 ACMs and 10 schools, the cost is $5 and takes about 10 minutes.")
-    commute_date = models.DateField('Travel date for commute calculations', blank=True, default=(datetime.date.today() + datetime.timedelta(days=1)), help_text='Required if calculating commutes. Choose a date that represents normal traffic.')
-    commutes_reference = models.FileField(upload_to='documents/outputs', blank=True, help_text="After placements are made, you can download a 'Output_Commute_Reference.csv' spreadsheet. If you want to run additional placement processes, upload that file here to avoid commute calculation wait time and cost.")
+    commute_date = models.DateField('Travel date for commute calculations', blank=True, default=get_tomorrow_date, help_text='Required if calculating commutes. Choose a date that represents normal traffic.')
+    commutes_reference = models.FileField(upload_to='documents/outputs', blank=True, help_text="After placements are made, you will find a 'Output_Commute_Reference.csv' file in the results. If you want to run additional placement processes, upload that file here to avoid commute calculation wait time and cost.")
     ## FACTORS ##
     commute_factor = models.IntegerField('Importance of commute', default=1)
     ethnicity_factor = models.IntegerField('Importance of ethnic diversity', default=1)

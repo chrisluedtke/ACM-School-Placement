@@ -11,9 +11,9 @@ source("cleaning.R")
 source("placement_algorithm.R")
 
 # Load Parameters
-dataset <- read.csv('media/documents/params.csv', stringsAsFactors=FALSE)
-dataset$acm_input_path <- 'media/documents/ACM_Placement_Survey_Data.csv'
-dataset$sch_input_path <- 'media/documents/ACM_Placement_School_Data.xlsx'
+dataset <- read.csv('media/documents/inputs/params.csv', stringsAsFactors=FALSE)
+dataset$acm_input_path <- 'media/documents/inputs/ACM_Placement_Survey_Data.csv'
+dataset$sch_input_path <- 'media/documents/inputs/ACM_Placement_School_Data.xlsx'
 dataset$consider_HS_elig <- as.logical(dataset$consider_HS_elig)
 dataset$prevent_roommates <- as.logical(dataset$prevent_roommates)
 dataset$calc_commutes <- as.logical(dataset$calc_commutes)

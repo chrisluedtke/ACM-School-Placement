@@ -17,8 +17,11 @@ webapp/procedure/migrations/*
 webapp/acm_plmt/__pycache__/*
 webapp/acm_plmt/settings/production.py
 
-webapp/media/documents/*.csv
-webapp/media/documents/*.xlsx
+webapp/media/documents/inputs
+webapp/media/documents/outputs
+webapp/media/documents/to_zip
+webapp/oldscript/Untitled.ipynb
+
 webapp/.ipynb_checkpoints
 webapp/myvenv
 webapp/demo_data
@@ -34,6 +37,4 @@ webapp/Commutes.ipynb
 webapp/test.R
 
 webapp/secret.txt
-
-webapp/oldscript/Untitled.ipynb
 

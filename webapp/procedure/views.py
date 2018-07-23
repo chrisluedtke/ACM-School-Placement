@@ -2,6 +2,7 @@ import datetime
 import csv
 import os
 import pandas as pd
+import shutil
 
 from .cleaning import *
 from .commutes import *
@@ -13,40 +14,69 @@ from django.utils import timezone
 from .forms import RunParametersForm
 from .models import RunParameters
 
-plcmt_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Placements.csv")
-trace_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Trace.csv")
-commute_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Output_Commute_Reference.csv")
-error_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/errors.txt")
-rm8_path = os.path.join(settings.MEDIA_ROOT, "documents/outputs/Invalid Roommate and Prior Relationship Names.csv")
+outputs_dir = os.path.join(settings.MEDIA_ROOT, "documents/outputs")
+plcmt_path = os.path.join(outputs_dir, "Output_Placements.csv")
+trace_path = os.path.join(outputs_dir, "Output_Trace.csv")
+commute_path = os.path.join(outputs_dir, "Output_Commute_Reference.csv")
+error_path = os.path.join(outputs_dir, "errors.txt")
+rm8_path = os.path.join(outputs_dir, "nvalid Roommate and Prior Relationship Names.csv")
+zip_path = os.path.join(outputs_dir, "ACM_Placement_Result.zip")
 
-params_path = os.path.join(settings.MEDIA_ROOT, "documents/params.csv")
-survey_data_path = os.path.join(settings.MEDIA_ROOT, "documents/ACM_Placement_Survey_Data.csv")
-school_data_path = os.path.join(settings.MEDIA_ROOT, "documents/ACM_Placement_School_Data.xlsx")
+inputs_dir = os.path.join(settings.MEDIA_ROOT, "documents/inputs")
+params_path = os.path.join(inputs_dir, "params.csv")
+survey_data_path = os.path.join(inputs_dir, "ACM_Placement_Survey_Data.csv")
+school_data_path = os.path.join(inputs_dir, "ACM_Placement_School_Data.xlsx")
+school_data_csv_path = os.path.join(inputs_dir, "ACM_Placement_School_Data.csv")
+
+templates_dir = os.path.join(settings.MEDIA_ROOT, "documents/templates")
+dashboard_template_path = os.path.join(templates_dir, "ACM_Placement_Dashboard.pbit")
+school_data_template_path = os.path.join(templates_dir, "ACM_Placement_School_Data.xlsx")
+
+dir_to_zip = os.path.join(settings.MEDIA_ROOT, "documents/to_zip")
+
+def clear_dir(folder):
+    for file in os.listdir(folder):
+        file_path = os.path.join(folder, file)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 
 def reset_files():
-    for file in [plcmt_path, trace_path, error_path, rm8_path, commute_path, school_data_path, survey_data_path, params_path]:
-        if os.path.exists(file):
-            os.remove(file)
+    clear_dir(inputs_dir)
+    clear_dir(outputs_dir)
+    clear_dir(dir_to_zip)
 
-# Create your views here.
+def write_output_zip():
+    # save school data as csv
+    school_df = pd.read_excel(school_data_path)
+    school_df.to_csv(school_data_csv_path, index=False)
+
+    for file in [plcmt_path, trace_path, commute_path, school_data_csv_path]:
+        if os.path.exists(file):
+            dst = os.path.join(dir_to_zip, os.path.basename(file))
+            if os.path.exists(dst):
+                os.remove(dst)
+            shutil.copy(file, dst)
+    shutil.make_archive(os.path.splitext(zip_path)[0], 'zip', dir_to_zip)
+
+# Views begin here
 def welcome(request):
-    reset_files()
     return render(request, 'procedure/welcome.html')
 
 def step1(request):
     reset_files()
 
-    # download school data template
+    # user download school data template
     if request.method == 'POST' and 'download' in request.POST:
-        file_path = os.path.join(settings.MEDIA_ROOT, "documents/template/ACM_Placement_School_Data.xlsx")
-        with open(file_path, 'rb') as fh:
+        with open(school_data_template_path, 'rb') as fh:
             response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
-            response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
+            response['Content-Disposition'] = 'inline; filename=' + os.path.basename(school_data_template_path)
             return response
-    # upload school data template
+
+    # user upload school data template
     if request.method == 'POST' and 'upload' in request.POST and 'myfile' in request.FILES and '.xlsx' in request.FILES['myfile'].name:
         filename = FileSystemStorage().save(school_data_path, request.FILES['myfile'])
         return HttpResponseRedirect(reverse('step2'))
+
     return render(request, 'procedure/step1.html', {})
 
 def step2(request):
@@ -118,7 +148,7 @@ def run(request):
     else:
         and_text, and_cost_text, and_cost = '', '', ''
 
-    run_time_mins = int(round(run_time/60))
+    run_time_mins = round(run_time/60, 1)
 
     if request.method == 'POST' and 'run' in request.POST:
         return HttpResponseRedirect(reverse('dash'))
@@ -130,21 +160,19 @@ def wait(request):
     return render(request, 'procedure/wait.html', {})
 
 def dash(request):
-    # user download placements
-    if request.method == 'POST' and 'download_placements' in request.POST:
-        if os.path.exists(plcmt_path):
-            with open(plcmt_path, 'rb') as fh:
-                response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
-                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(plcmt_path)
-                return response
+    # user download zip placements
+    if request.method == 'POST' and 'download_results' in request.POST:
+        if os.path.exists(zip_path):
+            response = HttpResponse(open(zip_path, 'rb').read(), content_type='application/x-zip-compressed')
+            response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(zip_path)[-1]
+            return response
 
-    # user download commutes
-    if request.method == 'POST' and 'download_commutes' in request.POST:
-        if os.path.exists(commute_path):
-            with open(commute_path, 'rb') as fh:
-                response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
-                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(commute_path)
-                return response
+    # user download power bi template
+    if request.method == 'POST' and 'download_powerbi' in request.POST:
+        if os.path.exists(dashboard_template_path):
+            response = HttpResponse(open(dashboard_template_path, 'rb').read(), content_type='application/force-download')
+            response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(dashboard_template_path)[-1]
+            return response
 
     # Run Placement Process
     start_time = datetime.datetime.now()
@@ -175,6 +203,7 @@ def dash(request):
     if 'execution halted' in str(error_list).lower():
         return render(request, 'procedure/oops.html', {'error_list': error_list, 'continue':False, 'commute_ref_present':os.path.exists(commute_path)})
     else:
+        write_output_zip()
         return render(request, 'procedure/dash.html', {'commute_ref_present':os.path.exists(commute_path), 'run_time':run_time})
 
 def oops(request):

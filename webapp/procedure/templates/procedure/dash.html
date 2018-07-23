@@ -3,17 +3,16 @@
 {% block content %}
     <h3>That's it!</h3>
 
-    <p>Your placements finished in <strong>{{ run_time }} minutes</strong>. Download the results:</p>
+    <p>Your placements finished in <strong>{{ run_time }} minutes</strong>. Download the results below. To visualize results, download the Power BI Template. After opening the file, enter the location of your results.zip file.</p>
     <form method="post">
         {% csrf_token %}
             <div class="form-group">
-                <button type="submit" class="btn btn-success" name="download_placements">Download Placements</button>
+                <button type="submit" class="btn btn-success" name="download_results">Download Results</button>
             </div>
-            {% if commute_ref_present %}
+
             <div class="form-group">
-                <button type="submit" class="btn btn-success" name="download_commutes">Download Commutes</button>
+                <button type="submit" class="btn btn-success" name="download_powerbi">Download Power BI Template</button>
             </div>
-            {% endif %}
     </form>
 
     <div style="text-align:center;">
