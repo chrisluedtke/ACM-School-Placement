@@ -14,7 +14,6 @@
 #' This function takes the input acm_df and encodes the variables in a way that makes them
 #' mathematically tractable.
 encode_acm_df <- function(df){
-
   acm_enc <- select(acm_df, acm_id, Math.Confidence)
   
   # Ed Attainment
@@ -150,8 +149,9 @@ elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig
   perm$sch_conf_sum <- rowSums(perm[,c("HS_conf", "pre_TL_conf", "pre_IM_conf", "MP_conf", "spanish_conf")], na.rm=TRUE)
   perm$elig[perm$sch_conf_sum >= 1] <- 0
   
-  # Set eligibility to 1 for the school equal to the manual placement
+  # Set eligibility to 1 and school conflicts to 0 for the school equal to the manual placement
   perm$elig[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 1
+  perm$sch_conf_sum[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 0
 
   # Remove placement column because placement will change with each iteration
   perm <- perm[, !(names(perm) %in% c("placement"))]

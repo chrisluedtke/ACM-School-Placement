@@ -27,7 +27,7 @@ def clean_commute_inputs(survey_data_path, school_data_path, api, commute_date):
     if len(school_df.loc[school_df['ACM Start Time (Eastern Time)'].isnull()]) > 0:
         raise Exception(f"Error during commute calculation: one of your school rows is missing a start time. Each school row must have a valid start time.")
 
-    school_df['ArrivalTime'] = commute_date + ' ' + school_df['ACM Start Time (Eastern Time)'].str.replace('AM', '').str.replace('A M', '').str.replace('A.M.', '')
+    school_df['ArrivalTime'] = commute_date + ' ' + school_df['ACM Start Time (Eastern Time)'].astype(str).str.replace('AM', '').str.replace('A M', '').str.replace('A.M.', '')
     school_df['ArrivalTime'] = pd.to_datetime(school_df['ArrivalTime'])
     school_df['ArrivalTime'] = school_df['ArrivalTime'].dt.tz_localize('US/Eastern').dt.tz_convert('GMT').dt.tz_convert(None)
     school_df['ArrivalTime'] = (school_df['ArrivalTime']-datetime.datetime(1970,1,1)).astype('timedelta64[s]').astype(int)

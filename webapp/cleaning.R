@@ -63,10 +63,14 @@ clean_inputs <- function(acm_df, school_df){
   # Combine various column groups into single columns
   for(key_col in c("Race.Ethnicity", "Language.Ability", "Tutoring.Exp.Grades", "Tutoring.Pref.Grades", "Tutoring.Pref.Subject")){
     cols <- names(acm_df %>% select(.,matches(key_col)))
-    acm_df[, cols][acm_df[, cols] == ""] <- NA
-    acm_df[key_col] <- apply(acm_df[, cols], 1, function(x) toString(na.omit(x)))
+    if(length(cols) > 0){
+      acm_df[, cols][acm_df[, cols] == ""] <- NA
+      acm_df[key_col] <- apply(acm_df[, cols], 1, function(x) toString(na.omit(x)))
+    } else {
+      acm_df[key_col] <- NA
+    }
   }
-
+  
   acm_df$Age <- as.integer(as.Date("2018-08-15") - as.Date(as.character(acm_df$Birth.Date), format="%m/%d/%Y"))
   acm_df$Age <- acm_df$Age/365.25
 

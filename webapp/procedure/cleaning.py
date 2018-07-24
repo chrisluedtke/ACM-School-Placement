@@ -16,6 +16,8 @@ def clean_acm_df(survey_data_path):
     for x in missing_cols:
         acm_df[x] = np.nan
 
+    acm_df['Res.Postal.Code'] = acm_df['Res.Postal.Code'].astype(str)
+    acm_df.loc[acm_df['Res.Postal.Code']=='nan', 'Res.Postal.Code'] = np.nan
     acm_df['Home_Address'] = acm_df[['Res.Address.Line.1','Res.City','Res.State', 'Res.Postal.Code']].apply(lambda x: x.str.cat(sep=' '), axis=1)
 
     cols = [x for x in acm_df.columns if x in vars_df['Expected Column Name'].tolist() + ['Home_Address']]
