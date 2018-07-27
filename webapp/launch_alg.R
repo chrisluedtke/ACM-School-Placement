@@ -3,8 +3,6 @@ suppressWarnings(suppressMessages(library("data.table")))
 suppressWarnings(suppressMessages(library("dplyr")))
 suppressWarnings(suppressMessages(library("readxl")))
 suppressWarnings(suppressMessages(library("tidyr")))
-#suppressWarnings(suppressMessages(library("XML")))
-#suppressWarnings(suppressMessages(library("RCurl")))
 
 # Load Functions
 source("cleaning.R")
@@ -25,37 +23,23 @@ score_factors <- list(
   age_factor=0,
   ethnicity_factor=dataset$ethnicity_factor,
   Tutoring_factor=0,
-  Spanish_factor=0, # remove when firm placements done
+  Spanish_factor=dataset$Spanish_factor,
   gender_factor=dataset$gender_factor,
   preserve_ij_factor=0
 )
 
 output_path <- 'media/documents/outputs/'
 
-#api_key_file <- 'gdm_api_key.txt'
-#api_key <- readChar(api_key_file, file.info(api_key_file)$size)
-
 # Load and Clean Inputs
 acm_df <- read.csv(dataset$acm_input_path, check.names=FALSE, stringsAsFactors=FALSE)
 school_df <- read_excel(dataset$sch_input_path)
-
-## Now in Python
-# source("commutes.R", echo=FALSE)
-# if(dataset$calc_commutes == TRUE){
-#   result <- shape_inputs(acm_df, school_df)
-#   acm_df_clean <- result[[1]]
-#   school_df_clean <- result[[2]]
-#   # TODO: acm_df[1,] is only calculating commutes for a single ACM, remember to remove for production
-#   acm_commutes <- commute_procedure(acm_df_clean[2,], school_df_clean, api = api_key)
-#   write.table(acm_commutes, file = paste0(output_path, 'Output_Commute_Reference.csv'), sep=",", row.names=FALSE, na = "")
-# }
 
 if(score_factors$commute_factor > 0){
   acm_commutes <- read.csv(paste0(output_path, 'Output_Commute_Reference.csv'), check.names=FALSE)
   acm_commutes$Time.Mins <- as.numeric(as.character(acm_commutes$Time.Mins))
   acm_commutes$id_dest <- paste(acm_commutes$Full.Name, acm_commutes$School, sep = "_")
 } else {
-  acm_commutes <- data.frame(id_dest = NA,
+  acm_commutes <- data.frame(id_dest = NA, 
                              Full.Name	= NA,
                              School	= NA,
                              Home.Address	= NA,
@@ -124,6 +108,5 @@ write.table(trace, file = paste0(output_path, "Output_Trace.csv"), sep=",", row.
 
 #View(trace)
 #plot(trace[,c('iter', 'score')])
-#View(best_placements[best_placements$Manual.Placement == "",])
 #mean(best_placements$Commute.Time[best_placements$Commute.Time != 999], na.rm = TRUE)
 #mean(best_placements$Commute.Rank, na.rm = TRUE)

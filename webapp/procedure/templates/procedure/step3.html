@@ -18,12 +18,11 @@
       <div class="form-group" enctype="multipart/form-data">
         {% if field.field.widget.input_type == "checkbox" %}
           {{ field }} {{ field.label_tag }}
-          <!-- <input type="{{ field.field.widget.input_type }}"
-             id="{{ field.id_for_label }}"
-             name="{{ field.html_name }}"
-             placeholder="{{ field.label }}"
-             maxlength="{{ field.field.max_length }}"> {{ field.label_tag }} </input> -->
         {% else %}
+          {% if field.name == "commute_factor" %}
+            <h5>Factor Importance</h5>
+            <p>Set any factor to 0 to remove it from consideration. Set it to 2 or 3 to place greater weight on that factor.</p>
+          {% endif %}
           {{ field.label_tag }}
           {% render_field field class="form-control" %}
         {% endif %}

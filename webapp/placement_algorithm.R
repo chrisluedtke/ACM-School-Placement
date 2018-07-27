@@ -6,6 +6,7 @@
 # * [Algorithm] IJ team creation (implemented in CHI FY17, but currently disabled and likely obsolete since updates)
 # * [Algorithm] Remove features we have decided not to be meaningful (balanced tutoring experience, balanced math ability)
 # * [Algorithm] Connect to RAD dashboard (or targetX to get PCWs and remove from analysis)
+# * [Algorithm] Error-check that manual.placement column contains valid schools
 
 #  Encode Variables & Clean Up Input Dataframes
 #' Before being able to calculate a score, we need to encode all of our variables numerically.
@@ -92,7 +93,6 @@ corps_demographic_targets <- function(school_df, acm_enc){
 }
 
 #' Calculates the expected number of ACMs per team for each of the markers.
-#' My methodology is to aim for a uniform distribution when it makes sense.
 school_config <- function(school_df, acm_enc){
   # Precalculate some helpful counts
   corps_demos <- corps_demographic_targets(school_df, acm_enc)
@@ -111,7 +111,7 @@ school_config <- function(school_df, acm_enc){
   school_df$HSGrad_tgt <- ifelse(school_df$span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(school_df$size))
   school_df$SomeCol_tgt <- education[education$level %in% 'SomeCol',]$ratio * as.numeric(school_df$size)
   school_df$TutExp = as.numeric(school_df$size) * tut_exp[tut_exp$HasTutored == 1,]$ratio
-  #schoo-_df$SpanishNeed = pmax(spanishNeed(`% Hispanic`), 1),# This sets a minimum of 1 spanish speaker per team.  This might make sense in LA, but not other places.
+  school_df$SpanishNeed[is.na(school_df$SpanishNeed)] <- 0
   school_df$OtherLang_tgt <- lang[lang$ability %in% 'other',]$ratio * as.numeric(school_df$size)
   school_df$Math_tgt <- ifelse(school_df$span=="Elementary", as.numeric(school_df$size)*.5*math, ifelse(school_df$span=="Middle", .75*as.numeric(school_df$size)*math, as.numeric(school_df$size)*math))
   school_df$Male_tgt <- as.numeric(school_df$size)*gender
@@ -119,17 +119,14 @@ school_config <- function(school_df, acm_enc){
   return(school_df)
 }
 
-#' Calculates each ACM's eligibility to searve at each school based on factors
+#' Calculates each ACM's eligibility to serve at each school based on factors
 #' between each ACM and each school (HS eligibility, TL and IM prior 
 #' relationship / roommate conflicts, manual placements, Spanish speakers)
 elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig){
-  
   perm <- merge(team_placements_df, school_df, all.x=TRUE) %>%
-     mutate(elig = 1, 
-            HS_conf = 0, 
+     mutate(HS_conf = 0, 
             pre_TL_conf = 0, 
             pre_IM_conf = 0, 
-            spanish_conf = 0, 
             MP_conf = 0,
             acm_id_sch_id = paste(acm_id, sch_id, sep="_"))
   
@@ -137,7 +134,7 @@ elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig
   if(consider_HS_elig == TRUE){
     perm$HS_conf[(((perm$Ed_SomeCol != 1) & (perm$Ed_Col != 1) & (perm$Age < 21)) | (perm$Math.Confidence != 1)) & (perm$GradeLevel == "High")] <- 1
   }
-
+  
   # TL and IM Previous Relationship conflict (TLs, IMs check)
   perm$pre_TL_conf <- as.numeric(mapply(grepl, pattern=perm$`Team Leader`, paste(perm$Prior.Rship.Names, perm$Roommate.Names)))
   perm$pre_IM_conf <- as.numeric(mapply(grepl, pattern=perm$`Manager`, perm$Prior.Rship.Names))
@@ -145,14 +142,13 @@ elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig
   # Set Manual Placements conflict to 1 for all schools that are not the manual placement
   perm$MP_conf[!is.na(perm$Manual.Placement) & (perm$School != perm$Manual.Placement)] <- 1
   
-  # Sum conflictts to set eligibility. Eligibility defaults to 1, only need to update to 0 where applicable.
-  perm$sch_conf_sum <- rowSums(perm[,c("HS_conf", "pre_TL_conf", "pre_IM_conf", "MP_conf", "spanish_conf")], na.rm=TRUE)
-  perm$elig[perm$sch_conf_sum >= 1] <- 0
-  
-  # Set eligibility to 1 and school conflicts to 0 for the school equal to the manual placement
-  perm$elig[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 1
-  perm$sch_conf_sum[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 0
+  # Sum conflictts
+  perm$sch_conf_sum <- rowSums(perm[,c("HS_conf", "pre_TL_conf", "pre_IM_conf", "MP_conf")], na.rm=TRUE)
 
+  # Set school conflicts to 0 for the school equal to the manual placement, and 1 for all others
+  perm$sch_conf_sum[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 0
+  perm$sch_conf_sum[!is.na(perm$Manual.Placement) & (perm$School != perm$Manual.Placement)] <- 1
+  
   # Remove placement column because placement will change with each iteration
   perm <- perm[, !(names(perm) %in% c("placement"))]
   
@@ -236,8 +232,8 @@ initial_placement <- function(acm_enc, school_targets){
 append_elig_col <- function(team_placements_df, elig_plc_schwise_df, elig_plc_acmwise_df){
   cols <- names(team_placements_df)
   team_placements_df$acm_id_sch_id <- paste(team_placements_df$acm_id, team_placements_df$placement, sep="_")
-    
-  # Identify current invalid placments based on school factors, merge in "elig" to team_placements_df on acm_id_school_id
+  
+  # Identify current invalid placments based on school factors
   team_placements_df <- merge(team_placements_df, elig_plc_schwise_df[, c("acm_id_sch_id", "sch_conf_sum")], by="acm_id_sch_id", all.x=TRUE)
 
   # Identify current invalid placments based on ACM factors, merge placement to acmwise_df, sum conflict column by group(acm_id, placement), then merge that sum back to team_placements_df
@@ -250,33 +246,89 @@ append_elig_col <- function(team_placements_df, elig_plc_schwise_df, elig_plc_ac
     summarise(acm_conf_sum = sum(acm_conf))
   
   team_placements_df <- merge(team_placements_df, elig_plc_acmwise_df[,c("acm_id_sch_id", "acm_conf_sum")], by = "acm_id_sch_id", all.x = TRUE)
-
-  team_placements_df$elig <- 1 - rowSums(team_placements_df[,c("sch_conf_sum", "acm_conf_sum")], na.rm=TRUE)
-  team_placements_df$elig[team_placements_df$elig < 0 ] <- 0
+  
+  team_placements_df$elig <- as.numeric((rowSums(team_placements_df[,c("sch_conf_sum", "acm_conf_sum")], na.rm=TRUE)) == 0)
+  
+  # Manual Placement is already correct. All ACMs with manual placement are marked eligible.
+  team_placements_df$elig[!is.na(team_placements_df$Manual.Placement)] <- 1
   
   # only keep "elig" col from this func
   return(team_placements_df[, c(cols, "elig")])
 }
 
-#' TODO: validly place Spanish speakers such that each Span ACM is at Span-needing school, or if targets are exceeded, ignore targets
-initial_valid_placement <- function(team_placements_df, school_df, elig_plc_schwise_df, elig_plc_acmwise_df){
-  team_placements_df <- append_elig_col(team_placements_df, elig_plc_schwise_df, elig_plc_acmwise_df)
-  n_inelig <- nrow(team_placements_df[team_placements_df$elig == 0,])
+span_targets_diffs <- function(team_placements_df, school_df){
+  df <- team_placements_df %>%
+    group_by(placement) %>%
+    summarise(n_span_placed=sum(SpanishAble)) %>%
+    left_join(., school_df[c("sch_id", "N Spanish Speakers Reqd")], by=c("placement" = "sch_id")) %>%
+    replace(is.na(.), 0) %>%
+    mutate(diffs = n_span_placed - `N Spanish Speakers Reqd`)
   
+  return(df)
+}
+
+#' TODO: refactor redundant code in Spanish speaker placement pieces
+initial_valid_placement <- function(team_placements_df, school_df, elig_plc_schwise_df, elig_plc_acmwise_df){
+  if(sum(school_df$`N Spanish Speakers Reqd`, na.rm=T) > sum(team_placements_df$SpanishAble, na.rm=T)){
+    stop(paste("You have", sum(school_df$`N Spanish Speakers Reqd`), "Spanish Speaker slots, but only", sum(team_placements_df$SpanishAble), "Spanish speakers."))
+  }
+  # Check if Spanish targets met
+  span_target_diffs_df <- span_targets_diffs(team_placements_df, school_df)
+  span_targets_met <- (sum(span_target_diffs_df$diffs < 0, na.rm=T) == 0)
+  span_surplus_sch_ids <- span_target_diffs_df$placement[span_target_diffs_df$diffs > 0]
+  span_deficit_sch_ids <- span_target_diffs_df$placement[span_target_diffs_df$diffs < 0]
+  
+  team_placements_df <- append_elig_col(team_placements_df, elig_plc_schwise_df, elig_plc_acmwise_df)
+  if((score_factors$Spanish_factor > 0) & (span_targets_met == FALSE)){
+    # assign 'elig' to 0 for any Spanish speaking ACMs at schools with surplus of Spanish speakers
+    team_placements_df$elig[(team_placements_df$SpanishAble==1) 
+                            & (team_placements_df$placement %in% span_surplus_sch_ids) 
+                            & is.na(team_placements_df$Manual.Placement)] <- 0
+  }
+  n_inelig <- nrow(team_placements_df[team_placements_df$elig == 0,])
+
   i <- 0
+  attempts <- 150
+  attmptd_swaps <- c()
   while (n_inelig > 0){
     i <- i + 1
-    if (i > 100){stop('Could not find valid starting placements in 100 attempts.')}
+    if (i > attempts){
+      stop(paste('Could not find valid starting placements in', attempts, 'attempts.', n_inelig, 'invalid placements remain.', "Usually re-running will fix this. It's possible that no corps placement exists that meets all firm constraints you set (Spanish speaker targets, prevented roommates, HS eligibility, etc.)."))
+    }
+    #if (i == (attempts-1)){browser()}
     # Choose one invalid ACM to swap. Inelig_acm_ids duplicated to avoid a length 1 input to sample() (see notes in make_swap())
     inelig_acm_ids <- team_placements_df$acm_id[team_placements_df$elig == 0]
     swap1 <- sample(c(inelig_acm_ids,inelig_acm_ids), 1)
+    attmptd_swaps <- c(attmptd_swaps, swap1)
     # drop "elig" column
     team_placements_df <- team_placements_df[, !(names(team_placements_df) %in% "elig")]
     # make swap
-    team_placements_df <- make_swap(team_placements_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df)
+    if((score_factors$Spanish_factor > 0) & (span_targets_met == FALSE)){
+      if(length(unique(tail(attmptd_swaps,5))) == 1){
+        # If attempts at valid placements get stuck (5 consecutive swap1s), ignore spanish conflicts
+        df <- elig_plc_schwise_df
+      } else {
+        # update elig_plc_schwise_df to make all Spanish speakers only eligible to serve at schools with a Spanish speaker deficit
+        df <- elig_plc_schwise_df
+        df$sch_conf_sum[(df$SpanishAble==1) & !(df$sch_id %in% span_deficit_sch_ids) & (is.na(df$Manual.Placement) | (df$School != df$Manual.Placement))] <- 1
+      }
+      team_placements_df <- make_swap(team_placements_df, swap1, df, elig_plc_acmwise_df)
+    } else {
+      team_placements_df <- make_swap(team_placements_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df)
+    }
+    # Check if Spanish targets met
+    span_target_diffs_df <- span_targets_diffs(team_placements_df, school_df)
+    span_targets_met <- (sum(span_target_diffs_df$diffs < 0, na.rm = T) == 0)
+    span_surplus_sch_ids <- span_target_diffs_df$placement[span_target_diffs_df$diffs > 0]
+    span_deficit_sch_ids <- span_target_diffs_df$placement[span_target_diffs_df$diffs < 0]
     
     # recalc "elig" column
     team_placements_df <- append_elig_col(team_placements_df, elig_plc_schwise_df, elig_plc_acmwise_df)
+    # adjust for span targets
+    if((score_factors$Spanish_factor > 0) & (span_targets_met == FALSE)){
+      # assign 'elig' to 0 for any Spanish speaking ACMs at schools with surplus of Spanish speakers
+      team_placements_df$elig[(team_placements_df$SpanishAble==1) & (team_placements_df$placement %in% span_surplus_sch_ids) & is.na(team_placements_df$Manual.Placement)] <- 0
+    }
     n_inelig <- nrow(team_placements_df[team_placements_df$elig == 0,])
   }
   # drop "elig" column
@@ -314,7 +366,7 @@ make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df
   school2_ids = plcmts_df$acm_id[plcmts_df$placement == schools_to_swap[2]]
   # Find ACMs who are eligible to serve at school1 
   swap2_set_schwise <- elig_plc_schwise_df$acm_id[(elig_plc_schwise_df$sch_id == schools_to_swap[1])
-                                                  &(elig_plc_schwise_df$elig==1)
+                                                  &(elig_plc_schwise_df$sch_conf_sum==0)
                                                   &(elig_plc_schwise_df$acm_id %in% school2_ids)]
   
   # Among those ACMs, find ACMs who are eligible to serve with the ACMs at school1
@@ -340,8 +392,7 @@ make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df
   return(plcmts_df[, plcmts_df_cols])
 }
 
-calculate_score <- function(team_placements_df, school_targets, score_weights, gender_target=gender_g) {
-  
+calculate_score <- function(team_placements_df, school_targets, score_factors, gender_target=gender_g) {
   # Merge  with school_df to pull in school characteristics
   team_placements_df <- merge(team_placements_df, school_targets, by.x = "placement", by.y = "sch_id", all.x = TRUE)
   
@@ -349,25 +400,25 @@ calculate_score <- function(team_placements_df, school_targets, score_weights, g
   scores = list()
   
   # COMMUTE SCORE:
-  if(score_weights$commute_factor > 0){
+  if(score_factors$commute_factor > 0){
     team_placements_df$id_dest <- paste(team_placements_df$Full.Name, team_placements_df$School, sep = "_")
-    scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, mean((Time.Mins^2), na.rm = TRUE)] * 3.5 * score_weights$commute_factor
+    scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, mean((Time.Mins^2), na.rm = TRUE)] * 3.5 * score_factors$commute_factor
     #scores$commute_score <- dt_commutes[id_dest %in% team_placements_df$id_dest, sum((Time.Mins), na.rm = TRUE)] * commute_factor
   } else { scores$commute_score <- 0 }
   
   # AGE SCORE: This score is the difference between the [overall age variance across the corps] and [overall average of each team's average age variance]
-  if(score_weights$age_factor > 0){
+  if(score_factors$age_factor > 0){
     age_var <-team_placements_df %>%
       filter(!is.na(Age)) %>%
       group_by(placement) %>%
       summarize(age_var = var(Age)) %>%
       ungroup() %>%
       summarize(avg_age_var = mean(age_var))
-    scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$Age)) /100 * score_weights$age_factor
+    scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$Age)) /100 * score_factors$age_factor
   } else {scores$age_score <- 0}
 
-  # ETHNICITY SCORE: This score is the overall average of each team's average % representation that each teammate experiences. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
-  if(score_weights$ethnicity_factor != 0){
+  # ETHNICITY SCORE: This score is the overall average of each team's average % representation of members' ethnicities. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
+  if(score_factors$ethnicity_factor > 0){
     ethnicity_eths <- 
       team_placements_df[!is.na(team_placements_df$Race.Ethnicity),] %>%
       group_by(placement, 
@@ -377,17 +428,17 @@ calculate_score <- function(team_placements_df, school_targets, score_weights, g
       mutate(lgst_eth_rep = max(n_eths/sum(n_eths))) %>%
       distinct(lgst_eth_rep)
     
-    scores$ethnicity_score <- sum((ethnicity_eths$lgst_eth_rep*100)^1.5) * score_weights$ethnicity_factor
+    scores$ethnicity_score <- sum((ethnicity_eths$lgst_eth_rep*100)^1.5) * score_factors$ethnicity_factor
   } else {scores$ethnicity_score <- 0}
 
   # IJ CONFLICT SCORE
-  if(score_weights$preserve_ij_factor != 0){
+  if(score_factors$preserve_ij_factor != 0){
     ij_conflict_score <- team_placements_df %>%
       filter(!is.na(IJ.Placement)) %>%
       group_by(placement) %>%
       count(IJ.Placement) %>%
       filter(n>1)
-    scores$ij_conflict_score <- sum(ij_conflict_score$n) * 100 * score_weights$preserve_ij_factor
+    scores$ij_conflict_score <- sum(ij_conflict_score$n) * 100 * score_factors$preserve_ij_factor
   } else {scores$ij_conflict_score <- 0}
   
   # Scoring
@@ -402,19 +453,22 @@ calculate_score <- function(team_placements_df, school_targets, score_weights, g
                           Males = sum(Male)) %>%
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
-  if(score_weights$Edscore_factor > 0) {scores$Edscore <- mean((abs((placed$HSGrad_tgt - placed$HS_Grads)) + abs((placed$SomeCol_tgt - placed$SomeCol)))^2.2) * 200 * score_weights$Edscore_factor} else {scores$Edscore <- 0}
+  if(score_factors$Edscore_factor > 0) {scores$Edscore <- mean((abs((placed$HSGrad_tgt - placed$HS_Grads)) + abs((placed$SomeCol_tgt - placed$SomeCol)))^2.2) * 200 * score_factors$Edscore_factor
+  } else {scores$Edscore <- 0}
   
-  if(score_weights$Tutoring_factor > 0){
-    scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2) * score_weights$Tutoring_factor} 
+  if(score_factors$Tutoring_factor > 0){
+    scores$Tutoring <- sum((placed$TutExp - placed$Tutoring)^2) * score_factors$Tutoring_factor} 
   else{scores$Tutoring <- 0}
-
-  placed$SpanDiff <- placed$SpanishNeed - placed$Spanish
-  scores$Spanish <- ifelse(nrow(placed[placed$SpanDiff>0,]) > 0, 1e10, 0) * score_weights$Spanish_factor
   
-  if(score_weights$Math_factor > 0) {scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * score_weights$Math_factor} else {scores$Math <- 0}
+  if(score_factors$Spanish_factor > 0){
+    placed$SpanDiff <- placed$SpanishNeed - placed$Spanish
+    scores$Spanish <- sum(placed$SpanDiff[placed$SpanDiff>0])^1.2 * 1000 * score_factors$Spanish_factor
+  } else {scores$Spanish <- 0}
   
-  scores$Gender_score <- (sum(ifelse(placed$Males < 1, 1e10, 0)) + mean((placed$Male_tgt - placed$Males)^2) * 250) * score_weights$gender_factor
-
+  if(score_factors$Math_factor > 0) {scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * score_factors$Math_factor} else {scores$Math <- 0}
+  
+  scores$Gender_score <- (sum(ifelse(placed$Males < 1, 1e10, 0)) + mean((placed$Male_tgt - placed$Males)^2) * 250) * score_factors$gender_factor
+  
   scores$aggr_score <- sum(unlist(scores))
 
   return(scores)
@@ -465,6 +519,7 @@ run_intermediate_annealing_process <- function(starting_placements, school_df, b
     
     # Randomly select ACM to swap
     swap1 <- sample(cand_plcmts_df$acm_id[is.na(cand_plcmts_df$Manual.Placement)], 1)
+    # TODO: If score_factors$Spanish_factor==1 & cand_plcmts_df$SpanishAble==1, limit swaps to other spanish speakers, (but if isn't spanish speaker, don't allow swaps with Spanish speakers)
     
     cand_plcmts_df <- make_swap(cand_plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df)
     

@@ -20,6 +20,7 @@ class RunParameters(models.Model):
     ethnicity_factor = models.IntegerField('Importance of ethnic diversity', default=1)
     gender_factor = models.IntegerField('Importance of gender diversity', default=1)
     Edscore_factor = models.IntegerField('Importance of educational attainment diversity', default=1)
+    Spanish_factor = models.IntegerField('Importance of matching Spanish speaker targets', default=1)
 
 # class Document(models.Model):
 #     document = models.FileField(upload_to='documents/')

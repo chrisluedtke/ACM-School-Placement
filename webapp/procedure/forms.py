@@ -15,4 +15,5 @@ class RunParametersForm(forms.ModelForm):
             'ethnicity_factor',
             'gender_factor',
             'Edscore_factor',
+            'Spanish_factor',
         ]

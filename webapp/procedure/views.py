@@ -40,17 +40,12 @@ def clear_dir(folder):
         if os.path.isfile(file_path):
             os.remove(file_path)
 
-def reset_files():
-    clear_dir(inputs_dir)
-    clear_dir(outputs_dir)
-    clear_dir(dir_to_zip)
-
 def write_output_zip():
     # save school data as csv
     school_df = pd.read_excel(school_data_path)
     school_df.to_csv(school_data_csv_path, index=False)
 
-    for file in [plcmt_path, trace_path, commute_path, school_data_csv_path]:
+    for file in [plcmt_path, trace_path, commute_path, params_path, school_data_csv_path]:
         if os.path.exists(file):
             dst = os.path.join(dir_to_zip, os.path.basename(file))
             if os.path.exists(dst):
@@ -63,7 +58,7 @@ def welcome(request):
     return render(request, 'procedure/welcome.html')
 
 def step1(request):
-    reset_files()
+    clear_dir(inputs_dir)
 
     # user download school data template
     if request.method == 'POST' and 'download' in request.POST:
@@ -126,6 +121,8 @@ def step3(request):
     return render(request, 'procedure/step3.html', {'form': form})
 
 def run(request):
+    clear_dir(outputs_dir)
+    clear_dir(dir_to_zip)
     # TODO: fails for certain encoding (like ANSI encoding with certain characters)
     acm_df = pd.read_csv(survey_data_path)
     school_df = pd.read_excel(school_data_path)
