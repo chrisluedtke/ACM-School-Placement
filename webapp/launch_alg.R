@@ -106,6 +106,8 @@ if(output$best_score < 1000000){
 write.table(best_placements, file = paste0(output_path, "Output_Placements.csv"), sep=",", row.names=FALSE, na = "")
 write.table(trace, file = paste0(output_path, "Output_Trace.csv"), sep=",", row.names=FALSE, na = "")
 
+# pass new placements back in
+#team_placements_df <- merge(best_placements[c("acm_id", "placement")], team_placements_df[!names(team_placements_df) %in% "placement"], by="acm_id", all.x=TRUE)
 #View(trace)
 #plot(trace[,c('iter', 'score')])
 #mean(best_placements$Commute.Time[best_placements$Commute.Time != 999], na.rm = TRUE)

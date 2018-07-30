@@ -10,7 +10,7 @@ def clean_commute_inputs(survey_data_path, school_data_path, api, commute_date):
     school_df['School_Address'] = school_df['Address']; del school_df['Address']
     for index, row in school_df.fillna(value='').iterrows():
         url = f"https://maps.googleapis.com/maps/api/geocode/json?address={row['School_Address']}&key={api}"
-        response = requests.get(url, timeout=5)
+        response = requests.get(url)
         response_status = response.json()['status']
 
         if response_status != "OK":
@@ -48,7 +48,7 @@ def clean_commute_inputs(survey_data_path, school_data_path, api, commute_date):
 def gmapsdistance(origin, destination, mode, arrival_time, api):
     url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={origin}&destinations={destination}&mode={mode}&units=imperial&arrival_time={arrival_time}&avoid=tolls&key={api}"
 
-    response = requests.get(url, timeout=5)
+    response = requests.get(url)
     response_status = response.json()['status']
 
     commute_dict = {}
@@ -79,7 +79,6 @@ def commute_procedure(commute_schl_df, api, commute_path):
                                        mode = row['Travel.Method'],
                                        arrival_time = str(row['ArrivalTime']),
                                        api = api)
-
         commute_result['id_dest'] = row['id_dest']
         commutes_list.append(commute_result)
 

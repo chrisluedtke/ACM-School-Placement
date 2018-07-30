@@ -41,6 +41,7 @@ def clear_dir(folder):
             os.remove(file_path)
 
 def write_output_zip():
+    clear_dir(dir_to_zip)
     # save school data as csv
     school_df = pd.read_excel(school_data_path)
     school_df.to_csv(school_data_csv_path, index=False)
@@ -88,6 +89,7 @@ def step2(request):
     return render(request, 'procedure/step2.html', {})
 
 def step3(request):
+    clear_dir(outputs_dir)
     # Save Options
     if request.method == 'POST' and 'save' in request.POST:
         form = RunParametersForm(request.POST, request.FILES)
@@ -121,8 +123,6 @@ def step3(request):
     return render(request, 'procedure/step3.html', {'form': form})
 
 def run(request):
-    clear_dir(outputs_dir)
-    clear_dir(dir_to_zip)
     # TODO: fails for certain encoding (like ANSI encoding with certain characters)
     acm_df = pd.read_csv(survey_data_path)
     school_df = pd.read_excel(school_data_path)
