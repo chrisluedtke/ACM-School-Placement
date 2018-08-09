@@ -22,5 +22,6 @@ def clean_acm_df(survey_data_path):
 
     cols = [x for x in acm_df.columns if x in vars_df['Expected Column Name'].tolist() + ['Home_Address']]
     acm_df[cols].to_csv(survey_data_path, index=False)
+    #acm_df.to_csv(survey_data_path, index=False)
 
     return missing_cols

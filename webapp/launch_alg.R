@@ -1,3 +1,6 @@
+stop('test')
+rm(list=ls())
+
 # Load packages with no printed warnings or errors
 suppressWarnings(suppressMessages(library("data.table")))
 suppressWarnings(suppressMessages(library("dplyr")))
@@ -65,6 +68,28 @@ acm_enc <- encode_acm_df(acm_df)
 school_targets <- school_config(school_df, acm_enc)
 
 team_placements_df <- initial_placement(acm_enc, school_targets)
+
+# For IJ Placement, read in school placement, remove any manual.placements
+#prior_placements <- read.csv("Z:\\ChiPrivate\\Chicago Data and Evaluation\\SY19\\School Team Placement\\2018-08-05 Placements and Notes\\SY19_08-05_Output_Placements.csv", check.names=FALSE, stringsAsFactors=FALSE)
+#prior_placements$School.Placement <- prior_placements$School
+#
+#team_placements_df <- merge(team_placements_df, prior_placements[c("Full.Name", "School.Placement")], by="Full.Name", all.x=TRUE)
+#team_placements_df$Manual.Placement <- NA
+#team_placements_df <- merge(team_placements_df, school_df[c("School", "Team Leader")], by.x = "School.Placement", by.y = "School", all.x = TRUE)
+#team_placements_df$Prior.Rship.Names <- apply(team_placements_df[, c("Prior.Rship.Names", "Team Leader")], 1, function(x) toString(na.omit(x)))
+#team_placements_df <- team_placements_df[!names(team_placements_df) %in% "Team Leader"]
+#
+#score_factors$commute_factor <- 0
+#score_factors$ethnicity_factor <- 1
+#score_factors$gender_factor <- 1
+#score_factors$Edscore_factor <- 1
+#score_factors$Spanish_factor <- 0
+#score_factors$preserve_ij_factor <- 1
+#dataset$number_iterations <- 5000
+
+# load from output
+#prior_placements <- read.csv("Z:\\ChiPrivate\\Chicago Data and Evaluation\\SY19\\School Team Placement\\2018-08-05 Placements and Notes\\ACM_Placement_Result_8k_iter_Spanish_3\\Output_Placements.csv", check.names=FALSE, stringsAsFactors=FALSE)
+#team_placements_df <- merge(team_placements_df[!names(team_placements_df) %in% "placement"], prior_placements[c("acm_id", "placement")], by="acm_id", all.x=TRUE)
 
 elig_plc_schwise_df <- elig_plcmnts_schwise(team_placements_df, school_df, dataset$consider_HS_elig)
 elig_plc_acmwise_df <- elig_plcmnts_acmwise(team_placements_df, dataset$prevent_roommates)

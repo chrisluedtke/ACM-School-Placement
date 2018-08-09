@@ -25,7 +25,7 @@
       <div class="form-group">
         <input type="button" value="Return to Step 1" class="btn btn-success" onclick="location.href='{% url 'step1' %}'">
       </div>
-      {% if continue %}
+      {% if continue_bool %}
       <div class="form-group">
         <input type="button" value="Continue" class="btn btn-success" onclick="location.href='{% url continue_to %}'">
       </div>

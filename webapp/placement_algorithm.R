@@ -16,18 +16,18 @@
 #' mathematically tractable.
 encode_acm_df <- function(df){
   acm_enc <- select(acm_df, acm_id, Math.Confidence)
-  
+
   # Ed Attainment
-  acm_enc$Ed_HS <- as.numeric(grepl("High School/GED", df$Educational.Attainment))
-  acm_enc$Ed_SomeCol <- grepl("Some College", df$Educational.Attainment) + grepl("Associate's Degree", df$Educational.Attainment)
-  acm_enc$Ed_Col <- grepl("Bachelor's Degree", df$Educational.Attainment) + grepl("Master's Degree", df$Educational.Attainment)
+  acm_enc$Ed_HS <- as.numeric(grepl("high school", tolower(df$Educational.Attainment)))
+  acm_enc$Ed_SomeCol <- as.numeric(grepl("some college|associate", tolower(df$Educational.Attainment)))
+  acm_enc$Ed_Col <- as.numeric(grepl("bachelor|master|gradute", tolower(df$Educational.Attainment)))
   
   # Tutoring Experience
   acm_enc$HasTutored <- as.numeric(grepl("Yes", df$Tutoring.Experience))
 
   # Language Ability
-  acm_enc$SpanishAble <- as.numeric(grepl("Spanish", df$Language.Ability.Spanish))
-  acm_enc$Lang_Other <- ifelse(grepl("Spanish", df$Language.Ability.Spanish) == F & grepl("Yes", df$Language.Other.English), 1, 0)
+  acm_enc$SpanishAble <- as.numeric(grepl("Spanish", df$Language.Ability))
+  acm_enc$Lang_Other <- ifelse(grepl("Spanish", df$Language.Ability) == F & grepl("Yes", df$Language.Other.English), 1, 0)
   
   # Gender
   acm_enc$Male <- as.numeric(grepl("Male", df$Gender))
@@ -110,7 +110,7 @@ school_config <- function(school_df, acm_enc){
   
   school_df$HSGrad_tgt <- ifelse(school_df$span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(school_df$size))
   school_df$SomeCol_tgt <- education[education$level %in% 'SomeCol',]$ratio * as.numeric(school_df$size)
-  school_df$TutExp = as.numeric(school_df$size) * tut_exp[tut_exp$HasTutored == 1,]$ratio
+  school_df$TutExp = as.numeric(school_df$size) * ifelse(length(tut_exp[tut_exp$HasTutored == 1,]$ratio)==0, 0, tut_exp[tut_exp$HasTutored == 1,]$ratio)
   school_df$SpanishNeed[is.na(school_df$SpanishNeed)] <- 0
   school_df$OtherLang_tgt <- lang[lang$ability %in% 'other',]$ratio * as.numeric(school_df$size)
   school_df$Math_tgt <- ifelse(school_df$span=="Elementary", as.numeric(school_df$size)*.5*math, ifelse(school_df$span=="Middle", .75*as.numeric(school_df$size)*math, as.numeric(school_df$size)*math))
@@ -121,13 +121,12 @@ school_config <- function(school_df, acm_enc){
 
 #' Calculates each ACM's eligibility to serve at each school based on factors
 #' between each ACM and each school (HS eligibility, TL and IM prior 
-#' relationship / roommate conflicts, manual placements, Spanish speakers)
+#' relationship / roommate conflicts, manual placements)
 elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig){
   perm <- merge(team_placements_df, school_df, all.x=TRUE) %>%
      mutate(HS_conf = 0, 
             pre_TL_conf = 0, 
             pre_IM_conf = 0, 
-            MP_conf = 0,
             acm_id_sch_id = paste(acm_id, sch_id, sep="_"))
   
   # High School service Eligibility
@@ -137,13 +136,10 @@ elig_plcmnts_schwise <- function(team_placements_df, school_df, consider_HS_elig
   
   # TL and IM Previous Relationship conflict (TLs, IMs check)
   perm$pre_TL_conf <- as.numeric(mapply(grepl, pattern=perm$`Team Leader`, paste(perm$Prior.Rship.Names, perm$Roommate.Names)))
-  perm$pre_IM_conf <- as.numeric(mapply(grepl, pattern=perm$`Manager`, perm$Prior.Rship.Names))
+  perm$pre_IM_conf <- as.numeric(mapply(grepl, pattern=perm$`Manager`, paste(perm$Prior.Rship.Names, perm$Roommate.Names)))
 
-  # Set Manual Placements conflict to 1 for all schools that are not the manual placement
-  perm$MP_conf[!is.na(perm$Manual.Placement) & (perm$School != perm$Manual.Placement)] <- 1
-  
   # Sum conflictts
-  perm$sch_conf_sum <- rowSums(perm[,c("HS_conf", "pre_TL_conf", "pre_IM_conf", "MP_conf")], na.rm=TRUE)
+  perm$sch_conf_sum <- rowSums(perm[,c("HS_conf", "pre_TL_conf", "pre_IM_conf")], na.rm=TRUE)
 
   # Set school conflicts to 0 for the school equal to the manual placement, and 1 for all others
   perm$sch_conf_sum[!is.na(perm$Manual.Placement) & (perm$School == perm$Manual.Placement)] <- 0
@@ -230,11 +226,10 @@ initial_placement <- function(acm_enc, school_targets){
 }
 
 append_elig_col <- function(team_placements_df, elig_plc_schwise_df, elig_plc_acmwise_df){
-  cols <- names(team_placements_df)
   team_placements_df$acm_id_sch_id <- paste(team_placements_df$acm_id, team_placements_df$placement, sep="_")
   
   # Identify current invalid placments based on school factors
-  team_placements_df <- merge(team_placements_df, elig_plc_schwise_df[, c("acm_id_sch_id", "sch_conf_sum")], by="acm_id_sch_id", all.x=TRUE)
+  team_placements_df <- merge(team_placements_df, elig_plc_schwise_df[, c("acm_id_sch_id", "HS_conf", "pre_TL_conf", "pre_IM_conf", "sch_conf_sum")], by="acm_id_sch_id", all.x=TRUE)
 
   # Identify current invalid placments based on ACM factors, merge placement to acmwise_df, sum conflict column by group(acm_id, placement), then merge that sum back to team_placements_df
   elig_plc_acmwise_df <- merge(elig_plc_acmwise_df, team_placements_df[,c("acm_id", "placement")], by="acm_id")
@@ -252,8 +247,8 @@ append_elig_col <- function(team_placements_df, elig_plc_schwise_df, elig_plc_ac
   # Manual Placement is already correct. All ACMs with manual placement are marked eligible.
   team_placements_df$elig[!is.na(team_placements_df$Manual.Placement)] <- 1
   
-  # only keep "elig" col from this func
-  return(team_placements_df[, c(cols, "elig")])
+  # keep "sch_conf_sum", "acm_conf_sum", "elig" cols from this func
+  return(team_placements_df)
 }
 
 span_targets_diffs <- function(team_placements_df, school_df){
@@ -272,6 +267,8 @@ initial_valid_placement <- function(team_placements_df, school_df, elig_plc_schw
   if(sum(school_df$`N Spanish Speakers Reqd`, na.rm=T) > sum(team_placements_df$SpanishAble, na.rm=T)){
     stop(paste("You have", sum(school_df$`N Spanish Speakers Reqd`), "Spanish Speaker slots, but only", sum(team_placements_df$SpanishAble), "Spanish speakers."))
   }
+  original_cols <- names(team_placements_df)
+  
   # Check if Spanish targets met
   span_target_diffs_df <- span_targets_diffs(team_placements_df, school_df)
   span_targets_met <- (sum(span_target_diffs_df$diffs < 0, na.rm=T) == 0)
@@ -295,13 +292,13 @@ initial_valid_placement <- function(team_placements_df, school_df, elig_plc_schw
     if (i > attempts){
       stop(paste('Could not find valid starting placements in', attempts, 'attempts.', n_inelig, 'invalid placements remain.', "Usually re-running will fix this. It's possible that no corps placement exists that meets all firm constraints you set (Spanish speaker targets, prevented roommates, HS eligibility, etc.)."))
     }
-    #if (i == (attempts-1)){browser()}
+    # if (i == (attempts-1)){browser()}
     # Choose one invalid ACM to swap. Inelig_acm_ids duplicated to avoid a length 1 input to sample() (see notes in make_swap())
     inelig_acm_ids <- team_placements_df$acm_id[team_placements_df$elig == 0]
     swap1 <- sample(c(inelig_acm_ids,inelig_acm_ids), 1)
     attmptd_swaps <- c(attmptd_swaps, swap1)
-    # drop "elig" column
-    team_placements_df <- team_placements_df[, !(names(team_placements_df) %in% "elig")]
+    # reset columns
+    team_placements_df <- team_placements_df[, original_cols]
     # make swap
     if((score_factors$Spanish_factor > 0) & (span_targets_met == FALSE)){
       if(length(unique(tail(attmptd_swaps,5))) == 1){
@@ -331,8 +328,8 @@ initial_valid_placement <- function(team_placements_df, school_df, elig_plc_schw
     }
     n_inelig <- nrow(team_placements_df[team_placements_df$elig == 0,])
   }
-  # drop "elig" column
-  return(team_placements_df[, !(names(team_placements_df) %in% "elig")])
+  # reset columns
+  return(team_placements_df[, original_cols])
 }
 
 make_swap <- function(plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df){
@@ -417,7 +414,8 @@ calculate_score <- function(team_placements_df, school_targets, score_factors, g
     scores$age_score <- abs(age_var$avg_age_var - var(team_placements_df$Age)) /100 * score_factors$age_factor
   } else {scores$age_score <- 0}
 
-  # ETHNICITY SCORE: This score is the overall average of each team's average % representation of members' ethnicities. For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
+  # ETHNICITY SCORE: This score is the overall average of each team's average % representation of members' ethnicities. 
+  # For example, 0.44 means that for the average team, the average teammate experiences that his/her personal ethnicity is represented in 44% of the team.
   if(score_factors$ethnicity_factor > 0){
     ethnicity_eths <- 
       team_placements_df[!is.na(team_placements_df$Race.Ethnicity),] %>%
@@ -432,11 +430,10 @@ calculate_score <- function(team_placements_df, school_targets, score_factors, g
   } else {scores$ethnicity_score <- 0}
 
   # IJ CONFLICT SCORE
-  if(score_factors$preserve_ij_factor != 0){
+  if(score_factors$preserve_ij_factor > 0){
     ij_conflict_score <- team_placements_df %>%
-      filter(!is.na(IJ.Placement)) %>%
       group_by(placement) %>%
-      count(IJ.Placement) %>%
+      count(School.Placement) %>%
       filter(n>1)
     scores$ij_conflict_score <- sum(ij_conflict_score$n) * 100 * score_factors$preserve_ij_factor
   } else {scores$ij_conflict_score <- 0}
@@ -453,6 +450,7 @@ calculate_score <- function(team_placements_df, school_targets, score_factors, g
                           Males = sum(Male)) %>%
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
+  # Educational Attainment Score
   if(score_factors$Edscore_factor > 0) {scores$Edscore <- mean((abs((placed$HSGrad_tgt - placed$HS_Grads)) + abs((placed$SomeCol_tgt - placed$SomeCol)))^2.2) * 200 * score_factors$Edscore_factor
   } else {scores$Edscore <- 0}
   
@@ -467,7 +465,10 @@ calculate_score <- function(team_placements_df, school_targets, score_factors, g
   
   if(score_factors$Math_factor > 0) {scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * score_factors$Math_factor} else {scores$Math <- 0}
   
-  scores$Gender_score <- (sum(ifelse(placed$Males < 1, 1e10, 0)) + mean((placed$Male_tgt - placed$Males)^2) * 250) * score_factors$gender_factor
+  # Gender Score
+  if(score_factors$gender_factor > 0){
+    scores$Gender_score <- (sum(ifelse(placed$Males < 1, 1e10, 0)) + mean((placed$Male_tgt - placed$Males)^2) * 250) * score_factors$gender_factor
+  } else {scores$Gender_score <- 0}
   
   scores$aggr_score <- sum(unlist(scores))
 
@@ -495,8 +496,8 @@ run_intermediate_annealing_process <- function(starting_placements, school_df, b
   
   placement_score <- calculate_score(starting_placements, school_df, score_factors)$aggr_score
   best_score <- 1000000000000
-  
-  trace <- data.frame(iter=c(1:(number_of_iterations+2)), 
+
+  trace <- data.frame(iter=c(1:(number_of_iterations+2)),
                       commute_score = 0,
                       age_score = 0,
                       ethnicity_score= 0,
@@ -507,22 +508,22 @@ run_intermediate_annealing_process <- function(starting_placements, school_df, b
                       Math = 0,
                       Gender_score = 0,
                       score=0)
-  
+
   trace[1, 2:11] <- calculate_score(starting_placements, school_df, score_factors)
-  
+
   for(i in 1:number_of_iterations) {
     iter = 1 + i
     temp = current_temperature(iter, 3000, number_of_iterations * center_scale, number_of_iterations * width_scale)
-    
+
     # Create a copy of team_placements_df
     cand_plcmts_df <- team_placements_df
-    
+
     # Randomly select ACM to swap
     swap1 <- sample(cand_plcmts_df$acm_id[is.na(cand_plcmts_df$Manual.Placement)], 1)
     # TODO: If score_factors$Spanish_factor==1 & cand_plcmts_df$SpanishAble==1, limit swaps to other spanish speakers, (but if isn't spanish speaker, don't allow swaps with Spanish speakers)
-    
+
     cand_plcmts_df <- make_swap(cand_plcmts_df, swap1, elig_plc_schwise_df, elig_plc_acmwise_df)
-    
+
     candidate_score <- calculate_score(cand_plcmts_df, school_df, score_factors)
 
     if (temp > 0) {
@@ -530,7 +531,7 @@ run_intermediate_annealing_process <- function(starting_placements, school_df, b
     } else {
       ratio <- as.numeric(candidate_score$aggr_score < placement_score)
     }
-    
+
     # Used for bug testing
     if (is.na(ratio)){
       stop(paste("Something went wrong in score calculation: ", paste(candidate_score, collapse="\n")))
@@ -539,7 +540,7 @@ run_intermediate_annealing_process <- function(starting_placements, school_df, b
                   best_placements=best_placements,
                   trace=trace))
     }
-    
+
     if (runif(1) < ratio) {
       team_placements_df <- cand_plcmts_df
       placement_score <- candidate_score$aggr_score
@@ -552,13 +553,13 @@ run_intermediate_annealing_process <- function(starting_placements, school_df, b
       }
     }
   }
-  
+
   # Add best scores to the last row of trace
   trace[(number_of_iterations+2), 2:11] <- calculate_score(best_placements, school_df, score_factors)
-  
+
   best_placements <- best_placements[order(best_placements$placement),c("acm_id", "placement")]
-  
-  return(list(best_placements=best_placements, 
+
+  return(list(best_placements=best_placements,
               best_score=best_score,
               #diff_scores=best_score_diff,
               trace=trace))

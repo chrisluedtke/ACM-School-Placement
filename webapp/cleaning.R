@@ -20,7 +20,7 @@ clean_RMs_PrRels <- function(acm_df, school_df){
   
   # create consistent roommate sets for each roommate
   RMs_df <- acm_df[,names(acm_df) %in% c("acm_id", "Full.Name", "Roommates", RM_cols)]
-  RMs_df <- RMs_df[RMs_df$Roommates == 'Yes' | RMs_df$Full.Name %in% unlist(RMs_df[, RM_cols], use.names = FALSE), ]
+  RMs_df <- RMs_df[((RMs_df$Roommate.Name1 != '') & !is.na(RMs_df$Roommate.Name1)) | RMs_df$Full.Name %in% unlist(RMs_df[, RM_cols], use.names = FALSE), ]
   
   RMs_df$Roommate.Names <- NA
   cols <- c("Full.Name", RM_cols)
@@ -63,14 +63,17 @@ clean_inputs <- function(acm_df, school_df){
   # Combine various column groups into single columns
   for(key_col in c("Race.Ethnicity", "Language.Ability", "Tutoring.Exp.Grades", "Tutoring.Pref.Grades", "Tutoring.Pref.Subject")){
     cols <- names(acm_df %>% select(.,matches(key_col)))
-    if(length(cols) > 0){
+    if(length(cols) > 1){
       acm_df[, cols][acm_df[, cols] == ""] <- NA
       acm_df[key_col] <- apply(acm_df[, cols], 1, function(x) toString(na.omit(x)))
+    } else if (length(cols) == 1){
+      # do nothing
     } else {
       acm_df[key_col] <- NA
     }
+    acm_df <- acm_df[, (names(acm_df) %in% key_col) | !(names(acm_df) %in% cols)]
   }
-  
+
   acm_df$Age <- as.integer(as.Date("2018-08-15") - as.Date(as.character(acm_df$Birth.Date), format="%m/%d/%Y"))
   acm_df$Age <- acm_df$Age/365.25
 

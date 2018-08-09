@@ -49,8 +49,6 @@ def write_output_zip():
     for file in [plcmt_path, trace_path, commute_path, params_path, school_data_csv_path]:
         if os.path.exists(file):
             dst = os.path.join(dir_to_zip, os.path.basename(file))
-            if os.path.exists(dst):
-                os.remove(dst)
             shutil.copy(file, dst)
     shutil.make_archive(os.path.splitext(zip_path)[0], 'zip', dir_to_zip)
 
@@ -83,7 +81,8 @@ def step2(request):
         filename = FileSystemStorage().save(survey_data_path, request.FILES['myfile'])
         missing_cols = clean_acm_df(survey_data_path)
         if missing_cols:
-            return render(request, 'procedure/oops.html', {'error_list': ['Warning: the following columns could not be resolved from your survey file. These columns will be filled with blanks if you choose to continue:']+missing_cols, 'continue':True, 'continue_to':'step3'})
+            error_list = ['Warning: the following columns could not be resolved from your survey file. These columns will be filled with blanks if you choose to continue:']+missing_cols
+            return render(request, 'procedure/oops.html', {'error_list': error_list, 'continue_bool':True, 'continue_to':'step3'})
         else:
             return HttpResponseRedirect(reverse('step3'))
     return render(request, 'procedure/step2.html', {})
@@ -158,18 +157,22 @@ def wait(request):
 
 def dash(request):
     # user download zip placements
-    if request.method == 'POST' and 'download_results' in request.POST:
-        if os.path.exists(zip_path):
-            response = HttpResponse(open(zip_path, 'rb').read(), content_type='application/x-zip-compressed')
-            response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(zip_path)[-1]
-            return response
+    if request.method == 'POST' and 'download_results' in request.POST and os.path.exists(zip_path):
+        response = HttpResponse(open(zip_path, 'rb').read(), content_type='application/x-zip-compressed')
+        response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(zip_path)[-1]
+        return response
 
     # user download power bi template
-    if request.method == 'POST' and 'download_powerbi' in request.POST:
-        if os.path.exists(dashboard_template_path):
-            response = HttpResponse(open(dashboard_template_path, 'rb').read(), content_type='application/force-download')
-            response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(dashboard_template_path)[-1]
-            return response
+    if request.method == 'POST' and 'download_powerbi' in request.POST and os.path.exists(dashboard_template_path):
+        response = HttpResponse(open(dashboard_template_path, 'rb').read(), content_type='application/force-download')
+        response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(dashboard_template_path)[-1]
+        return response
+
+    # user download commutes on fail
+    if request.method == 'POST' and 'download_commutes' in request.POST  and os.path.exists(commute_path):
+        response = HttpResponse(open(commute_path, 'rb').read(), content_type='application/force-download')
+        response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(commute_path)[-1]
+        return response
 
     # Run Placement Process
     start_time = datetime.datetime.now()
@@ -181,12 +184,12 @@ def dash(request):
         try:
             commute_schl_df = clean_commute_inputs(survey_data_path, school_data_path, api, params.commute_date.strftime("%Y-%m-%d"))
         except Exception as e:
-            return render(request, 'procedure/oops.html', {'error_list': [str(e)], 'continue':False})
+            return render(request, 'procedure/oops.html', {'error_list': [str(e)]})
 
         try:
             commute_procedure(commute_schl_df, api, commute_path)
         except Exception as e:
-            return render(request, 'procedure/oops.html', {'error_list': [str(e)], 'continue':False})
+            return render(request, 'procedure/oops.html', {'error_list': [str(e)]})
 
     # algorithm in R:
     os.system(f'Rscript --no-restore --no-save launch_alg.R > {error_path} 2>&1')
@@ -198,17 +201,15 @@ def dash(request):
             if line not in ['[[1]]\n', '[1] TRUE\n']:
                 error_list.append(line)
     if 'execution halted' in str(error_list).lower():
-        return render(request, 'procedure/oops.html', {'error_list': error_list, 'continue':False, 'commute_ref_present':os.path.exists(commute_path)})
+        return render(request, 'procedure/oops.html', {'error_list': error_list, 'commute_ref_present':os.path.exists(commute_path)})
     else:
         write_output_zip()
         return render(request, 'procedure/dash.html', {'commute_ref_present':os.path.exists(commute_path), 'run_time':run_time})
 
 def oops(request):
     # download commutes
-    if request.method == 'POST' and 'download_commutes' in request.POST:
-        if os.path.exists(commute_path):
-            with open(commute_path, 'rb') as fh:
-                response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
-                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(commute_path)
-                return response
+    if request.method == 'POST' and 'download_commutes' in request.POST and os.path.exists(commute_path):
+        response = HttpResponse(open(commute_path, 'rb').read(), content_type='application/force-download')
+        response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(commute_path)[-1]
+        return response
     return render(request, 'procedure/oops.html', {})
