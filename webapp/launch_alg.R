@@ -1,4 +1,3 @@
-stop('test')
 rm(list=ls())
 
 # Load packages with no printed warnings or errors

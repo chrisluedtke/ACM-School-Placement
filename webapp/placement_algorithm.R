@@ -69,11 +69,10 @@ corps_demographic_targets <- function(school_df, acm_enc){
   
   # We'll store our results in a list so we can return multiple tables
   distros <- list()
-  
-  # Produce ratio of folks who have completed at least an associates, and those who haven't
-  # HS ratio is ( Number HS-educated ACMs / (N - n_HS_slots) ), since High Schools will have 0 HS-only educated ACMs
-  n_HS_slots <- sum(school_df$`Team Size`[school_df$GradeLevel == "High"])
-  distros$education <- data.frame(level = c("HS", "SomeCol"), ratio = c(nrow(acm_enc[acm_enc$Ed_HS == 1,]) / (N - n_HS_slots), nrow(acm_enc[acm_enc$Ed_SomeCol == 1,]) / N))
+
+  # Produce ratio of ACMs who have completed at least an associates, and those who haven't
+  distros$education <- data.frame(level = c("HS", "SomeCol"), 
+                                  ratio = c(nrow(acm_enc[acm_enc$Ed_HS == 1,]) / N, nrow(acm_enc[acm_enc$Ed_SomeCol == 1,]) / N))
   
   # Identify rates of Tutoring Experience
   distros$tut_exp <- group_by(acm_enc, HasTutored) %>% 
@@ -107,10 +106,10 @@ school_config <- function(school_df, acm_enc){
     rename(size = `Team Size`,
            span = `GradeLevel`,
            SpanishNeed = `N Spanish Speakers Reqd`)
-  
-  school_df$HSGrad_tgt <- ifelse(school_df$span=="High", 0, education[education$level %in% 'HS',]$ratio * as.numeric(school_df$size))
-  school_df$SomeCol_tgt <- education[education$level %in% 'SomeCol',]$ratio * as.numeric(school_df$size)
-  school_df$TutExp = as.numeric(school_df$size) * ifelse(length(tut_exp[tut_exp$HasTutored == 1,]$ratio)==0, 0, tut_exp[tut_exp$HasTutored == 1,]$ratio)
+
+  school_df$HSGrad_tgt <- education[education$level=='HS', 'ratio'] * as.numeric(school_df$size)
+  school_df$SomeCol_tgt <- education[education$level=='SomeCol', 'ratio'] * as.numeric(school_df$size)
+  school_df$TutExp <- as.numeric(school_df$size) * ifelse(length(tut_exp[tut_exp$HasTutored == 1,]$ratio)==0, 0, tut_exp[tut_exp$HasTutored == 1,]$ratio)
   school_df$SpanishNeed[is.na(school_df$SpanishNeed)] <- 0
   school_df$OtherLang_tgt <- lang[lang$ability %in% 'other',]$ratio * as.numeric(school_df$size)
   school_df$Math_tgt <- ifelse(school_df$span=="Elementary", as.numeric(school_df$size)*.5*math, ifelse(school_df$span=="Middle", .75*as.numeric(school_df$size)*math, as.numeric(school_df$size)*math))
@@ -451,7 +450,8 @@ calculate_score <- function(team_placements_df, school_targets, score_factors, g
                 left_join(., school_targets, by=c("placement" = "sch_id"))
   
   # Educational Attainment Score
-  if(score_factors$Edscore_factor > 0) {scores$Edscore <- mean((abs((placed$HSGrad_tgt - placed$HS_Grads)) + abs((placed$SomeCol_tgt - placed$SomeCol)))^2.2) * 200 * score_factors$Edscore_factor
+  if(score_factors$Edscore_factor > 0) {
+    scores$Edscore <- mean((abs(placed$HSGrad_tgt - placed$HS_Grads) + abs(placed$SomeCol_tgt - placed$SomeCol))^2.2) * 200 * score_factors$Edscore_factor
   } else {scores$Edscore <- 0}
   
   if(score_factors$Tutoring_factor > 0){
@@ -463,7 +463,9 @@ calculate_score <- function(team_placements_df, school_targets, score_factors, g
     scores$Spanish <- sum(placed$SpanDiff[placed$SpanDiff>0])^1.2 * 1000 * score_factors$Spanish_factor
   } else {scores$Spanish <- 0}
   
-  if(score_factors$Math_factor > 0) {scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * score_factors$Math_factor} else {scores$Math <- 0}
+  if(score_factors$Math_factor > 0) {
+    scores$Math <- sum((placed$Math_tgt - placed$MathAble)^2) * score_factors$Math_factor}
+  else {scores$Math <- 0}
   
   # Gender Score
   if(score_factors$gender_factor > 0){
