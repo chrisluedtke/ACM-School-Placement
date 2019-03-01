@@ -1,6 +1,5 @@
 *.RData
 *.Rhistory
-*.pbix
 .ipynb_checkpoints/*
 Boston Survey Data.csv
 data/CHI/*
