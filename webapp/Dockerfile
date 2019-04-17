@@ -20,7 +20,7 @@ RUN pip3 install -r requirements_production.txt
 EXPOSE 8000
 
 ## development
-# CMD [ "python3", "manage.py", "runserver", "0.0.0.0:8000" ]
+CMD [ "python3", "manage.py", "runserver", "0.0.0.0:8000" ]
 
 RUN python3 manage.py makemigrations
 
@@ -30,4 +30,4 @@ RUN python3 manage.py collectstatic
 
 # For async workers, use gunicorn[eventlet] and add "-k eventlet"
 # 2 hour timeout: 7200
-CMD [ "gunicorn", "acm_plmt.wsgi", "--bind=0.0.0.0:8000",  "--timeout=7200" ]
+# CMD [ "gunicorn", "acm_plmt.wsgi", "--bind=0.0.0.0:8000",  "--timeout=7200" ]
