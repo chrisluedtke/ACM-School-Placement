@@ -13,26 +13,32 @@ from django.shortcuts import render, reverse
 from django.utils import timezone
 from .forms import RunParametersForm
 from .models import RunParameters
+from celery import task
 
 outputs_dir = os.path.join(settings.MEDIA_ROOT, "documents/outputs")
 plcmt_path = os.path.join(outputs_dir, "Output_Placements.csv")
 trace_path = os.path.join(outputs_dir, "Output_Trace.csv")
 commute_path = os.path.join(outputs_dir, "Output_Commute_Reference.csv")
 error_path = os.path.join(outputs_dir, "errors.txt")
-rm8_path = os.path.join(outputs_dir, "nvalid Roommate and Prior Relationship Names.csv")
+rm8_path = os.path.join(outputs_dir,
+                        "nvalid Roommate and Prior Relationship Names.csv")
 zip_path = os.path.join(outputs_dir, "ACM_Placement_Result.zip")
 
 inputs_dir = os.path.join(settings.MEDIA_ROOT, "documents/inputs")
 params_path = os.path.join(inputs_dir, "params.csv")
 survey_data_path = os.path.join(inputs_dir, "ACM_Placement_Survey_Data.csv")
 school_data_path = os.path.join(inputs_dir, "ACM_Placement_School_Data.xlsx")
-school_data_csv_path = os.path.join(inputs_dir, "ACM_Placement_School_Data.csv")
+school_data_csv_path = os.path.join(inputs_dir,
+                                    "ACM_Placement_School_Data.csv")
 
 templates_dir = os.path.join(settings.MEDIA_ROOT, "documents/templates")
-dashboard_template_path = os.path.join(templates_dir, "ACM_Placement_Dashboard.pbit")
-school_data_template_path = os.path.join(templates_dir, "ACM_Placement_School_Data.xlsx")
+dashboard_template_path = os.path.join(templates_dir,
+                                       "ACM_Placement_Dashboard.pbit")
+school_data_template_path = os.path.join(templates_dir,
+                                         "ACM_Placement_School_Data.xlsx")
 
 dir_to_zip = os.path.join(settings.MEDIA_ROOT, "documents/to_zip")
+
 
 def clear_dir(folder):
     for file in os.listdir(folder):
@@ -40,17 +46,26 @@ def clear_dir(folder):
         if os.path.isfile(file_path):
             os.remove(file_path)
 
+
 def write_output_zip():
     clear_dir(dir_to_zip)
     # save school data as csv
     school_df = pd.read_excel(school_data_path)
     school_df.to_csv(school_data_csv_path, index=False)
 
-    for file in [plcmt_path, trace_path, commute_path, params_path, school_data_csv_path]:
+    for file in [plcmt_path,
+                 trace_path,
+                 commute_path,
+                 params_path,
+                 school_data_csv_path]:
         if os.path.exists(file):
             dst = os.path.join(dir_to_zip, os.path.basename(file))
             shutil.copy(file, dst)
     shutil.make_archive(os.path.splitext(zip_path)[0], 'zip', dir_to_zip)
+
+@task
+def run_algorithm(*args):
+    pass
 
 # Views begin here
 def welcome(request):
@@ -147,7 +162,7 @@ def run(request):
     run_time_mins = round(run_time/60, 1)
 
     if request.method == 'POST' and 'run' in request.POST:
-        return HttpResponseRedirect(reverse('dash'))
+        return HttpResponseRedirect(reverse('wait'))
 
     return render(request, 'procedure/run.html', {'n_acms': n_acms, 'n_schools': n_schools, 'run_time_mins':run_time_mins, 'and_text':and_text, 'and_cost_text':and_cost_text, 'and_cost':and_cost})
 
@@ -174,26 +189,6 @@ def dash(request):
         response['Content-Disposition'] = 'attachment; filename="%s"' % os.path.split(commute_path)[-1]
         return response
 
-    # Run Placement Process
-    start_time = datetime.datetime.now()
-    params = RunParameters.objects.last()
-    # acm_df cleaned on upload
-    # commutes in python:
-    if params.calc_commutes == True:
-        api = open('gdm_api_key.txt').readline()
-        try:
-            commute_schl_df = clean_commute_inputs(survey_data_path, school_data_path, api, params.commute_date.strftime("%Y-%m-%d"))
-        except Exception as e:
-            return render(request, 'procedure/oops.html', {'error_list': [str(e)]})
-
-        try:
-            commute_procedure(commute_schl_df, api, commute_path)
-        except Exception as e:
-            return render(request, 'procedure/oops.html', {'error_list': [str(e)]})
-
-    # algorithm in R:
-    os.system(f'Rscript --no-restore --no-save launch_alg.R > {error_path} 2>&1')
-    run_time=round((datetime.datetime.now()-start_time).seconds/60, 1)
     # check for errors
     error_list = []
     with open(error_path) as error_text:
