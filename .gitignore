@@ -1,39 +1,31 @@
 *.RData
 *.Rhistory
-.ipynb_checkpoints/*
-Boston Survey Data.csv
-data/CHI/*
-data/BOS/*
-data/ACM Commutes.csv
+.ipynb_checkpoints/
+__pycache__/
+env/
+venv/
+myvenv/
 
-outputs/*
-__pycache__/*
+Boston Survey Data.csv
+data/CHI/
+data/BOS/
+data/ACM Commutes.csv
+legacy/*.pbix
+**/templates/*.pbix
+
+outputs/
 FY18 Chicago Team Placement Schedule.xlsx
 
-webapp/procedure/__pycache__/*
-webapp/procedure/migrations/*
-
-webapp/acm_plmt/__pycache__/*
 webapp/acm_plmt/settings/production.py
-
-webapp/media/documents/inputs
-webapp/media/documents/outputs
-webapp/media/documents/to_zip
+webapp/media/documents/inputs/
+webapp/media/documents/to_zip/
 webapp/oldscript/Untitled.ipynb
-
-webapp/.ipynb_checkpoints
-webapp/myvenv
-webapp/demo_data
+webapp/demo_data/
 webapp/db.sqlite3
 webapp/site_structure.txt
 webapp/gdm.txt
-
 webapp/snippets.txt
-
 webapp/gdm_api_key.txt
-
 webapp/Commutes.ipynb
 webapp/test.R
-
 webapp/secret.txt
-
