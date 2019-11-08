@@ -1,8 +1,8 @@
 # AmeriCorps Member School Placement Algorithm
 
-For a descriptive summary of this tool, check out my blog post:
+For a descriptive summary of this tool, read this blog post:
 
-[Team Creation with Simulated Annealing - Solution for City Year AmeriCorps Members](https://chrisluedtke.github.io/teamcreation.html).
+[Team Creation with Simulated Annealing - Solution for City Year AmeriCorps Members](https://chrisluedtke.com/2018/04/30/teamcreation.html)
 
 ## Project Acknowledgements
 * Alex Perusse and Chris Luedtke, algorithm leads
