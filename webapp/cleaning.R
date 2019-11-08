@@ -6,14 +6,18 @@ clean_RMs_PrRels <- function(acm_df, school_df){
   PrRel_cols <- names(acm_df %>% select(.,matches("Prior.Rship.Name")))
   
   # return list of names mentioned as roommates or prior relationships that did not match to ACM, Team Leader, or Manager names
-  RMs_PrRels_df <- acm_df[,names(acm_df) %in% c(RM_cols, PrRel_cols)]
+  if(dataset$prevent_roommates==TRUE){
+    cols <- c(RM_cols, PrRel_cols)
+  } else {cols <- c(PrRel_cols)}
+  
+  RMs_PrRels_df <- acm_df[,names(acm_df) %in% cols]
   Uniq_RMs_PrRels <- unname(unlist(RMs_PrRels_df))
   Uniq_RMs_PrRels <- Uniq_RMs_PrRels[!is.na(Uniq_RMs_PrRels) & Uniq_RMs_PrRels != ""]
   # this line ensures we capture names when there are two comma-separated names in the same cell
   Uniq_RMs_PrRels <- strsplit((paste(c(Uniq_RMs_PrRels),sep="",collapse=", ")), ", ")[[1]]
   Uniq_RMs_PrRels <- unique(Uniq_RMs_PrRels)
   RMs_PrRels_no_match <- Uniq_RMs_PrRels[!(unlist(Uniq_RMs_PrRels ) %in% c(acm_df$Full.Name, school_df$`Team Leader`, school_df$Manager))]
-
+  
   if (length(RMs_PrRels_no_match) > 0){
     stop(paste("The following names were mentioned in an ACM survey response as a roommate or prior relationship, but they did not match to another ACM respondent or Team Leader/Manager in your School Data spreadsheet. In your ACM survey results, fix the spelling of these names or remove them:\n", paste(RMs_PrRels_no_match, collapse="\n")))
   }
@@ -48,6 +52,7 @@ clean_RMs_PrRels <- function(acm_df, school_df){
 }
 
 clean_inputs <- function(acm_df, school_df){
+
   acm_df <- acm_df[(acm_df$Full.Name != "") & !is.na(acm_df$Full.Name),]
   acm_df$acm_id <- 1:nrow(acm_df)
   
@@ -57,7 +62,7 @@ clean_inputs <- function(acm_df, school_df){
   slots = sum(school_df$`Team Size`)
   n_acms = nrow(acm_df)
   if(slots != n_acms){
-    stop(paste("Error: you are filling", slots, "with", n_acms, "acms. Adjust Team Sizes to make these numbers equal."))
+    stop(paste("Error: you are filling", slots, "slots with", n_acms, "acms. Adjust Team Sizes to make these numbers equal."))
   }
   
   # Combine various column groups into single columns
